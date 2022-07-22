@@ -64,8 +64,8 @@ func (this *SparseList[T]) Compress(moved func (newIndex uint32, oldIndex uint32
 		var newIndex uint32;
 		for oi, item := range this.items {
 			oldIndex := uint32(oi);
-			if (!freeMap[oldIndex]) {
-				if (newIndex != oldIndex) {
+			if _, exists := freeMap[oldIndex]; !exists {
+				if newIndex != oldIndex {
 					moved(newIndex, oldIndex, &item);
 					this.items[newIndex] = item;
 				}
@@ -77,10 +77,10 @@ func (this *SparseList[T]) Compress(moved func (newIndex uint32, oldIndex uint32
 	}
 }
 
-func (this *SparseList[T]) FreeMap() map[uint32]bool {
-	freeMap := map[uint32]bool{};
+func (this *SparseList[T]) FreeMap() map[uint32]struct{} {
+	freeMap := map[uint32]struct{};
 	for _, index := range this.free {
-		freeMap[index] = true;
+		freeMap[index] = struct{}{};
 	}
 	return freeMap;
 }
@@ -96,7 +96,7 @@ func (this *SparseList[T]) Iterate(handle func (item *T, index uint32, liveIndex
 		liveIndex := uint32(0);
 		for i := range this.items {
 			index := uint32(i);
-			if (!freeMap[index]) {
+			if _, exists := freeMap[index]; !exists {
 				handle(&this.items[index], index, liveIndex);
 				liveIndex++;
 			}

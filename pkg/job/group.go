@@ -3,11 +3,12 @@ package job
 import "github.com/axe/axe-go/pkg/ds"
 
 type JobGroup struct {
-	Jobs  []*Job
+	Jobs  ds.List[*Job]
 	Ready ds.SortableList[*Job]
 }
 
 func (g *JobGroup) Add(job *Job) {
-	g.Jobs = append(g.Jobs, job)
 	g.Ready.Pad(1)
+	g.Jobs.Pad(1)
+	g.Jobs.Add(job)
 }

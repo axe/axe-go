@@ -80,9 +80,17 @@ func (r *JobRunner) Run() {
 	r.Planned = map[int]bool{}
 	r.Dependency = map[int]bool{}
 
-	for _, group := range r.Groups {
+	for g := range r.Groups {
+		group := &r.Groups[g]
 		group.Ready.Clear()
-		for _, job := range group.Jobs {
+
+		jobs := group.Jobs
+
+		for i := 0; i < jobs.Size; i++ {
+			job := jobs.Get(i)
+			if !job.Logic.IsActive() {
+				continue
+			}
 			job.UpdateWaitTime(now, r.Planned)
 			if job.WaitTime >= 0 {
 				group.Ready.Add(job)
@@ -97,7 +105,8 @@ func (r *JobRunner) Run() {
 
 	if r.TotalCost > r.Budget {
 		r.Ready.Clear()
-		for _, group := range r.Groups {
+		for g := range r.Groups {
+			group := &r.Groups[g]
 			group.Ready.Sort()
 			r.Ready.AddList(group.Ready.List)
 		}
@@ -124,11 +133,16 @@ func (r *JobRunner) Run() {
 		r.ProfileStart = currentNanos()
 	}
 
-	for _, group := range r.Groups {
+	for g := range r.Groups {
+		group := &r.Groups[g]
 		ready := group.Ready.Items
 		readySize := group.Ready.Size
 		for i := 0; i < readySize; i++ {
-			ready[i].Run(now, r.Profile)
+			job := ready[i]
+			job.Run(now, r.Profile)
+			if !job.Logic.IsAlive() {
+				group.Jobs.RemoveAt(group.Jobs.IndexOf(job))
+			}
 		}
 	}
 

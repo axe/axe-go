@@ -29,6 +29,18 @@ Example Jobs:
 - Recalibrate Jobs (turn on profiling, update costs & budget)
 */
 
+type JobLogic interface {
+	Run(job *Job)
+	IsActive() bool
+	IsAlive() bool
+}
+
+type JobDependency struct {
+	Dependency *Job
+	Dependent  *Job
+	Required   bool
+}
+
 type Job struct {
 	// The unique ID of this job
 	ID int
@@ -42,34 +54,29 @@ type Job struct {
 	Async bool
 	// If this job should only be executed after a job with this ID is
 	After int
-	// If this job is active
-	Active bool
-	// If this job can be removed
-	Remove bool
+	// If the job should stricly follow the wait times. So if the wait time is 20 then the job will try to run 50 times a second exactly.
+	Strict bool
 	// The minimum milliseconds we should wait between execution
 	MinWait int64
 	// The maximum milliseconds we should wait between execution
 	MaxWait int64
-	// The last time this job ran
-	LastRun      int64
-	LastDuration int64
 	// The last computed wait time
 	WaitTime int64
-	// If the job should stricly follow the wait times. So if the wait time is 20 then the job will try to run 50 times a second exactly.
-	Strict bool
-
-	Profile      bool
+	// The last time this job ran
+	LastRun int64
+	// The last duration between the last run and the previous run
+	LastDuration int64
+	// If the job should be profiled
+	Profile bool
+	// The last profile start in nanos
 	ProfileStart int64
-	ProfileEnd   int64
+	// The last profile end in nanos
+	ProfileEnd int64
 	// The logic which executes the job
 	Logic JobLogic
 }
 
 var _ ds.Sortable[*Job] = &Job{}
-
-type JobLogic interface {
-	Run(job *Job)
-}
 
 var nextJobID = 0
 
@@ -79,7 +86,6 @@ func New(defaults Job) *Job {
 		job.ID = nextJobID
 		nextJobID++
 	}
-	job.Active = true
 	return &job
 }
 
@@ -107,13 +113,7 @@ func (job *Job) SetFrequency(frequency int64) {
 	job.MaxWait = frequency
 }
 
-// -1 = not ready
-// 0 = can't wait
-// X = can wait this many milliseconds
 func (job *Job) GetWaitTime(time int64, planned map[int]bool) int64 {
-	if !job.Active {
-		return -1
-	}
 	if job.After != 0 && !planned[job.After] {
 		return -1
 	}
