@@ -7,6 +7,13 @@ type Entity struct {
 	Flags      uint64
 }
 
+func (e Entity) Id() uint32 {
+	return e.id
+}
+func (e Entity) Has(component BaseComponent) bool {
+	return component.Has(&e)
+}
+
 type EntityCreate struct {
 	Components []uint8
 	Flags      uint64

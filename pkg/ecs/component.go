@@ -1,5 +1,7 @@
 package ecs
 
+import "github.com/axe/axe-go/pkg/ds"
+
 type BaseComponent interface {
 	Id() uint8
 	Name() string
@@ -11,7 +13,7 @@ type BaseComponent interface {
 type Component[T any] struct {
 	id        uint8
 	name      string
-	instances *data.SparseList[T]
+	instances *ds.SparseList[T]
 }
 
 func (this *Component[T]) Id() uint8 {

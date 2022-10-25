@@ -9,12 +9,12 @@ type World struct {
 }
 
 type WorldOptions struct {
-	entityCount           uint32
-	entityFreeSize        uint32
-	componentCount        uint32
-	componentInstanceSize uint32
-	componentFreeSize     uint32
-	entityComponentSize   uint32
+	EntityCount           uint32
+	EntityFreeSize        uint32
+	ComponentCount        uint32
+	ComponentInstanceSize uint32
+	ComponentFreeSize     uint32
+	EntityComponentSize   uint32
 }
 
 const (
@@ -34,15 +34,15 @@ func determineValue(userValue uint32, defaultValue uint32) uint32 {
 }
 
 func NewWorld(options WorldOptions) *World {
-	entityCount := determineValue(options.entityCount, DEFAULT_ENTITY_COUNT)
-	entityFree := determineValue(options.entityFreeSize, DEFAULT_ENTITY_FREE_SIZE)
+	entityCount := determineValue(options.EntityCount, DEFAULT_ENTITY_COUNT)
+	entityFree := determineValue(options.EntityFreeSize, DEFAULT_ENTITY_FREE_SIZE)
 
 	return &World{
 		entities:              data.NewSparseList[Entity](entityCount, entityFree),
-		entityComponentSize:   determineValue(options.entityComponentSize, DEFAULT_ENTITY_COMPONENT_SIZE),
-		components:            make([]BaseComponent, 0, determineValue(options.componentCount, DEFAULT_COMPONENT_COUNT)),
-		componentInstanceSize: determineValue(options.componentInstanceSize, DEFAULT_COMPONENT_INSTANCE_SIZE),
-		componentFreeSize:     determineValue(options.componentFreeSize, DEFAULT_COMPONENT_FREE_SIZE),
+		entityComponentSize:   determineValue(options.EntityComponentSize, DEFAULT_ENTITY_COMPONENT_SIZE),
+		components:            make([]BaseComponent, 0, determineValue(options.ComponentCount, DEFAULT_COMPONENT_COUNT)),
+		componentInstanceSize: determineValue(options.ComponentInstanceSize, DEFAULT_COMPONENT_INSTANCE_SIZE),
+		componentFreeSize:     determineValue(options.ComponentFreeSize, DEFAULT_COMPONENT_FREE_SIZE),
 	}
 }
 
