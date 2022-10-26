@@ -1,27 +1,62 @@
 package scripts
 
 import (
-	"encoding/xml"
 	"fmt"
-	"strings"
+	"reflect"
 	"testing"
 )
 
 func TestDecode(t *testing.T) {
+	XmlInstance.Types["int"] = reflect.TypeOf(0)
+
 	x := `
 	<if>
-		<and></and>
-		<body>
-			<and></and>
-			<and></and>
-		</body>
+		<case>
+		  <compare op="=">
+				<get>x</get>
+				<get>y</get>
+			</compare>
+			<invoke func="add">
+        <a><get>x</get></a>
+				<b><get>y</get></b>
+			</invoke>
+		</case>
+		<else>
+		  <set>
+			  <path>x</path>
+				<value>
+					<invoke func="add">
+						<a><get>x</get></a>
+						<b><constant type="int">1</constant></b>
+					</invoke>
+				</value>
+			</set>
+		</else>
 	</if>
-
 	`
 
-	decoder := xml.NewDecoder(strings.NewReader(x))
+	expr, err := FromXmlString(x)
 
-	e, err := UnmarshalXML(decoder)
+	fmt.Printf("%+v %v\n", expr, err)
+}
 
-	fmt.Printf("%+v %v\n", e, err)
+func TestEncode(t *testing.T) {
+	expr := Loop{
+		Start: Set{[]any{"i"}, Constant{1}},
+		While: Compare{Get{[]any{"Counter"}}, LT, Constant{4}},
+		Then: Set{
+			[]any{"Counter"},
+			Invoke{
+				Function: "add",
+				Params: map[string]Expr{
+					"a": Get{[]any{"Counter"}},
+					"b": Get{[]any{"i"}},
+				},
+			},
+		},
+	}
+
+	xml, err := ToXmlString(expr, "  ")
+
+	fmt.Printf("XML: %s\nError: %v\n", xml, err)
 }
