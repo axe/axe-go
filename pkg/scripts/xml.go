@@ -780,10 +780,6 @@ var XmlEntries []XmlEntry = []XmlEntry{
 			return out, nil
 		},
 		func(in Constant, e *xmlElement, x *Xml) error {
-			value, err := toString(in.Value)
-			if err != nil {
-				return err
-			}
 			valueType := reflect.TypeOf(in.Value)
 			for typeName, typeKind := range x.Types {
 				if valueType == typeKind {
@@ -794,6 +790,15 @@ var XmlEntries []XmlEntry = []XmlEntry{
 					break
 				}
 			}
+			if e.token.Attr == nil || len(e.token.Attr) == 0 {
+				return fmt.Errorf("Error saving constant, unregistered type: %v", valueType)
+			}
+
+			value, err := toString(in.Value)
+			if err != nil {
+				return err
+			}
+
 			e.children = append(e.children, &xmlNode[any]{
 				token: xml.CharData(value),
 			})

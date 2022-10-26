@@ -2,13 +2,10 @@ package scripts
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 )
 
 func TestDecode(t *testing.T) {
-	XmlInstance.Types["int"] = reflect.TypeOf(0)
-
 	x := `
 	<if>
 		<case>
