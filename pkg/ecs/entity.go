@@ -1,9 +1,9 @@
 package ecs
 
 type Entity struct {
-	ID         uint32
-	Components []uint32
-	Has        uint64
+	id         uint32
+	components []uint32
+	has        uint64
 	Flags      uint64
 }
 

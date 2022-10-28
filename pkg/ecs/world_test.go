@@ -36,28 +36,28 @@ func TestECS(t *testing.T) {
 
 	results0 := []uint32{}
 	WORLD.Search(EntitySearch{}, func(entity *Entity) {
-		results0 = append(results0, entity.ID)
+		results0 = append(results0, entity.id)
 	})
 
 	fmt.Println(results0)
 
 	results1 := []uint32{}
 	WORLD.Search(EntitySearch{Flags: 1}, func(entity *Entity) {
-		results1 = append(results1, entity.ID)
+		results1 = append(results1, entity.id)
 	})
 
 	fmt.Println(results1)
 
 	results2 := []uint32{}
 	WORLD.Search(EntitySearch{Components: []uint8{TRANSFORM.id}}, func(entity *Entity) {
-		results2 = append(results2, entity.ID)
+		results2 = append(results2, entity.id)
 	})
 
 	fmt.Println(results2)
 
 	results3 := []uint32{}
 	WORLD.Search(EntitySearch{Flags: 1, FlagMatch: MATCH_NONE}, func(entity *Entity) {
-		results3 = append(results3, entity.ID)
+		results3 = append(results3, entity.id)
 	})
 
 	fmt.Println(results3)
@@ -66,7 +66,7 @@ func TestECS(t *testing.T) {
 
 	results4 := []uint32{}
 	WORLD.Search(EntitySearch{}, func(entity *Entity) {
-		results0 = append(results4, entity.ID)
+		results0 = append(results4, entity.id)
 	})
 
 	fmt.Println(results4)

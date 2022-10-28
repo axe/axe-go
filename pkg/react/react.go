@@ -1,7 +1,7 @@
 package react
 
 // A reactive value that can be watched and possibly set.
-type Value[T any] interface {
+type Value[T comparable] interface {
 	// Gets the value. This may be a variable or computed value. When this is called
 	// within a watch or computed function it ties the value to that function - telling
 	// it that when this value changes that function can re-execute to get an updated value.
@@ -11,6 +11,8 @@ type Value[T any] interface {
 	Set(value T) bool
 	// Detaches the value from the reactivity system.
 	Detach()
+	// Watches this value for changes and calls updated when it changes.
+	Watch(updated func(value T)) Watcher[T]
 }
 
 // A watcher allows control over a watched function and the function invoked when the watched
@@ -39,7 +41,7 @@ var valueIds int
 // called again. Any time get is called and a new value is returned updated will be
 // called as well. The returned watcher can be used to stop watching, resume, be
 // marked as lazy, and get the most recent value.
-func Watch[T any](get func() T, updated func(value T)) Watcher[T] {
+func Watch[T comparable](get func() T, updated func(value T)) Watcher[T] {
 	w := &watcherImpl[T]{
 		watcherId: watcherIds,
 		get:       get,
@@ -127,7 +129,11 @@ func (v *valueImpl[T]) Detach() {
 	v.watchers = make(map[int]watcher)
 }
 
-type watcherImpl[T any] struct {
+func (c *valueImpl[T]) Watch(update func(value T)) Watcher[T] {
+	return Watch(func() T { return c.Get() }, update)
+}
+
+type watcherImpl[T comparable] struct {
 	watcherId int
 	lastValue T
 	lazy      bool
@@ -137,8 +143,8 @@ type watcherImpl[T any] struct {
 	values    map[int]value
 }
 
-var _ watcher = &watcherImpl[any]{}
-var _ Watcher[any] = &watcherImpl[any]{}
+var _ watcher = &watcherImpl[int]{}
+var _ Watcher[int] = &watcherImpl[int]{}
 
 func (w watcherImpl[T]) id() int {
 	return w.watcherId
@@ -159,10 +165,12 @@ func (w *watcherImpl[T]) removeValue(v value) {
 func (w *watcherImpl[T]) updateLastValue() {
 	w.Stop()
 	watchersLive[w.watcherId] = w
-	w.lastValue = w.get()
+	newValue := w.get()
+	updated := newValue != w.lastValue
+	w.lastValue = newValue
 	w.dirty = false
 	delete(watchersLive, w.watcherId)
-	if w.updated != nil {
+	if updated && w.updated != nil {
 		w.updated(w.lastValue)
 	}
 }
@@ -197,12 +205,12 @@ func (w watcherImpl[T]) Get() T {
 	return w.lastValue
 }
 
-type computedImpl[T any] struct {
+type computedImpl[T comparable] struct {
 	value   Value[T]
 	watcher Watcher[T]
 }
 
-var _ Value[any] = &computedImpl[any]{}
+var _ Value[int] = &computedImpl[int]{}
 
 func (c computedImpl[T]) Set(value T) bool {
 	return false
@@ -217,4 +225,8 @@ func (c computedImpl[T]) Get() T {
 func (c computedImpl[T]) Detach() {
 	c.value.Detach()
 	c.watcher.Stop()
+}
+
+func (c *computedImpl[T]) Watch(update func(value T)) Watcher[T] {
+	return Watch(func() T { return c.Get() }, update)
 }

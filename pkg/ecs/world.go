@@ -1,7 +1,9 @@
 package ecs
 
+import "github.com/axe/axe-go/pkg/ds"
+
 type World struct {
-	entities              *data.SparseList[Entity]
+	entities              *ds.SparseList[Entity]
 	entityComponentSize   uint32
 	components            []BaseComponent
 	componentInstanceSize uint32
@@ -38,7 +40,7 @@ func NewWorld(options WorldOptions) *World {
 	entityFree := determineValue(options.EntityFreeSize, DEFAULT_ENTITY_FREE_SIZE)
 
 	return &World{
-		entities:              data.NewSparseList[Entity](entityCount, entityFree),
+		entities:              ds.NewSparseList[Entity](entityCount, entityFree),
 		entityComponentSize:   determineValue(options.EntityComponentSize, DEFAULT_ENTITY_COMPONENT_SIZE),
 		components:            make([]BaseComponent, 0, determineValue(options.ComponentCount, DEFAULT_COMPONENT_COUNT)),
 		componentInstanceSize: determineValue(options.ComponentInstanceSize, DEFAULT_COMPONENT_INSTANCE_SIZE),
@@ -61,19 +63,19 @@ func (this *World) Create() *Entity {
 	entity, id := this.entities.Take()
 	entity.id = uint32(id)
 	entity.has = 0
-	entity.flags = 0
+	entity.Flags = 0
 	entity.components = make([]uint32, this.entityComponentSize)
 
 	return entity
 }
 
 func (this *World) Destroy(entity *Entity) {
-	for componentId, componentIndex := range entity.Components {
-		if (entity.Has & (1 << componentId)) != 0 {
+	for componentId, componentIndex := range entity.components {
+		if (entity.has & (1 << componentId)) != 0 {
 			this.components[componentId].free(componentIndex)
 		}
 	}
-	entity.Has = 0
+	entity.has = 0
 	entity.Flags = 0
 }
 
@@ -83,14 +85,14 @@ func (this *World) Search(search EntitySearch, handle func(entity *Entity)) {
 		componentBits = componentBits | (1 << componentId)
 	}
 
-	this.entities.Iterate(func(entity *Entity, _ int, _ int) {
+	this.entities.Iterate(func(entity *Entity, _ uint32, _ uint32) {
 		if search.FlagMatch != nil && !search.FlagMatch(search.Flags, entity.Flags) {
 			return
 		}
 		if (entity.Flags & search.Flags) != search.Flags {
 			return
 		}
-		if (entity.Has & componentBits) != componentBits {
+		if (entity.has & componentBits) != componentBits {
 			return
 		}
 

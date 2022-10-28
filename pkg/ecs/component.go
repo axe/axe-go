@@ -5,6 +5,7 @@ import "github.com/axe/axe-go/pkg/ds"
 type BaseComponent interface {
 	Id() uint8
 	Name() string
+	Has(entity *Entity) bool
 
 	free(index uint32)
 	add(entity *Entity)
@@ -25,7 +26,7 @@ func (this *Component[T]) Name() string {
 }
 
 func (this *Component[T]) free(index uint32) {
-	this.instances.Free(int(index))
+	this.instances.Free(index)
 }
 
 func (this *Component[T]) add(entity *Entity) {
@@ -35,27 +36,27 @@ func (this *Component[T]) add(entity *Entity) {
 
 func (this *Component[T]) Get(entity *Entity) *T {
 	if this.Has(entity) {
-		return this.instances.At(int(entity.Components[this.id]))
+		return this.instances.At(entity.components[this.id])
 	}
 	return nil
 }
 
 func (this *Component[T]) Has(entity *Entity) bool {
-	return (entity.Has & (1 << this.id)) != 0
+	return (entity.has & (1 << this.id)) != 0
 }
 
 func (this *Component[T]) Set(entity *Entity, value T) bool {
 	if this.Has(entity) {
-		ref := this.instances.At(int(entity.Components[this.id]))
+		ref := this.instances.At(entity.components[this.id])
 		*ref = value
 
 		return true
 	} else {
-		if len(entity.Components) <= int(this.id) {
-			entity.Components = entity.Components[:(this.id + 1)]
+		if len(entity.components) <= int(this.id) {
+			entity.components = entity.components[:(this.id + 1)]
 		}
-		entity.Components[this.id] = uint32(this.instances.Add(value))
-		entity.Has |= (1 << this.id)
+		entity.components[this.id] = uint32(this.instances.Add(value))
+		entity.has |= (1 << this.id)
 
 		return false
 	}
@@ -63,8 +64,8 @@ func (this *Component[T]) Set(entity *Entity, value T) bool {
 
 func (this *Component[T]) Remove(entity *Entity) bool {
 	if this.Has(entity) {
-		this.instances.Free(int(entity.Components[this.id]))
-		entity.Has &= ^(1 << this.id)
+		this.instances.Free(entity.components[this.id])
+		entity.has &= ^(1 << this.id)
 		return true
 	} else {
 		return false
@@ -75,7 +76,7 @@ func DefineComponent[T any](world *World, name string) *Component[T] {
 	component := new(Component[T])
 	component.id = uint8(len(world.components))
 	component.name = name
-	component.instances = data.NewSparseList[T](world.componentInstanceSize, world.componentFreeSize)
+	component.instances = ds.NewSparseList[T](world.componentInstanceSize, world.componentFreeSize)
 
 	world.components = append(world.components, component)
 

@@ -3,7 +3,7 @@ package ui
 import (
 	"math"
 
-	"github.com/axe/axe-go/geom"
+	"github.com/axe/axe-go/pkg/geom"
 )
 
 type Placement struct {
@@ -79,12 +79,12 @@ func (p *Placement) GetBoundsf(parentWidth float32, parentHeight float32) geom.B
 func (p *Placement) GetBoundsi(parentWidth float32, parentHeight float32) geom.Bounds2i {
 	return geom.Bounds2i{
 		Min: geom.Vec2i{
-			X: int32(p.Left.Get(parentWidth)),
-			Y: int32(p.Top.Get(parentHeight)),
+			X: int(p.Left.Get(parentWidth)),
+			Y: int(p.Top.Get(parentHeight)),
 		},
 		Max: geom.Vec2i{
-			X: int32(p.Right.Get(parentWidth)),
-			Y: int32(p.Bottom.Get(parentHeight)),
+			X: int(p.Right.Get(parentWidth)),
+			Y: int(p.Bottom.Get(parentHeight)),
 		},
 	}
 }
