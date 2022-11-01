@@ -55,6 +55,7 @@ func NewGame(settings GameSettings) *Game {
 		State:    state,
 		Assets:   NewAssetSystem(),
 		Actions:  NewInputActionSets(),
+		Stages:   NewStageManager(),
 		Audio:    &NoAudioSystem{},
 		Windows:  &NoWindowSystem{},
 		Graphics: &NoGraphicsSystem{},

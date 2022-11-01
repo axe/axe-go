@@ -116,7 +116,7 @@ func (loader *JsonGenericAssetLoader) Load(asset *Asset) error {
 		}
 	}
 
-	asset.LoadStatus.Reset()
+	asset.LoadStatus.Start()
 
 	root := JsonValue{}
 	err := setValue(&root)

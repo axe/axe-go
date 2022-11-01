@@ -42,7 +42,7 @@ func (loader *TextureLoader) Types() []axe.AssetType {
 func (loader *TextureLoader) Load(asset *axe.Asset) error {
 	tex := &texture{}
 
-	asset.LoadStatus.Reset()
+	asset.LoadStatus.Start()
 
 	img, _, err := image.Decode(asset.SourceReader)
 	if err != nil {
@@ -73,7 +73,7 @@ func (loader *TextureLoader) Unload(asset *axe.Asset) error {
 }
 
 func (loader *TextureLoader) Activate(asset *axe.Asset) error {
-	asset.ActivateStatus.Reset()
+	asset.ActivateStatus.Start()
 
 	tex, isTexture := asset.Data.(*texture)
 	if !isTexture {

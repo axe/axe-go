@@ -31,6 +31,7 @@ const (
 
 type AssetStatus struct {
 	Progress float32
+	Started  bool
 	Done     bool
 	Error    error
 }
@@ -39,13 +40,20 @@ func (status *AssetStatus) Reset() {
 	status.Progress = 0
 	status.Done = false
 	status.Error = nil
+	status.Started = false
+}
+func (status *AssetStatus) Start() {
+	status.Reset()
+	status.Started = true
 }
 func (status *AssetStatus) Fail(err error) {
 	status.Done = true
+	status.Started = true
 	status.Error = err
 }
 func (status *AssetStatus) Success() {
 	status.Done = true
+	status.Started = true
 	status.Progress = 1
 }
 func (status *AssetStatus) IsSuccess() bool {
@@ -141,6 +149,22 @@ func (a *Asset) Activate() error {
 	return a.Format.Activate(a)
 }
 
+func (a *Asset) Unload() error {
+	if a.ActivateStatus.IsSuccess() {
+		err := a.Format.Deactivate(a)
+		if err != nil {
+			return err
+		}
+	}
+	if a.LoadStatus.IsSuccess() {
+		err := a.Format.Unload(a)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func NewAssetSystem() AssetSystem {
 	return AssetSystem{
 		FormatMap: make(map[AssetType]AssetFormat),
@@ -194,8 +218,10 @@ func (assets *AssetSystem) Add(ref AssetRef) *Asset {
 
 func (assets *AssetSystem) AddMany(refs []AssetRef) []*Asset {
 	many := make([]*Asset, len(refs))
-	for i, ref := range refs {
-		many[i] = assets.Add(ref)
+	if refs != nil {
+		for i, ref := range refs {
+			many[i] = assets.Add(ref)
+		}
 	}
 	return many
 }

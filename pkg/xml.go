@@ -28,7 +28,7 @@ func (loader *XmlGenericAssetLoader) Load(asset *Asset) error {
 	root := make([]*XmlNode, 0)
 	stack := make([]*XmlNode, 0, 16)
 
-	asset.LoadStatus.Reset()
+	asset.LoadStatus.Start()
 
 	for {
 		token, err := decoder.Token()
@@ -65,12 +65,16 @@ func (loader *XmlGenericAssetLoader) Load(asset *Asset) error {
 	return nil
 }
 func (loader *XmlGenericAssetLoader) Unload(asset *Asset) error {
+	asset.LoadStatus.Reset()
+	asset.Data = nil
 	return nil
 }
 func (loader *XmlGenericAssetLoader) Activate(asset *Asset) error {
+	asset.ActivateStatus.Success()
 	return nil
 }
 func (loader *XmlGenericAssetLoader) Deactivate(asset *Asset) error {
+	asset.ActivateStatus.Reset()
 	return nil
 }
 
@@ -117,6 +121,7 @@ func (loader *XmlAssetLoader[T]) Load(asset *Asset) error {
 }
 func (loader *XmlAssetLoader[T]) Unload(asset *Asset) error {
 	asset.LoadStatus.Reset()
+	asset.Data = nil
 	return nil
 }
 func (loader *XmlAssetLoader[T]) Activate(asset *Asset) error {

@@ -1,8 +1,6 @@
 package axe
 
 import (
-	"time"
-
 	"github.com/axe/axe-go/pkg/ecs"
 	"github.com/axe/axe-go/pkg/geom"
 	"github.com/axe/axe-go/pkg/job"
@@ -23,12 +21,18 @@ type Vec[V any] interface {
 	Set(value V)
 }
 
-type Scene[D Numeric, V Attr[V]] struct { // & GameSystem
+type Scene[D Numeric, V Attr[V]] struct {
 	Name  string
 	Jobs  job.JobRunner
 	World ecs.World
 	Space Space[D, V, SpaceComponent[D, V]]
 }
+
+var _ GameSystem = &Scene[float32, Vec2[float32]]{}
+
+func (events *Scene[D, V]) Init(game *Game) error { return nil }
+func (events *Scene[D, V]) Update(game *Game)     {}
+func (events *Scene[D, V]) Destroy()              {}
 
 type SpaceComponent[D Numeric, V Attr[V]] struct {
 	Shape          Shape[D, V]
@@ -99,71 +103,6 @@ func (events *EventSystem) Init(game *Game) error { return nil }
 func (events *EventSystem) Update(game *Game)     {}
 func (events *EventSystem) Destroy()              {}
 
-type DebugSystem struct {
-	Logs      []DebugLog
-	Snapshots []DebugSnapshot
-	Graphs    []DebugGraph
-	Events    []DebugEvent
-	Enabled   bool
-}
-
-var _ GameSystem = &DebugSystem{}
-
-func (ds *DebugSystem) Trigger(ev DebugEvent) {}
-func (ds *DebugSystem) Init(game *Game) error { return nil }
-func (ds *DebugSystem) Update(game *Game)     {}
-func (ds *DebugSystem) Destroy()              {}
-
-type DebugLog struct {
-	Severity int
-	Message  string
-	Data     any
-}
-type DebugSnapshot struct {
-	At      time.Time
-	Elapsed time.Duration
-}
-type DebugGraph struct {
-	Placement ui.Placement
-	Database  *StatDatabase
-	Set       *StatSet
-}
-type DebugProfiler struct{}
-
-func (prof *DebugProfiler) Begin(ev string) {}
-func (prof *DebugProfiler) End()            {}
-
-type StatDatabase struct {
-	Name    string
-	Updated time.Time
-	Visible bool
-	Event   *DebugEvent
-	Enabled bool
-	Sets    []StatSet
-}
-type StatPoint struct {
-	Total int
-	Sum   float64
-	Min   float64
-	Max   float64
-}
-type StatSet struct {
-	Index        int
-	Description  string
-	Interval     time.Duration
-	PointerTime  time.Time
-	PointerIndex int
-	Points       []StatPoint
-}
-type DebugEvent struct {
-	Id       int
-	Name     string
-	Parent   *DebugEvent
-	Depth    int
-	Children []*DebugEvent
-	Sibling  *DebugEvent
-}
-
 type AudioSystem interface { // & GameSystem
 	GameSystem
 }
@@ -184,45 +123,6 @@ type WindowSystemEvents struct {
 	ScreenDisconnected func(oldScreen Screen)
 	ScreenResize       func(screen Screen, oldSize geom.Vec2i, newSize geom.Vec2i)
 	WindowResize       func(window Window, oldSize geom.Vec2i, newSize geom.Vec2i)
-}
-
-type StageManager struct {
-	Stages  map[string]*Stage
-	Current *Stage
-	Next    *Stage
-
-	events Listeners[StageManagerEvents]
-}
-
-var _ GameSystem = &StageManager{}
-
-func (sm *StageManager) Events() *Listeners[StageManagerEvents] {
-	return &sm.events
-}
-func (sm *StageManager) Init(game *Game) error { return nil }
-func (sm *StageManager) Update(game *Game)     {}
-func (sm *StageManager) Destroy()              {}
-
-type StageManagerEvents struct {
-	StageStarted func(current *Stage)
-	StageExiting func(current *Stage, next *Stage)
-	StageExited  func(previous *Stage, current *Stage)
-}
-
-type Stage struct {
-	Name    string
-	Assets  []AssetRef
-	Windows []StageWindow
-	Scenes  []Scene[float32, Vec2[float32]]
-	Views   []View[float32, Vec2[float32]]
-	Actions InputActionSets
-}
-
-type StageWindow struct {
-	Name       string
-	Title      string
-	Placement  ui.Placement
-	Fullscreen bool
 }
 
 type Window interface {
