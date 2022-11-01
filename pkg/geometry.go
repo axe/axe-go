@@ -25,6 +25,21 @@ func (v Vec2[D]) Distance(a Vec2[D]) float32 {
 	return float32(math.Sqrt(float64(dx*dx + dy*dy)))
 }
 
+type Vec3[D Numeric] struct {
+	X D
+	Y D
+	Z D
+}
+
+var _ Attr[Vec3[float32]] = &Vec3[float32]{}
+
+func (v Vec3[D]) Distance(a Vec3[D]) float32 {
+	dx := v.X - a.X
+	dy := v.Y - a.Y
+	dz := v.Z - a.Z
+	return float32(math.Sqrt(float64(dx*dx + dy*dy + dz*dz)))
+}
+
 type Shape[D Numeric, V Attr[V]] interface {
 	Finite() bool
 	Radius() float32

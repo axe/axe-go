@@ -42,6 +42,8 @@ func (ws *windowSystem) Init(game *axe.Game) error {
 		})
 	}
 
+	// TODO build windows based on current stage
+
 	primary := glfw.GetPrimaryMonitor()
 	_, _, primaryWidth, primaryHeight := primary.GetWorkarea()
 
@@ -56,7 +58,7 @@ func (ws *windowSystem) Init(game *axe.Game) error {
 	glfw.WindowHint(glfw.ContextVersionMajor, 2)
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 
-	gwin, err := glfw.CreateWindow(winWidth, winHeight, "title", nil, nil)
+	gwin, err := glfw.CreateWindow(winWidth, winHeight, game.Settings.Name, nil, nil)
 	if err != nil {
 		return err
 	}
