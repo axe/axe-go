@@ -1,6 +1,7 @@
 package axe
 
 import (
+	"math"
 	"math/bits"
 
 	"github.com/axe/axe-go/pkg/geom"
@@ -323,6 +324,82 @@ func (m *Matrix[A]) Invert(other Matrix[A]) {
 			}
 		}
 	}
+}
+
+func (m *Matrix[A]) SetAxisRotaton(radians float32, axis int, hasTranslation bool) {
+	var empty A
+	cos := float32(math.Cos(float64(radians)))
+	sin := float32(math.Sin(float64(radians)))
+	n := m.Size()
+	if hasTranslation {
+		n--
+	}
+	pattern := []float32{cos, sin, -sin}
+	for c := 0; c < n; c++ {
+		for r := 0; r < n; r++ {
+			if c == axis || r == axis {
+				if c == r {
+					empty.SetComponent(r, 1, &m.columns[c])
+				} else {
+					empty.SetComponent(r, 0, &m.columns[c])
+				}
+			} else {
+				comp := pattern[(r-c)%n]
+				empty.SetComponent(r, comp, &m.columns[c])
+			}
+		}
+	}
+}
+
+func (m *Matrix[A]) SetRotaton(radians A, hasTranslation bool) {
+	temp1 := NewMatrix[A]()
+	temp2 := NewMatrix[A]()
+	n := m.Size()
+	if hasTranslation {
+		n--
+	}
+	m.Identity()
+	for i := 0; i < n; i++ {
+		temp1.Set(*m)
+		temp2.SetAxisRotaton(radians.GetComponent(i), i, hasTranslation)
+		m.Mul(temp1, temp2)
+	}
+}
+
+func (m *Matrix[A]) SetScale(scale A) {
+	n := m.Size()
+	for c := 0; c < n; c++ {
+		for r := 0; r < n; r++ {
+			if c == r {
+				scale.SetComponent(r, scale.GetComponent(r), &m.columns[c])
+			} else {
+				scale.SetComponent(r, 0, &m.columns[c])
+			}
+		}
+	}
+}
+
+func (m *Matrix[A]) SetTranslation(translation A) {
+	m.Identity()
+	m.SetCol(m.Size()-1, translation)
+}
+
+func (m Matrix[A]) Transform(point A) A {
+	var transformed A
+	n := point.Components()
+	for i := 0; i < n; i++ {
+		transformed.SetComponent(i, point.Dot(m.Row(i)), &transformed)
+	}
+	return transformed
+}
+
+func (m Matrix[A]) TransformVector(point A) A {
+	var transformed A
+	n := point.Components() - 1
+	for i := 0; i < n; i++ {
+		transformed.SetComponent(i, point.Dot(m.Row(i)), &transformed)
+	}
+	return transformed
 }
 
 func (m Matrix[A]) Size() int {
