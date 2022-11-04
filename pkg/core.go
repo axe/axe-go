@@ -294,7 +294,7 @@ func (m *Matrix[A]) Cofactor(other Matrix[A]) {
 	for c := 0; c < n; c++ {
 		col := m.columns[c]
 		for r := 0; r < n; r++ {
-			negative := (r*n+c)&1 == 1
+			negative := (r+c)&1 == 1
 			if negative {
 				col.SetComponent(r, -col.GetComponent(r), &m.columns[c])
 			}
