@@ -12,6 +12,21 @@ func (entry ListenerEntry[L]) Off() {
 
 type ListenerOff func()
 
+type ListenerOffs []ListenerOff
+
+func (offs *ListenerOffs) Add(off ListenerOff) {
+	*offs = append(*offs, off)
+}
+
+func (offs *ListenerOffs) Off() {
+	if offs != nil {
+		for _, off := range *offs {
+			off()
+		}
+		*offs = (*offs)[:0]
+	}
+}
+
 type Listeners[L any] struct {
 	entries []ListenerEntry[L]
 	nextId  int

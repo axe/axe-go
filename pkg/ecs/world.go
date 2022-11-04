@@ -4,19 +4,19 @@ import "github.com/axe/axe-go/pkg/ds"
 
 type World struct {
 	entities              *ds.SparseList[Entity]
-	entityComponentSize   uint32
+	entityComponentSize   int
 	components            []BaseComponent
-	componentInstanceSize uint32
-	componentFreeSize     uint32
+	componentInstanceSize int
+	componentFreeSize     int
 }
 
 type WorldOptions struct {
-	EntityCount           uint32
-	EntityFreeSize        uint32
-	ComponentCount        uint32
-	ComponentInstanceSize uint32
-	ComponentFreeSize     uint32
-	EntityComponentSize   uint32
+	EntityCount           int
+	EntityFreeSize        int
+	ComponentCount        int
+	ComponentInstanceSize int
+	ComponentFreeSize     int
+	EntityComponentSize   int
 }
 
 const (
@@ -28,7 +28,7 @@ const (
 	DEFAULT_COMPONENT_FREE_SIZE     = 32
 )
 
-func determineValue(userValue uint32, defaultValue uint32) uint32 {
+func determineValue(userValue int, defaultValue int) int {
 	if userValue == 0 {
 		return defaultValue
 	}
@@ -64,7 +64,7 @@ func (this *World) Create() *Entity {
 	entity.id = uint32(id)
 	entity.has = 0
 	entity.Flags = 0
-	entity.components = make([]uint32, this.entityComponentSize)
+	entity.components = make([]int, this.entityComponentSize)
 
 	return entity
 }
@@ -85,7 +85,7 @@ func (this *World) Search(search EntitySearch, handle func(entity *Entity)) {
 		componentBits = componentBits | (1 << componentId)
 	}
 
-	this.entities.Iterate(func(entity *Entity, _ uint32, _ uint32) {
+	this.entities.Iterate(func(entity *Entity, _ int, _ int) {
 		if search.FlagMatch != nil && !search.FlagMatch(search.Flags, entity.Flags) {
 			return
 		}

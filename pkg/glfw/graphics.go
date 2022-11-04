@@ -7,7 +7,9 @@ import (
 )
 
 func NewGraphicsSystem() axe.GraphicsSystem {
-	return &graphicsSystem{}
+	return &graphicsSystem{
+		offs: make(axe.ListenerOffs, 0),
+	}
 }
 
 type graphicsSystem struct {
@@ -15,6 +17,7 @@ type graphicsSystem struct {
 	rotationX float32
 	rotationY float32
 	window    *window
+	offs      axe.ListenerOffs
 }
 
 var _ axe.GraphicsSystem = &graphicsSystem{}
@@ -27,11 +30,12 @@ func (gr *graphicsSystem) Init(game *axe.Game) error {
 
 	gr.window = game.Windows.MainWindow().(*window)
 
-	game.Windows.Events().On(axe.WindowSystemEvents{
+	off := game.Windows.Events().On(axe.WindowSystemEvents{
 		WindowResize: func(window axe.Window, oldSize, newSize geom.Vec2i) {
 			gr.resize(newSize.X, newSize.Y)
 		},
 	})
+	gr.offs.Add(off)
 
 	gl.Enable(gl.DEPTH_TEST) // view dependent
 	gl.Enable(gl.LIGHTING)   // view dependent
@@ -180,6 +184,5 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 }
 
 func (gr *graphicsSystem) Destroy() {
-	// TODO move to asset cleanup
-	// gl.DeleteTextures(1, &gr.texture.id)
+	gr.offs.Off()
 }

@@ -12,13 +12,16 @@ type Texture interface {
 	Height() int
 }
 
+type TextureCoord struct {
+	U float32
+	V float32
+}
+
 type Tile struct {
 	Texture Texture
 	Name    string
-	U0      float32
-	U1      float32
-	V0      float32
-	V1      float32
+	Coord0  TextureCoord
+	Coord1  TextureCoord
 }
 
 func NewTile(tex Texture) Tile {
@@ -30,10 +33,8 @@ func NewTile(tex Texture) Tile {
 	return Tile{
 		Texture: tex,
 		Name:    name,
-		U0:      0,
-		U1:      1,
-		V0:      0,
-		V1:      1,
+		Coord0:  TextureCoord{0, 0},
+		Coord1:  TextureCoord{1, 1},
 	}
 }
 
@@ -44,10 +45,8 @@ func (t *Tile) Rect(x, y, w, h int) Tile {
 	return Tile{
 		Texture: t.Texture,
 		Name:    fmt.Sprintf("%s (x=%d, y=%d, w=%d, h=%d)", t.Name, x, y, w, h),
-		U0:      float32(x) / tw,
-		U1:      float32(x+w) / tw,
-		V0:      float32(y) / th,
-		V1:      float32(y+h) / th,
+		Coord0:  TextureCoord{float32(x) / tw, float32(y) / th},
+		Coord1:  TextureCoord{float32(x+w) / tw, float32(y+h) / th},
 	}
 }
 

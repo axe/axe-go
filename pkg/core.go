@@ -1,10 +1,10 @@
 package axe
 
 import (
-	"github.com/axe/axe-go/pkg/ecs"
+	"math/bits"
+
 	"github.com/axe/axe-go/pkg/geom"
 	"github.com/axe/axe-go/pkg/job"
-	"github.com/axe/axe-go/pkg/react"
 	"github.com/axe/axe-go/pkg/ui"
 )
 
@@ -16,83 +16,90 @@ const (
 	ProjectionOutsideRelative
 )
 
-type Vec[V any] interface {
-	Get() V
-	Set(value V)
-}
-
-type Scene[D Numeric, V Attr[V]] struct {
+type Scene[A Attr[A]] struct {
 	Name  string
-	Jobs  job.JobRunner
-	World ecs.World
-	Space Space[D, V, SpaceComponent[D, V]]
+	Jobs  *job.JobRunner
+	World *World
+	Space Space[A, SpaceComponent[A]]
+	Load  func(scene *Scene[A], game *Game)
 }
 
-var _ GameSystem = &Scene[float32, Vec2[float32]]{}
+type Scene2f = Scene[Vec2f]
+type Scene3f = Scene[Vec3f]
 
-func (events *Scene[D, V]) Init(game *Game) error { return nil }
-func (events *Scene[D, V]) Update(game *Game)     {}
-func (events *Scene[D, V]) Destroy()              {}
+var _ GameSystem = &Scene2f{}
 
-type SpaceComponent[D Numeric, V Attr[V]] struct {
-	Shape          Shape[D, V]
-	Offset         V
-	WorldTransform *Matrix[V]
-	Flags          uint64
-	Static         bool
-	Inert          bool
+func (scene *Scene[A]) Init(game *Game) error {
+	if scene.Jobs == nil {
+		scene.Jobs = job.NewRunner(game.Settings.JobGroups, game.Settings.JobBudget)
+	}
+	if scene.Load != nil {
+		scene.Load(scene, game)
+	}
+	if scene.World != nil {
+		err := scene.World.Init(game)
+		if err != nil {
+			return err
+		}
+	}
+	if scene.Space != nil {
+		err := scene.Space.Init(game)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
-type SpaceQuery[D Numeric, V Attr[V]] struct {
-	Point   V
-	End     V
-	Shape   Shape[D, V]
-	Maximum int
-	Flags   uint64
-	Match   ecs.FlagMatch
+func (scene *Scene[A]) Update(game *Game) {
+	scene.Jobs.Run()
+	if scene.World != nil {
+		scene.World.Update(game)
+	}
+	if scene.Space != nil {
+		scene.Space.Update(game)
+	}
 }
-type SpaceNearest[E any] struct {
-	Entity   E
-	Distance float32
-}
-type SpaceSearchCallback[D Numeric, V Attr[V], E any] func(entity E, overlap float32, index int, query SpaceQuery[D, V]) bool
-type SpaceCollisionCallback[E any] func(subject E, otherSubject E, overlap float32, index int, second bool)
-type Space[D Numeric, V Attr[V], E any] interface {
-	Collisions(flags uint32, match ecs.FlagMatch, callback SpaceCollisionCallback[E])
-	Intersects(query SpaceQuery[D, V], callback SpaceSearchCallback[D, V, E]) int
-	Contains(query SpaceQuery[D, V], callback SpaceSearchCallback[D, V, E]) int
-	Raytrace(query SpaceQuery[D, V], callback SpaceSearchCallback[D, V, E]) int
-	KNN(query SpaceQuery[D, V], nearest []SpaceNearest[E], nearestCount *int)
+func (scene *Scene[A]) Destroy() {
+	if scene.World != nil {
+		scene.World.Destroy()
+	}
+	if scene.Space != nil {
+		scene.Space.Destroy()
+	}
 }
 
-type Matrix[V Attr[V]] interface{}
-type Plane[V Attr[V]] struct {
-}
-type Camera[V Attr[V]] interface {
+type Camera[A Attr[A]] interface {
 	GameSystem
-	Planes() []Plane[V]
-	Intersects(shape Shape[float32, V], position V) bool
+	Planes() []Plane[A]
+	Intersects(shape Shape[A], position A) bool
 }
+
 type RenderTarget interface { // window or texture
 	Size() geom.Vec2i
+	Texture() *Texture
+	Window() *Window
 }
 
-type View[D Numeric, V Attr[V]] interface {
+type View[A Attr[A]] interface {
 	GameSystem
 	Name() string
-	Scene() Scene[D, V]
-	Camera() Camera[V]
-	ProjectionMatrix() Matrix[V]
-	ViewMatrix() Matrix[V]
-	CombinedMatrix() Matrix[V]
-	ProjectPoint(mouse geom.Vec2i, outside ProjectionOutside) V
-	Project(outside ProjectionOutside) V
-	ProjectIgnore() V
-	UnprojectPoint(point V, outside ProjectionOutside) V
-	UnprojectIgnore(point V) V
+	Scene() Scene[A]
+	Camera() Camera[A]
+	ProjectionMatrix() Matrix[A]
+	ViewMatrix() Matrix[A]
+	CombinedMatrix() Matrix[A]
+	ProjectPoint(mouse geom.Vec2i, outside ProjectionOutside) A
+	Project(outside ProjectionOutside) A
+	ProjectIgnore() A
+	UnprojectPoint(point A, outside ProjectionOutside) A
+	UnprojectIgnore(point A) A
 	Placement() ui.Placement
 	Target() RenderTarget
 	Draw()
 }
+
+type View2f = View[Vec2f]
+type View3f = View[Vec3f]
 
 type EventSystem struct {
 }
@@ -103,48 +110,224 @@ func (events *EventSystem) Init(game *Game) error { return nil }
 func (events *EventSystem) Update(game *Game)     {}
 func (events *EventSystem) Destroy()              {}
 
-type AudioSystem interface { // & GameSystem
-	GameSystem
-}
-
 type GraphicsSystem interface { // & GameSystem
 	GameSystem
 }
 
-type WindowSystem interface {
-	GameSystem
-	MainWindow() Window
-	GetScreens() []Screen
-	Events() *Listeners[WindowSystemEvents]
-}
-type WindowSystemEvents struct {
-	MouseScreenChange  func(oldMouse geom.Vec2i, oldScreen Screen, newMouse geom.Vec2i, newScreen Screen)
-	ScreenConnected    func(newScreen Screen)
-	ScreenDisconnected func(oldScreen Screen)
-	ScreenResize       func(screen Screen, oldSize geom.Vec2i, newSize geom.Vec2i)
-	WindowResize       func(window Window, oldSize geom.Vec2i, newSize geom.Vec2i)
+type SpaceCoord interface {
+	To2d() (x, y float32)
+	To3d() (x, y, z float32)
 }
 
-type Window interface {
-	Name() string
-	Title() react.Value[string]
-	Placement() ui.Placement
-	Screen() Screen
-	Size() geom.Vec2i
+type Matrix[A Attr[A]] struct {
+	columns []A
 }
 
-type Screen interface {
-	Size() geom.Vec2i
-	Position() geom.Vec2i
-}
-type Calculator[T Attr[T]] interface {
-	Add(a T, b T, out *T)
+type Matrix2f = Matrix[Vec2f]
+type Matrix3f = Matrix[Vec3f]
+type Matrix4f = Matrix[Vec4f]
+
+type Mat2d = Matrix[Vec3f]
+type Mat3d = Matrix[Vec4f]
+
+// type Matrix4f = Matrix[Vec4f, *Vec4f]
+
+func NewMatrix[A Attr[A]]() Matrix[A] {
+	return InitMatrix(Matrix[A]{})
 }
 
-type Path[T Attr[T]] interface {
-	Set(out *T, delta float32)
-	PointCount() int
-	Point(index int) T
-	GetCalculator() Calculator[T]
-	SetCalculator(calc Calculator[T])
+func InitMatrix[A Attr[A]](m Matrix[A]) Matrix[A] {
+	var empty A
+	m.columns = make([]A, empty.Components())
+	return m
+}
+
+func (m *Matrix[A]) SetValues(values [][]float32) {
+	n := m.Size()
+	for c := 0; c < n; c++ {
+		for r := 0; r < n; r++ {
+			if len(values) > r && len(values[r]) > c {
+				m.columns[c].SetComponent(r, values[r][c], &m.columns[c])
+			}
+		}
+	}
+}
+
+func (m Matrix[A]) GetValues() [][]float32 {
+	n := m.Size()
+	values := make([][]float32, n)
+	for r := 0; r < n; r++ {
+		values[r] = make([]float32, n)
+		for c := 0; c < n; c++ {
+			values[r][c] = m.columns[c].GetComponent(r)
+		}
+	}
+	return values
+}
+
+func (m *Matrix[A]) Col(index int) A {
+	return m.columns[index]
+}
+
+func (m *Matrix[A]) SetCol(index int, col A) {
+	m.columns[index] = col
+}
+
+func (m *Matrix[A]) Row(index int) A {
+	var row A
+	for i := 0; i < row.Components(); i++ {
+		row.SetComponent(i, m.columns[i].GetComponent(index), &row)
+	}
+	return row
+}
+
+func (m *Matrix[A]) SetRow(index int, row A) {
+	for i := 0; i < row.Components(); i++ {
+		m.columns[i].SetComponent(index, row.GetComponent(i), &m.columns[i])
+	}
+}
+
+func (m *Matrix[A]) Zero() {
+	for _, c := range m.columns {
+		c.SetComponents(0, &c)
+	}
+}
+
+func (m *Matrix[A]) Identity() {
+	for i, c := range m.columns {
+		c.SetComponents(0, &c)
+		c.SetComponent(i, 1, &c)
+	}
+}
+
+func (m *Matrix[A]) Set(other Matrix[A]) {
+	n := other.Size()
+	for i := 0; i < n; i++ {
+		m.columns[i] = other.columns[i]
+	}
+}
+
+func (m *Matrix[A]) Mul(base Matrix[A], other Matrix[A]) {
+	n := other.Size()
+	for c := 0; c < n; c++ {
+		otherCol := other.Col(c)
+		for r := 0; r < n; r++ {
+			baseRow := base.Row(r)
+			dot := baseRow.Dot(otherCol)
+			baseRow.SetComponent(r, dot, &m.columns[c])
+		}
+	}
+}
+
+func (m *Matrix[A]) Transpose(other Matrix[A]) {
+	n := other.Size()
+	for c := 0; c < n; c++ {
+		m.columns[c] = other.Row(c)
+	}
+}
+
+func (m *Matrix[A]) Determinant() float32 {
+	all := uint((1 << m.Size()) - 1)
+	return m.subDeterminant(all, all)
+}
+
+func (m *Matrix[A]) subDeterminant(columns uint, rows uint) float32 {
+	size := bits.OnesCount(columns)
+	if size == 1 {
+		c0 := bits.TrailingZeros(columns)
+		r0 := bits.TrailingZeros(rows)
+
+		return m.columns[c0].GetComponent(r0)
+	} else if size == 2 {
+		c0 := bits.TrailingZeros(columns)
+		c1 := bits.TrailingZeros(columns ^ (1 << c0))
+		r0 := bits.TrailingZeros(rows)
+		r1 := bits.TrailingZeros(rows ^ (1 << r0))
+
+		a := m.columns[c0].GetComponent(r0)
+		b := m.columns[c1].GetComponent(r0)
+		c := m.columns[c0].GetComponent(r1)
+		d := m.columns[c1].GetComponent(r1)
+
+		return a*d - b*c
+	} else {
+		d := float32(0)
+		handledColumns := columns
+		rowIndex := bits.TrailingZeros(rows)
+		rowBit := uint(1) << rowIndex
+		otherRows := rows ^ rowBit
+		for i := 0; i < size; i++ {
+			columnIndex := bits.TrailingZeros(handledColumns)
+			columnBit := uint(1) << columnIndex
+			otherColumns := columns ^ columnBit
+			a := m.columns[columnIndex].GetComponent(rowIndex)
+			b := m.subDeterminant(otherColumns, otherRows)
+			c := a * b
+			if (i & 1) == 1 {
+				c = -c
+			}
+			d += c
+			handledColumns ^= columnBit
+		}
+		return d
+	}
+}
+
+func (m *Matrix[A]) Minor(other Matrix[A]) {
+	var empty A
+	n := other.Size()
+	all := uint((1 << n) - 1)
+
+	for c := 0; c < n; c++ {
+		columns := all ^ (1 << c)
+		for r := 0; r < n; r++ {
+			rows := all ^ (1 << r)
+			determinant := other.subDeterminant(columns, rows)
+			empty.SetComponent(r, determinant, &m.columns[c])
+		}
+	}
+}
+
+func (m *Matrix[A]) Cofactor(other Matrix[A]) {
+	m.Minor(other)
+	n := other.Size()
+	for c := 0; c < n; c++ {
+		col := m.columns[c]
+		for r := 0; r < n; r++ {
+			negative := (r*n+c)&1 == 1
+			if negative {
+				col.SetComponent(r, -col.GetComponent(r), &m.columns[c])
+			}
+		}
+	}
+}
+
+func (m *Matrix[A]) Adjoint(other Matrix[A]) {
+	temp := NewMatrix[A]()
+	temp.Cofactor(other)
+	m.Transpose(temp)
+}
+
+func (m *Matrix[A]) Invert(other Matrix[A]) {
+	d := other.Determinant()
+	if d == 0 {
+		m.Zero()
+	} else {
+		m.Adjoint(other)
+
+		n := other.Size()
+		for c := 0; c < n; c++ {
+			col := m.columns[c]
+			for r := 0; r < n; r++ {
+				col.SetComponent(r, col.GetComponent(r)/d, &m.columns[c])
+			}
+		}
+	}
+}
+
+func (m Matrix[A]) Size() int {
+	return len(m.columns)
+}
+
+type Plane[A Attr[A]] struct {
 }

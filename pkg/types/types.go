@@ -184,7 +184,7 @@ func (a GameTypeAccess) Set(source any, value any) bool {
 	} else {
 		currentValue := source
 
-		last := len(a.Path) - 1
+		// last := len(a.Path) - 1
 		for _, p := range a.Props {
 			currentValue = p.Ref(currentValue)
 		}

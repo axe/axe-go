@@ -7,34 +7,50 @@ import (
 	"time"
 
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/ui"
 )
-
-// type emptyAudioSystem struct {
-// 	updates int
-// 	elapsed time.Duration
-// }
-
-// var _ axe.AudioSystem = &emptyAudioSystem{}
-
-// func (audio *emptyAudioSystem) Init(game *axe.Game) error { return nil }
-// func (audio *emptyAudioSystem) Update(game *axe.Game) {
-// 	audio.updates++
-// 	audio.elapsed += game.State.UpdateTimer.Elapsed
-
-// 	if audio.updates >= 1000 {
-// 		fps := float64(audio.updates) / audio.elapsed.Seconds()
-// 		fmt.Printf("FPS: %.1f\n", fps)
-// 		audio.updates = 0
-// 		audio.elapsed = 0
-// 	}
-// }
-// func (audio *emptyAudioSystem) Destroy() {}
 
 func TestGame(t *testing.T) {
 	game := axe.NewGame(axe.GameSettings{
 		EnableDebug:        true,
 		Name:               "Test GLFW",
 		FixedDrawFrequency: time.Second / 60,
+		Stages: []axe.Stage{{
+			Name:   "first",
+			Assets: []axe.AssetRef{{Name: "cube", URI: "./square.png"}},
+			Windows: []axe.StageWindow{{
+				Name:       "main",
+				Title:      "Test GLFW Main Window",
+				Placement:  ui.Maximized(),
+				Fullscreen: false,
+			}},
+			// Scenes: []axe.Scene[float32, axe.Vec2[float32]]{{
+			// 	Name: "main",
+			// 	World: axe.NewWorld(axe.WorldOptions{
+			// 		EntityMax:              128,
+			// 		StageSize:              16,
+			// 		UncommonComponentCount: 4,
+			// 	}),
+			// 	Load: func(scene *axe.Scene[float32, axe.Vec2[float32]], game *axe.Game) {
+			// 		type Sprite struct {
+			// 			Texture axe.Texture
+			// 		}
+
+			// 		TRANSFORM := axe.DefineComponent("transform", axe.Transform{}, true)
+			// 		SPRITE := axe.DefineComponent("sprite", Sprite{}, true)
+
+			// 		transforms := TRANSFORM.Enable(scene.World)
+			// 		TRANSFORM.AddSystem(scene.World, axe.NewTransformSystem)
+
+			// 		sprites := SPRITE.Enable(scene.World)
+			// 		SPRITE.AddSystem(scene.World, nil)
+
+			// 		e := scene.World.Create()
+			// 		transforms.Set(e, axe.Transform{Local: 23})
+			// 		sprites.Take(e).Texture = game.Assets.Get("cube").Data.(axe.Texture)
+			// 	},
+			// }},
+		}},
 	})
 	Setup(game)
 
@@ -67,8 +83,6 @@ func TestGame(t *testing.T) {
 			fmt.Printf("%s %0.1f (priority=%d, inputs=%s)\n", action.Name, action.Data.Value, action.Priority(), strings.Join(inputNames, ","))
 		}
 	}
-
-	// view := axe.View[float32, axe.Vec3[float32]]{}
 
 	game.Input.Events().On(axe.InputSystemEvents{
 		InputChange: func(input axe.Input) {

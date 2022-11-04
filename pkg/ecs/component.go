@@ -7,7 +7,7 @@ type BaseComponent interface {
 	Name() string
 	Has(entity *Entity) bool
 
-	free(index uint32)
+	free(index int)
 	add(entity *Entity)
 }
 
@@ -25,7 +25,7 @@ func (this *Component[T]) Name() string {
 	return this.name
 }
 
-func (this *Component[T]) free(index uint32) {
+func (this *Component[T]) free(index int) {
 	this.instances.Free(index)
 }
 
@@ -55,7 +55,7 @@ func (this *Component[T]) Set(entity *Entity, value T) bool {
 		if len(entity.components) <= int(this.id) {
 			entity.components = entity.components[:(this.id + 1)]
 		}
-		entity.components[this.id] = uint32(this.instances.Add(value))
+		entity.components[this.id] = this.instances.Add(value)
 		entity.has |= (1 << this.id)
 
 		return false

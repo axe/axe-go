@@ -254,6 +254,10 @@ func (assets *AssetSystem) Destroy() {
 	}
 }
 
+func (assets *AssetSystem) Get(name string) *Asset {
+	return assets.Assets[name]
+}
+
 type LocalAssetSource struct{}
 
 var _ AssetSource = &LocalAssetSource{}

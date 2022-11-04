@@ -13,6 +13,12 @@ type Placement struct {
 	Bottom Anchor
 }
 
+func Maximized() Placement {
+	p := Placement{}
+	p.Maximize()
+	return p
+}
+
 func (p *Placement) Relative(leftAnchor float32, topAnchor float32, rightAnchor float32, bottomAnchor float32) {
 	p.Left.Set(0, leftAnchor)
 	p.Top.Set(0, topAnchor)

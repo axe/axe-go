@@ -13,11 +13,13 @@ func NewWindowSystem() *windowSystem {
 	return &windowSystem{
 		screens: make([]axe.Screen, 0),
 		events:  axe.NewListeners[axe.WindowSystemEvents](),
+		windows: make([]axe.Window, 0),
 	}
 }
 
 type windowSystem struct {
 	main    *window
+	windows []axe.Window
 	events  *axe.Listeners[axe.WindowSystemEvents]
 	screens []axe.Screen
 }
@@ -25,7 +27,8 @@ type windowSystem struct {
 var _ axe.WindowSystem = &windowSystem{}
 
 func (ws *windowSystem) MainWindow() axe.Window                         { return ws.main }
-func (ws *windowSystem) GetScreens() []axe.Screen                       { return ws.screens }
+func (ws *windowSystem) Windows() []axe.Window                          { return ws.windows }
+func (ws *windowSystem) Screens() []axe.Screen                          { return ws.screens }
 func (ws *windowSystem) Events() *axe.Listeners[axe.WindowSystemEvents] { return ws.events }
 
 func (ws *windowSystem) Init(game *axe.Game) error {
@@ -65,7 +68,9 @@ func (ws *windowSystem) Init(game *axe.Game) error {
 	gwin.MakeContextCurrent()
 	gwin.SetPos(winBounds.Min.X, winBounds.Max.Y)
 	win.window = gwin
+
 	ws.main = win
+	ws.windows = append(ws.windows, win)
 
 	gwin.SetSizeCallback(func(w *glfw.Window, width, height int) {
 		ws.events.Trigger(func(listener axe.WindowSystemEvents) bool {
@@ -78,6 +83,14 @@ func (ws *windowSystem) Init(game *axe.Game) error {
 			}
 			return false
 		})
+	})
+
+	ws.events.Trigger(func(listener axe.WindowSystemEvents) bool {
+		if listener.WindowAdded != nil {
+			listener.WindowAdded(win)
+			return true
+		}
+		return false
 	})
 
 	return nil

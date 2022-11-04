@@ -29,6 +29,9 @@ type GameSettings struct {
 	FixedUpdateFrequency time.Duration
 	FixedDrawFrequency   time.Duration
 	FirstStage           string
+	Stages               []Stage
+	JobGroups            int
+	JobBudget            int
 }
 
 type Game struct {
@@ -47,12 +50,8 @@ type Game struct {
 }
 
 func NewGame(settings GameSettings) *Game {
-	state := GameState{}
-	state.FromSettings(settings)
-
-	return &Game{
+	game := &Game{
 		Settings: settings,
-		State:    state,
 		Assets:   NewAssetSystem(),
 		Actions:  NewInputActionSets(),
 		Stages:   NewStageManager(),
@@ -61,6 +60,19 @@ func NewGame(settings GameSettings) *Game {
 		Graphics: &NoGraphicsSystem{},
 		Input:    &NoInputSystem{},
 	}
+
+	game.State.FromSettings(settings)
+
+	if len(settings.Stages) > 0 {
+		for i := range settings.Stages {
+			game.Stages.Add(&settings.Stages[i])
+		}
+		if settings.FirstStage == "" {
+			game.Settings.FirstStage = settings.Stages[0].Name
+		}
+	}
+
+	return game
 }
 
 func (game *Game) Run() error {
@@ -171,16 +183,21 @@ type NoAudioSystem struct{}
 
 var _ AudioSystem = &NoAudioSystem{}
 
-func (audio *NoAudioSystem) Init(game *Game) error { return nil }
-func (audio *NoAudioSystem) Update(game *Game)     {}
-func (audio *NoAudioSystem) Destroy()              {}
+func (audio *NoAudioSystem) Init(game *Game) error              { return nil }
+func (audio *NoAudioSystem) Update(game *Game)                  {}
+func (audio *NoAudioSystem) Destroy()                           {}
+func (audio *NoAudioSystem) Listeners() []AudioListener         { return nil }
+func (audio *NoAudioSystem) Instances() []AudioInstance         { return nil }
+func (audio *NoAudioSystem) Settings() map[string]AudioSettings { return nil }
+func (audio *NoAudioSystem) Sources() []AudioSource             { return nil }
 
 type NoWindowSystem struct{}
 
 var _ WindowSystem = &NoWindowSystem{}
 
 func (windows *NoWindowSystem) MainWindow() Window                     { return nil }
-func (windows *NoWindowSystem) GetScreens() []Screen                   { return nil }
+func (windows *NoWindowSystem) Windows() []Window                      { return nil }
+func (windows *NoWindowSystem) Screens() []Screen                      { return nil }
 func (windows *NoWindowSystem) Events() *Listeners[WindowSystemEvents] { return nil }
 func (windows *NoWindowSystem) Init(game *Game) error                  { return nil }
 func (windows *NoWindowSystem) Update(game *Game)                      {}

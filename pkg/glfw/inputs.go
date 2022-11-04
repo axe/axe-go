@@ -15,6 +15,9 @@ func NewInputSystem() axe.InputSystem {
 		inputs:   make([]*axe.Input, 0),
 		devices:  make([]*axe.InputDevice, 0),
 		points:   make([]*axe.InputPoint, 0),
+		keys:     make(map[glfw.Key]*axe.Input),
+		buttons:  make(map[glfw.MouseButton]*axe.Input),
+		offs:     make(axe.ListenerOffs, 0),
 	}
 }
 
@@ -25,17 +28,35 @@ type inputSystem struct {
 	inputMap map[string]*axe.Input
 	points   []*axe.InputPoint
 	now      time.Time
+	keys     map[glfw.Key]*axe.Input
+	buttons  map[glfw.MouseButton]*axe.Input
+	offs     axe.ListenerOffs
 }
 
 func (in *inputSystem) Init(game *axe.Game) error {
+	in.now = game.State.StartTime
 	in.initKeys(game)
 	in.initMouse(game)
+
+	for _, w := range game.Windows.Windows() {
+		in.listenToWindow(w)
+	}
+	off := game.Windows.Events().On(axe.WindowSystemEvents{
+		WindowAdded: func(window axe.Window) {
+			in.listenToWindow(window)
+		},
+		WindowRemoved: func(window axe.Window) {
+			in.unlistenToWindow(window)
+		},
+	})
+	in.offs.Add(off)
 
 	return nil
 }
 func (in *inputSystem) initKeys(game *axe.Game) {
 	keyboard := axe.NewInputDevice("keyboard", axe.InputDeviceTypeKeyboard)
-	keys := make(map[glfw.Key]*axe.Input)
+
+	in.devices = append(in.devices, keyboard)
 
 	for key, keyName := range KEYS {
 		keyCode := glfw.GetKeyScancode(key)
@@ -46,52 +67,54 @@ func (in *inputSystem) initKeys(game *axe.Game) {
 			keyInput := keyboard.Add(keyName)
 			in.inputMap[keyName] = keyInput
 			in.inputs = append(in.inputs, keyInput)
-			keys[key] = keyInput
+			in.keys[key] = keyInput
 		}
 	}
-
-	if win, ok := game.Windows.MainWindow().(*window); ok {
-		win.window.SetKeyCallback(func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-			in.onInputAction(keys[key], action)
-		})
-		for key, keyInput := range keys {
-			if win.window.GetKey(key) == glfw.Press {
-				keyInput.Set(1, game.State.StartTime)
-			}
-		}
-	}
-
-	in.devices = append(in.devices, keyboard)
 }
 func (in *inputSystem) initMouse(game *axe.Game) {
 	mouse := axe.NewInputDevice("mouse", axe.InputDeviceTypeMouse)
-	buttons := make(map[glfw.MouseButton]*axe.Input)
+
+	in.points = append(in.points, &axe.InputPoint{})
+	in.devices = append(in.devices, mouse)
 
 	for button := glfw.MouseButton1; button < glfw.MouseButtonLast; button++ {
 		buttonName := fmt.Sprintf("MouseButton%d", button)
 		buttonInput := mouse.Add(buttonName)
 		in.inputMap[buttonName] = buttonInput
 		in.inputs = append(in.inputs, buttonInput)
-		buttons[button] = buttonInput
+		in.buttons[button] = buttonInput
 	}
-
-	in.points = append(in.points, &axe.InputPoint{
-		X: 0,
-		Y: 0,
-	})
-
-	if win, ok := game.Windows.MainWindow().(*window); ok {
-		win.window.SetMouseButtonCallback(func(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
-			in.onInputAction(buttons[button], action)
+}
+func (in *inputSystem) listenToWindow(axeWindow axe.Window) {
+	if win, ok := axeWindow.(*window); ok {
+		glfwWindow := win.window
+		glfwWindow.SetKeyCallback(func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+			in.onInputAction(in.keys[key], action)
 		})
-		win.window.SetCursorPosCallback(func(w *glfw.Window, xpos, ypos float64) {
+		glfwWindow.SetMouseButtonCallback(func(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
+			in.onInputAction(in.buttons[button], action)
+		})
+		glfwWindow.SetCursorPosCallback(func(w *glfw.Window, xpos, ypos float64) {
 			in.onInputPoint(in.points[0], int(xpos), int(ypos))
 		})
-		for button, buttonInput := range buttons {
-			if win.window.GetMouseButton(button) == glfw.Press {
-				buttonInput.Set(1, game.State.StartTime)
+		for button, buttonInput := range in.buttons {
+			if glfwWindow.GetMouseButton(button) == glfw.Press {
+				buttonInput.Set(1, in.now)
 			}
 		}
+		for key, keyInput := range in.keys {
+			if glfwWindow.GetKey(key) == glfw.Press {
+				keyInput.Set(1, in.now)
+			}
+		}
+	}
+}
+func (in *inputSystem) unlistenToWindow(w axe.Window) {
+	if win, ok := w.(*window); ok {
+		glfwWindow := win.window
+		glfwWindow.SetKeyCallback(nil)
+		glfwWindow.SetMouseButtonCallback(nil)
+		glfwWindow.SetCursorPosCallback(nil)
 	}
 }
 func (in *inputSystem) onInputAction(ia *axe.Input, action glfw.Action) {
@@ -142,7 +165,7 @@ func (in *inputSystem) Update(game *axe.Game) {
 	}
 }
 func (in *inputSystem) Destroy() {
-
+	in.offs.Off()
 }
 func (in *inputSystem) Devices() []*axe.InputDevice                   { return nil }
 func (in *inputSystem) Inputs() []*axe.Input                          { return in.inputs }

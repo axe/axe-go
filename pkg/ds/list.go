@@ -5,6 +5,13 @@ type List[T any] struct {
 	Size  int
 }
 
+func NewList[T any](capacity int) *List[T] {
+	return &List[T]{
+		Items: make([]T, 0, capacity),
+		Size:  0,
+	}
+}
+
 func (l *List[T]) Empty() bool {
 	return l.Size == 0
 }

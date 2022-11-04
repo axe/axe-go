@@ -2,7 +2,7 @@ package ecs
 
 type Entity struct {
 	id         uint32
-	components []uint32
+	components []int
 	has        uint64
 	Flags      uint64
 }

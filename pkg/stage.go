@@ -1,6 +1,10 @@
 package axe
 
-import "github.com/axe/axe-go/pkg/ui"
+import (
+	"strings"
+
+	"github.com/axe/axe-go/pkg/ui"
+)
 
 type StageWindow struct {
 	Name       string
@@ -26,6 +30,10 @@ func NewStageManager() StageManager {
 		Next:    nil,
 		events:  NewListeners[StageManagerEvents](),
 	}
+}
+
+func (sm *StageManager) Add(stage *Stage) {
+	sm.Stages[strings.ToLower(stage.Name)] = stage
 }
 
 func (sm *StageManager) Events() *Listeners[StageManagerEvents] {
@@ -108,6 +116,10 @@ func (sm *StageManager) initStage(game *Game) {
 	}
 }
 
+func (sm *StageManager) Get(name string) *Stage {
+	return sm.Stages[strings.ToLower(name)]
+}
+
 func (sm *StageManager) Set(name string) bool {
 	if sm.Current != nil && sm.Current.Name == name {
 		return true
@@ -115,8 +127,8 @@ func (sm *StageManager) Set(name string) bool {
 	if sm.Next != nil && sm.Next.Name == name {
 		return true
 	}
-	next, nextExists := sm.Stages[name]
-	if !nextExists {
+	next := sm.Get(name)
+	if next == nil {
 		return false
 	}
 	if sm.Next != nil {
@@ -134,12 +146,18 @@ type StageManagerEvents struct {
 	StageExited   func(previous *Stage, current *Stage)
 }
 
+// type SceneType interface {
+// 	~Scene2f | ~Scene3f
+// }
+
 type Stage struct {
 	Name    string
 	Assets  []AssetRef
 	Windows []StageWindow
-	Scenes  []Scene[float32, Vec2[float32]]
-	Views   []View[float32, Vec2[float32]]
+	Scenes2 []Scene2f
+	Scenes3 []Scene3f
+	Views2  []View2f
+	Views3  []View3f
 	Actions InputActionSets
 
 	assets []*Asset
@@ -184,7 +202,7 @@ func (stage *Stage) Unload(activeStage *Stage) {
 			asset := stage.assets[i]
 			unusedAssets[asset.Ref.URI] = asset
 		}
-		if activeStage.assets != nil {
+		if activeStage != nil && activeStage.assets != nil {
 			for _, asset := range activeStage.assets {
 				delete(unusedAssets, asset.Ref.URI)
 			}
@@ -199,23 +217,42 @@ func (stage *Stage) Unload(activeStage *Stage) {
 func (stage *Stage) Start(game *Game) {
 	stage.Actions.Init(game.Input)
 
-	for _, scene := range stage.Scenes {
+	for _, scene := range stage.Scenes2 {
+		game.Debug.LogError(scene.Init(game))
+	}
+	for _, scene := range stage.Scenes3 {
 		game.Debug.LogError(scene.Init(game))
 	}
 
-	for _, view := range stage.Views {
+	for _, view := range stage.Views2 {
+		game.Debug.LogError(view.Init(game))
+	}
+	for _, view := range stage.Views3 {
 		game.Debug.LogError(view.Init(game))
 	}
 }
 
 func (stage *Stage) Update(game *Game) {
+	// get input/actions
 	stage.Actions.Update(game.Input)
 
-	for _, scene := range stage.Scenes {
+	// handle input/actions
+	// update movement
+	// update space
+	// update collisions
+	// update space
+	for _, scene := range stage.Scenes2 {
+		scene.Update(game)
+	}
+	for _, scene := range stage.Scenes3 {
 		scene.Update(game)
 	}
 
-	for _, view := range stage.Views {
+	// update camera
+	for _, view := range stage.Views2 {
+		view.Update(game)
+	}
+	for _, view := range stage.Views3 {
 		view.Update(game)
 	}
 }
