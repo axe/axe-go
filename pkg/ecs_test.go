@@ -22,14 +22,14 @@ func TestWor(t *testing.T) {
 		Scale    float32
 	}
 
-	POSITION := DefineComp("position", Vec3f{})
-	SCALE := DefineComp("scale", float32(0))
+	POSITION := DefineComponent("position", Vec3f{})
+	SCALE := DefineComponent("scale", float32(0))
 
 	POSITION_SCALE := DefineEntityType("position+scale", PositionScale{})
 	POSITION_SCALE.AddComponent(POSITION, func(data *PositionScale) any { return &data.Position })
 	POSITION_SCALE.AddComponent(SCALE, func(data *PositionScale) any { return &data.Scale })
 
-	w := NewWor(DataSettings{
+	w := NewWorld(WorldSettings{
 		MaxEntityInstances:   64,
 		MaxDestroysPerUpdate: 32,
 		MaxNewPerUpdate:      32,
@@ -61,11 +61,13 @@ func TestWor(t *testing.T) {
 
 	scale2 := SCALE.Add(w, e2)
 	*scale2 = 86
+	fmt.Printf("entity2 staging components %+v\n", e2.StagingComponents())
 	w.Stage()
 	fmt.Printf("entity2 scale %+v\n", *SCALE.Get(w, e2))
+	fmt.Printf("entity2 staging components %+v\n", e2.StagingComponents())
 }
 
-func statusOf(e *Ent) string {
+func statusOf(e *Entity) string {
 	if e.Destroyed() {
 		return "destroyed"
 	} else if e.Staging() {

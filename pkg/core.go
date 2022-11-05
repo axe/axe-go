@@ -38,10 +38,10 @@ func (scene *Scene[A]) Init(game *Game) error {
 		scene.Load(scene, game)
 	}
 	if scene.World != nil {
-		err := scene.World.Init(game)
-		if err != nil {
-			return err
-		}
+		// err := scene.World.Init(game)
+		// if err != nil {
+		// return err
+		// }
 	}
 	if scene.Space != nil {
 		err := scene.Space.Init(game)
@@ -62,7 +62,7 @@ func (scene *Scene[A]) Update(game *Game) {
 }
 func (scene *Scene[A]) Destroy() {
 	if scene.World != nil {
-		scene.World.Destroy()
+		// scene.World.Destroy()
 	}
 	if scene.Space != nil {
 		scene.Space.Destroy()
@@ -366,6 +366,14 @@ func (m *Matrix[A]) SetRotaton(radians A, hasTranslation bool) {
 	}
 }
 
+func (m *Matrix[A]) Rotate(radians A, hasTranslation bool) {
+	temp1 := NewMatrix[A]()
+	temp1.Set(*m)
+	temp2 := NewMatrix[A]()
+	temp2.SetRotaton(radians, hasTranslation)
+	m.Mul(temp1, temp2)
+}
+
 func (m *Matrix[A]) SetScale(scale A) {
 	n := m.Size()
 	for c := 0; c < n; c++ {
@@ -379,9 +387,29 @@ func (m *Matrix[A]) SetScale(scale A) {
 	}
 }
 
+func (m *Matrix[A]) Scale(scale A) {
+	temp1 := NewMatrix[A]()
+	temp1.Set(*m)
+	temp2 := NewMatrix[A]()
+	temp2.SetScale(scale)
+	m.Mul(temp1, temp2)
+}
+
 func (m *Matrix[A]) SetTranslation(translation A) {
 	m.Identity()
 	m.SetCol(m.Size()-1, translation)
+}
+
+func (m *Matrix[A]) Translate(translation A) {
+	temp1 := NewMatrix[A]()
+	temp1.Set(*m)
+	temp2 := NewMatrix[A]()
+	temp2.SetTranslation(translation)
+	m.Mul(temp1, temp2)
+}
+
+func (m *Matrix[A]) PostTranslate(translation A) {
+	m.SetRow(m.Size()-1, translation)
 }
 
 func (m Matrix[A]) Transform(point A) A {

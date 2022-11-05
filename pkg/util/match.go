@@ -5,6 +5,12 @@ import "golang.org/x/exp/constraints"
 // A match is a function which is given a single integer and returns whether it matches some criteria.
 type Match[T constraints.Integer] func(value T) bool
 
+func MatchAlways[T constraints.Integer]() Match[T] {
+	return func(value T) bool {
+		return true
+	}
+}
+
 // Creates a match which returns true if all bits in test are on in a given value.
 func MatchAll[T constraints.Integer](test T) Match[T] {
 	return func(value T) bool {
