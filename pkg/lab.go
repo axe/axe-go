@@ -1,14 +1,10 @@
 package axe
 
-//#include <string.h>
-import "C"
-
 import (
 	"fmt"
 	"math/bits"
 	"reflect"
 	"sort"
-	"unsafe"
 )
 
 type BaseComp interface {
@@ -38,8 +34,8 @@ func (set *ComponentSet) Set(index uint8) {
 func (set *ComponentSet) Unset(index uint8) {
 	*set &= ^(1 << index)
 }
-func (set *ComponentSet) Has(index uint8) bool {
-	return *set&(1<<index) != 0
+func (set ComponentSet) Has(index uint8) bool {
+	return set&(1<<index) != 0
 }
 func (set *ComponentSet) Take() uint8 {
 	x := uint8(bits.TrailingZeros64(uint64(*set)))
@@ -93,8 +89,6 @@ func (c Comp[T]) AddSystem(w *Wor, system EntityDataSystem[T]) {
 	}
 }
 
-func (c Comp[T]) Map()
-
 func (c Comp[T]) Get(w *Wor, e *Ent) *T {
 	return c.get(w, e, false)
 }
@@ -104,72 +98,75 @@ func (c Comp[T]) Add(w *Wor, e *Ent) *T {
 }
 
 func (c Comp[T]) get(w *Wor, e *Ent, create bool) *T {
-	has := e.components&c.components == 0
+	has := e.components&c.components != 0
 	if !has && !create {
 		return nil
 	}
 	var data entityStorage
 	var link *entLink
 	if has {
-
+		for i := range e.links {
+			data = w.Data[e.links[i].dataID]
+			if data.getComponents().Has(c.id) {
+				link = &e.links[i]
+				break
+			}
+		}
+		if link == nil {
+			return nil
+		}
 	} else {
-		data := w.Staging[c.id]
+		data = w.Staging[c.id]
 		e.links = append(e.links, entLink{})
 		link = &e.links[len(e.links)-1]
-		// e.components.Set(c.id) only when not staged or being staged
 		data.add(e, link)
 	}
-	return (*T)(data.getPtr(c.id, *link))
+	return data.get(c.id, *link).(*T)
 }
 
 func (c Comp[T]) CreateData(capacity uint32, freeCapacity uint32) entityStorage {
 	data := newEntityDataPairs(capacity, freeCapacity, c.Initial)
 	data.components = c.components
-	data.componentDataOffsets = make([]uintptr, c.id+1)
+	data.getters = make([]EntityDataGetter[T], c.id+1)
+	data.getters[c.id] = func(data *T) any {
+		return data
+	}
 	return &data
 }
 
-type hasComponent interface {
-	addComponent(id uint8)
-}
+type EntityDataGetter[D any] func(data *D) any
 
 type EntType[D any] struct {
 	Name    string
 	Initial D
 
-	id                   uint8
-	components           ComponentSet
-	componentDataOffsets []uintptr
+	id         uint8
+	components ComponentSet
+	getters    []EntityDataGetter[D]
 }
 
 var _ EntityDataSource = &EntType[int]{}
 
-// var _ hasComponent = &EntType[int]{}
-
 var nextTypeId uint8
 
-func DefineEntityType[D any](name string, initial D, components map[string]BaseComp) *EntType[D] {
+func DefineEntityType[D any](name string, initial D) *EntType[D] {
 	typeId := nextTypeId
 	nextTypeId++
 
-	et := &EntType[D]{
-		id:   typeId,
-		Name: name,
+	return &EntType[D]{
+		id:      typeId,
+		Name:    name,
+		getters: make([]EntityDataGetter[D], MAX_DATA),
 	}
-	for _, component := range components {
-		et.components.Set(component.ID())
+}
+
+func (et *EntType[D]) AddComponent(comp BaseComp, field EntityDataGetter[D]) {
+	if field != nil {
+		et.components.Set(comp.ID())
+	} else {
+		et.components.Unset(comp.ID())
 	}
-	var empty D
-	et.componentDataOffsets = make([]uintptr, et.components.Max())
-	s := reflect.TypeOf(empty)
-	for fieldName, component := range components {
-		if field, found := s.FieldByName(fieldName); found {
-			et.componentDataOffsets[component.ID()] = field.Offset
-		} else {
-			et.components.Unset(component.ID())
-		}
-	}
-	return et
+	et.getters[comp.ID()] = field
 }
 
 func (et EntType[D]) ID() uint8 {
@@ -183,7 +180,7 @@ func (et EntType[D]) Components() ComponentSet {
 func (et *EntType[D]) CreateData(capacity uint32, freeCapacity uint32) entityStorage {
 	data := newEntityDataPairs(capacity, freeCapacity, et.Initial)
 	data.components = et.components
-	data.componentDataOffsets = et.componentDataOffsets
+	data.getters = et.getters
 	return &data
 }
 
@@ -363,37 +360,34 @@ func (w *Wor) stageNewEntities() {
 		}
 		// based on the components, find the best way to store the data
 		datas := w.getDataForComponents(staged.components)
-		// for each component, which storage & link is being used.
-		// add placeholder entity data to live storage
-		componentToData := make([]entityStorage, staged.components.Max())
-		componentToLink := make([]*entLink, staged.components.Max())
-		links := make([]entLink, 0)
+		// for each staged component data, get the live storage and
+		// copy the data over
+		liveLinks := make([]entLink, 0)
 		for _, data := range datas {
-			links = append(links, entLink{})
-			linkPtr := &links[len(links)-1]
+			liveLinks = append(liveLinks, entLink{})
+			liveLink := &liveLinks[len(liveLinks)-1]
+			data.add(staged, liveLink)
+
 			components := data.getComponents()
 			for !components.Empty() {
 				componentId := components.Take()
-				componentToData[componentId] = data
-				componentToLink[componentId] = linkPtr
+				componentStaging := w.Staging[componentId]
+				stageLink := staged.linkFor(componentId)
+				stageValue := componentStaging.get(componentId, stageLink)
+				dataValue := data.get(componentId, *liveLink)
+				copy(dataValue, stageValue)
+				componentStaging.remove(staged, &stageLink)
 			}
-			data.add(staged, linkPtr)
 		}
-		// for each staged component data, get the live storage and
-		// copy the data over
-		for _, link := range staged.links {
-			componentId := link.dataID
-			componentStaging := w.Staging[componentId]
-			stagePtr := componentStaging.getPtr(componentId, link)
-			data := componentToData[componentId]
-			dataLink := componentToLink[componentId]
-			dataPtr := data.getPtr(componentId, *dataLink)
-			C.memcpy(dataPtr, stagePtr, C.ulong(componentStaging.getDataSize()))
-			componentStaging.remove(staged, &link)
-		}
-		staged.links = links
+		staged.links = liveLinks
 	}
 	w.StagedCount = 0
+}
+
+func copy(dst any, src any) {
+	d := reflect.ValueOf(dst)
+	s := reflect.ValueOf(src)
+	d.Elem().Set(s.Elem())
 }
 
 func (w *Wor) stageNewComponents() {
@@ -407,19 +401,19 @@ func (w *Wor) stageNewComponents() {
 
 func (w *Wor) getDataForComponents(components ComponentSet) []entityStorage {
 	data := make([]entityStorage, 0)
-	unclaimed := components
+	remaining := components
 	for _, typeData := range w.TypeStores {
 		typeComponents := typeData.getComponents()
-		if typeComponents&unclaimed == typeComponents {
-			unclaimed ^= typeComponents
+		if typeComponents&remaining == typeComponents {
+			remaining ^= typeComponents
 			data = append(data, typeData)
-			if unclaimed.Empty() {
+			if remaining.Empty() {
 				break
 			}
 		}
 	}
-	for !unclaimed.Empty() {
-		compomentId := unclaimed.Take()
+	for !remaining.Empty() {
+		compomentId := remaining.Take()
 		data = append(data, w.ComponentToData[compomentId])
 	}
 	return data
@@ -440,6 +434,19 @@ func (e Ent) Staging() bool {
 
 func (e Ent) Live() bool {
 	return !e.components.Empty()
+}
+
+func (e Ent) Has(comp BaseComp) bool {
+	return e.components.Has(comp.ID())
+}
+
+func (e Ent) linkFor(dataID uint8) entLink {
+	for _, link := range e.links {
+		if link.dataID == dataID {
+			return link
+		}
+	}
+	return entLink{dataID: dataID + 1}
 }
 
 type entLink struct {
@@ -464,7 +471,7 @@ type entityStorage interface {
 	getID() uint8
 	getComponents() ComponentSet
 	getDataSize() uintptr
-	getPtr(component uint8, link entLink) unsafe.Pointer
+	get(component uint8, link entLink) any
 	getEntityOffsets() []entityOffsetPair
 }
 
@@ -476,9 +483,9 @@ type entityDataPairs[D any] struct {
 	freeCount uint32
 	initial   D
 
-	id                   uint8
-	components           ComponentSet
-	componentDataOffsets []uintptr
+	id         uint8
+	components ComponentSet
+	getters    []EntityDataGetter[D]
 }
 
 var _ entityStorage = &entityDataPairs[int]{}
@@ -489,6 +496,7 @@ func newEntityDataPairs[D any](capacity uint32, freeCapacity uint32, initial D) 
 		data:     make([]entityDataPair[D], capacity),
 		dataSize: reflect.TypeOf(initial).Size(),
 		free:     make([]uint32, freeCapacity),
+		getters:  make([]EntityDataGetter[D], MAX_DATA),
 	}
 }
 
@@ -545,12 +553,11 @@ func (ed entityDataPairs[D]) getComponents() ComponentSet {
 	return ed.components
 }
 
-func (ed *entityDataPairs[D]) getPtr(componentId uint8, link entLink) unsafe.Pointer {
+func (ed *entityDataPairs[D]) get(componentId uint8, link entLink) any {
 	data := &ed.data[link.dataOffset]
-	offset := ed.componentDataOffsets[componentId]
-	ptr := unsafe.Pointer(&data.Data)
-	if offset != 0 {
-		ptr = unsafe.Pointer(uintptr(ptr) + offset)
+	getter := ed.getters[componentId]
+	if getter != nil {
+		return getter(&data.Data)
 	}
-	return ptr
+	return nil
 }
