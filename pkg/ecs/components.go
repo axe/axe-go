@@ -1,7 +1,10 @@
-package axe
+package ecs
 
+/*
 import (
+	axe "github.com/axe/axe-go/pkg"
 	"github.com/axe/axe-go/pkg/geom"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 // TRANSFORM
@@ -16,10 +19,10 @@ const (
 	transformDirtyScale
 )
 
-type Transform[A Attr[A]] struct {
+type Transform[A axe.Attr[A]] struct {
 	Parent   *Transform[A]
-	Local    Matrix[A]
-	World    Matrix[A]
+	Local    axe.Matrix[A]
+	World    axe.Matrix[A]
 	Children []*Transform[A]
 
 	dirty    transformDirty
@@ -28,18 +31,18 @@ type Transform[A Attr[A]] struct {
 	scale    A
 }
 
-type Transform2f = Transform[Vec2f]
-type Transform3f = Transform[Vec3f]
+type Transform2f = Transform[axe.Vec2f]
+type Transform3f = Transform[axe.Vec3f]
 
 func (t Transform[A]) IsDirty() bool {
 	return t.dirty != transformDirtyNone
 }
 
-func (t *Transform[A]) SetLocal(local Matrix[A]) {
+func (t *Transform[A]) SetLocal(local axe.Matrix[A]) {
 	t.Local = local
 	t.dirty |= transformDirtyLocal
 }
-func (t *Transform[A]) GetLocal() Matrix[A] {
+func (t *Transform[A]) GetLocal() axe.Matrix[A] {
 	t.updateLocal()
 	return t.Local
 }
@@ -85,16 +88,23 @@ func (t *Transform[A]) Update(updateWorld bool) {
 
 func (t *Transform[A]) SetParent(parent *Transform[A]) {
 	if t.Parent != nil {
-		for i, child := range t.Parent.Children {
-			if child == t {
-				t.Parent.Children = sliceRemoveAt(t.Parent.Children, i)
-				break
-			}
-		}
+		t.Parent.RemoveChild(t)
 	}
 	t.Parent = parent
 	if parent != nil {
 		parent.Children = append(parent.Children, t)
+	}
+}
+
+func (t *Transform[A]) RemoveChild(child *Transform[A]) {
+	if child.Parent == t && len(t.Children) > 0 {
+		for i, child := range t.Children {
+			if child == t {
+				t.Children = util.SliceRemoveAt(t.Children, i)
+				child.Parent = nil
+				break
+			}
+		}
 	}
 }
 
@@ -107,19 +117,26 @@ func (t *Transform[A]) updateLocal() {
 	}
 }
 
-var TRANSFORM2 = DefineComponent("transform2", Transform2f{})
-var TRANSFORM3 = DefineComponent("transform3", Transform3f{})
+var TRANSFORM2 = DefineComponent("transform2", Transform2f{dirty: transformDirtyLocal})
+var TRANSFORM3 = DefineComponent("transform3", Transform3f{dirty: transformDirtyLocal})
 
-type TransformSystem[A Attr[A]] struct{}
+type TransformSystem[A axe.Attr[A]] struct{}
 
-var _ EntityDataSystem[Transform2f] = &TransformSystem[Vec2f]{}
+var _ EntityDataSystem[Transform2f] = &TransformSystem[axe.Vec2f]{}
 
-func NewTransformSystem[A Attr[A]]() EntityDataSystem[Transform[A]] {
+func NewTransformSystem[A axe.Attr[A]]() EntityDataSystem[Transform[A]] {
 	return &TransformSystem[A]{}
 }
 
-func (sys *TransformSystem[A]) OnStage(e *Entity, data *Transform[A])  {}
-func (sys *TransformSystem[A]) OnAdd(e *Entity, data *Transform[A])    {}
+func (sys *TransformSystem[A]) OnStage(e *Entity, data *Transform[A]) {}
+func (sys *TransformSystem[A]) OnAdd(e *Entity, data *Transform[A]) {
+	if data.Local.columns == nil {
+		InitMatrix(data.Local)
+	}
+	if data.World.columns == nil {
+		InitMatrix(data.World)
+	}
+}
 func (sys *TransformSystem[A]) OnRemove(e *Entity, data *Transform[A]) {}
 func (sys *TransformSystem[A]) PreUpdate(game *Game) bool              { return true }
 func (sys *TransformSystem[A]) PostUpdate(game *Game)                  {}
@@ -146,3 +163,4 @@ type Mesh struct {
 }
 
 var MESH = DefineComponent("mesh", Mesh{})
+*/

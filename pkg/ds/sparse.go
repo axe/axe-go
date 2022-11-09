@@ -2,33 +2,35 @@ package ds
 
 type SparseList[T any] struct {
 	items []T
-	free  []int
+	free  Bits
 }
 
-func NewSparseList[T any](capacity int, freeCapacity int) *SparseList[T] {
-	list := new(SparseList[T])
-	list.items = make([]T, 0, capacity)
-	list.free = make([]int, 0, freeCapacity)
-
-	return list
+func NewSparseList[T any](capacity uint32) SparseList[T] {
+	return SparseList[T]{
+		items: make([]T, 0, capacity),
+		free:  NewBits(capacity + 1),
+	}
 }
 
-func (this *SparseList[T]) At(index int) *T {
+func (this *SparseList[T]) At(index uint32) *T {
 	return &this.items[index]
+}
+
+func (this *SparseList[T]) IsFree(index uint32) bool {
+	return this.free.Get(index)
 }
 
 // Returns a pointer and the index to a value in the list.
 // The value could be in any state since.
-func (this *SparseList[T]) Take() (*T, int) {
-	var index int
-	lastFree := len(this.free) - 1
-	if lastFree >= 0 {
-		index = this.free[lastFree]
-		this.free = this.free[:lastFree]
-	} else {
+func (this *SparseList[T]) Take() (*T, uint32) {
+	var index uint32
+	if this.free.IsEmpty() {
 		var value T
-		index = len(this.items)
+		index = uint32(len(this.items))
 		this.items = append(this.items, value)
+		this.free.EnsureMax(index)
+	} else {
+		index = uint32(this.free.TakeFirst())
 	}
 	return &this.items[index], index
 }
@@ -36,67 +38,93 @@ func (this *SparseList[T]) Take() (*T, int) {
 /**
  *
  */
-func (this *SparseList[T]) Add(value T) int {
+func (this *SparseList[T]) Add(value T) uint32 {
 	ref, index := this.Take()
 	*ref = value
 
 	return index
 }
 
-func (this *SparseList[T]) Free(index int) {
-	this.free = append(this.free, index)
+func (this *SparseList[T]) Free(index uint32) {
+	this.free.Set(index, true)
 }
 
 // Removes the value at the given index and replaces it with the value at the end of the list and returns
 // the index of that last item.
-func (this *SparseList[T]) Remove(index int) int {
-	replacedWith := len(this.items) - 1
+func (this *SparseList[T]) Remove(index uint32) uint32 {
+	replacedWith := uint32(len(this.items) - 1)
 	this.items[index] = this.items[replacedWith]
 	this.items = this.items[:replacedWith]
 	return replacedWith
 }
 
-func (this *SparseList[T]) Compress(moved func(newIndex int, oldIndex int, item *T)) {
-	if len(this.free) > 0 {
-		freeMap := this.FreeMap()
-
-		var newIndex int
-		for oi, item := range this.items {
-			oldIndex := oi
-			if _, exists := freeMap[oldIndex]; !exists {
+func (this *SparseList[T]) Compress(keepOrder bool, moved func(newIndex uint32, oldIndex uint32, item *T)) {
+	free := &this.free
+	if free.IsEmpty() {
+		return
+	}
+	items := this.items
+	if this.Size() == 0 {
+		if !free.IsEmpty() {
+			this.items = items[:0]
+			free.Clear()
+		}
+	} else if keepOrder {
+		var newIndex uint32
+		for itemIndex, item := range items {
+			oldIndex := uint32(itemIndex)
+			if !free.Get(oldIndex) {
 				if newIndex != oldIndex {
-					moved(newIndex, oldIndex, &item)
-					this.items[newIndex] = item
+					if moved != nil {
+						moved(newIndex, oldIndex, &item)
+					}
+					items[newIndex] = item
 				}
 				newIndex++
 			}
 		}
-		this.items = this.items[:newIndex]
-		this.free = this.free[:0]
+		this.items = items[:newIndex]
+		free.Clear()
+	} else {
+		newIndex := free.TakeFirst()
+		oldIndex := uint32(len(items) - 1)
+		for newIndex != -1 {
+			for free.Get(oldIndex) {
+				oldIndex--
+			}
+			if int32(oldIndex) == newIndex {
+				break
+			}
+			item := &items[oldIndex]
+			if moved != nil {
+				moved(uint32(newIndex), oldIndex, item)
+			}
+			items[newIndex] = *item
+
+			newIndex = free.TakeFirst()
+			oldIndex--
+		}
+		this.items = items[:oldIndex+1]
+		free.Clear()
 	}
 }
 
-func (this *SparseList[T]) FreeMap() map[int]struct{} {
-	freeMap := map[int]struct{}{}
-	for _, index := range this.free {
-		freeMap[index] = struct{}{}
-	}
-	return freeMap
-}
-
-func (this *SparseList[T]) Iterate(handle func(item *T, index int, liveIndex int)) {
-	if len(this.free) == 0 {
+func (this *SparseList[T]) Iterate(handle func(item *T, index uint32, liveIndex uint32) bool) {
+	free := this.free
+	if free.IsEmpty() {
 		for i := range this.items {
-			index := i
-			handle(&this.items[index], index, index)
+			index := uint32(i)
+			if !handle(&this.items[index], index, index) {
+				break
+			}
 		}
 	} else {
-		freeMap := this.FreeMap()
-		liveIndex := 0
+		liveIndex := uint32(0)
 		for i := range this.items {
-			index := i
-			if _, exists := freeMap[index]; !exists {
-				handle(&this.items[index], index, liveIndex)
+			if !free.Get(uint32(i)) {
+				if !handle(&this.items[i], uint32(i), liveIndex) {
+					break
+				}
 				liveIndex++
 			}
 		}
@@ -105,24 +133,26 @@ func (this *SparseList[T]) Iterate(handle func(item *T, index int, liveIndex int
 
 func (this *SparseList[T]) Pointers() []*T {
 	slice := make([]*T, 0, this.Size())
-	this.Iterate(func(item *T, _ int, _ int) {
+	this.Iterate(func(item *T, _ uint32, _ uint32) bool {
 		slice = append(slice, item)
+		return true
 	})
 	return slice
 }
 
 func (this *SparseList[T]) Values() []T {
 	slice := make([]T, 0, this.Size())
-	this.Iterate(func(item *T, _ int, _ int) {
+	this.Iterate(func(item *T, _ uint32, _ uint32) bool {
 		slice = append(slice, *item)
+		return true
 	})
 	return slice
 }
 
-func (this *SparseList[T]) Size() int {
-	return len(this.items) - len(this.free)
+func (this *SparseList[T]) Size() uint32 {
+	return uint32(len(this.items)) - this.free.Ons()
 }
 
-func (this *SparseList[T]) Remaining() int {
-	return cap(this.items) - len(this.items) + len(this.free)
+func (this *SparseList[T]) Remaining() uint32 {
+	return uint32(cap(this.items)-len(this.items)) + this.free.Ons()
 }

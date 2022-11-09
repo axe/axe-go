@@ -102,7 +102,7 @@ func (a Asset) IsValid() bool {
 
 func (a *Asset) Load() error {
 	if !a.IsValid() {
-		return fmt.Errorf("Asset %s (%s) must have a source and loader to be loaded.", a.Ref.Name, a.Ref.URI)
+		return fmt.Errorf("Asset %s (%s) must have a source and loader to be loaded", a.Ref.Name, a.Ref.URI)
 	}
 	if err := a.LoadReader(); err != nil {
 		return err
@@ -118,7 +118,7 @@ func (a *Asset) LoadReader() error {
 		return nil
 	}
 	if a.Source == nil {
-		return fmt.Errorf("Asset %s (%s) must have a source to be loaded.", a.Ref.Name, a.Ref.URI)
+		return fmt.Errorf("Asset %s (%s) must have a source to be loaded", a.Ref.Name, a.Ref.URI)
 	}
 	reader, err := a.Source.Read(a.Ref)
 	if err != nil {
@@ -133,7 +133,7 @@ func (a *Asset) LoadData() error {
 		return nil
 	}
 	if a.Format == nil || a.SourceReader == nil {
-		return fmt.Errorf("Asset %s (%s) must have a loader and source to be loaded.", a.Ref.Name, a.Ref.URI)
+		return fmt.Errorf("Asset %s (%s) must have a loader and source to be loaded", a.Ref.Name, a.Ref.URI)
 	}
 	return a.Format.Load(a)
 }
@@ -177,7 +177,7 @@ func NewAssetSystem() AssetSystem {
 func (assets *AssetSystem) AddLoader(loader AssetFormat) {
 	assets.Formats = append(assets.Formats, loader)
 	types := loader.Types()
-	if types != nil && len(types) > 0 {
+	if len(types) > 0 {
 		for _, t := range types {
 			assets.FormatMap[t] = loader
 		}
@@ -218,7 +218,7 @@ func (assets *AssetSystem) Add(ref AssetRef) *Asset {
 
 func (assets *AssetSystem) AddMany(refs []AssetRef) []*Asset {
 	many := make([]*Asset, len(refs))
-	if refs != nil {
+	if len(refs) > 0 {
 		for i, ref := range refs {
 			many[i] = assets.Add(ref)
 		}
@@ -261,7 +261,7 @@ func (assets *AssetSystem) Get(name string) *Asset {
 type LocalAssetSource struct{}
 
 var _ AssetSource = &LocalAssetSource{}
-var localAssetSourceRegex, _ = regexp.Compile("^(/|\\./|[a-zA-Z]:)")
+var localAssetSourceRegex, _ = regexp.Compile(`^(/|\./|[a-zA-Z]:)`)
 
 func (local *LocalAssetSource) Handles(ref AssetRef) bool {
 	return localAssetSourceRegex.MatchString(ref.URI)

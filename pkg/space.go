@@ -1,12 +1,16 @@
 package axe
 
-import "github.com/axe/axe-go/pkg/ecs"
+import (
+	"github.com/axe/axe-go/pkg/util"
+)
+
+type SpaceFlags uint64
 
 type SpaceComponent[A Attr[A]] struct {
 	Shape          Shape[A]
 	Offset         A
 	WorldTransform *Matrix[A]
-	Flags          uint64
+	Flags          SpaceFlags
 	Static         bool
 	Inert          bool
 }
@@ -16,8 +20,7 @@ type SpaceQuery[A Attr[A]] struct {
 	End     A
 	Shape   Shape[A]
 	Maximum int
-	Flags   uint64
-	Match   ecs.FlagMatch
+	Flags   util.Match[SpaceFlags]
 }
 
 type SpaceNearest[E any] struct {
@@ -31,7 +34,7 @@ type SpaceCollisionCallback[E any] func(subject E, otherSubject E, overlap float
 
 type Space[A Attr[A], E any] interface {
 	GameSystem
-	Collisions(flags uint32, match ecs.FlagMatch, callback SpaceCollisionCallback[E])
+	Collisions(flags util.Match[SpaceFlags], callback SpaceCollisionCallback[E])
 	Intersects(query SpaceQuery[A], callback SpaceSearchCallback[A, E]) int
 	Contains(query SpaceQuery[A], callback SpaceSearchCallback[A, E]) int
 	Raytrace(query SpaceQuery[A], callback SpaceSearchCallback[A, E]) int

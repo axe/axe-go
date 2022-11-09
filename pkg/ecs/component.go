@@ -1,84 +1,166 @@
 package ecs
 
-import "github.com/axe/axe-go/pkg/ds"
+import (
+	"fmt"
+	"reflect"
+)
 
 type BaseComponent interface {
-	Id() uint8
-	Name() string
-	Has(entity *Entity) bool
+	ID() uint8
+	GetName() string
 
-	free(index int)
-	add(entity *Entity)
+	getComponentInstance(w *World, e *Entity, create bool) any
+}
+
+func get[T any](e *Entity, create bool) *T {
+	world := ActiveWorld()
+	var empty T
+	source := world.sourceByType[reflect.TypeOf(empty)]
+	if source == nil {
+		return nil
+	}
+	value := source.getComponentInstance(world, e, create)
+	return value.(*T)
+}
+
+func Get[T any](e *Entity) *T {
+	return get[T](e, false)
+}
+
+func Add[T any](e *Entity) *T {
+	return get[T](e, true)
+}
+
+func Set[T any](e *Entity, value T) bool {
+	ptr := get[T](e, true)
+	if ptr != nil {
+		*ptr = value
+		return true
+	}
+	return false
 }
 
 type Component[T any] struct {
-	id        uint8
-	name      string
-	instances *ds.SparseList[T]
+	Name    string
+	Initial T
+
+	id         uint8
+	components ComponentSet
 }
 
-func (this *Component[T]) Id() uint8 {
-	return this.id
+var nextComponentId uint8
+
+func DefineComponent[T any](name string, initial T) *Component[T] {
+	id := nextComponentId
+	nextComponentId++
+
+	return &Component[T]{
+		id:         id,
+		components: ComponentSet(uint64(1) << id),
+		Name:       name,
+		Initial:    initial,
+	}
 }
 
-func (this *Component[T]) Name() string {
-	return this.name
+var _ BaseComponent = &Component[int]{}
+var _ DataSource = &Component[int]{}
+
+func (c Component[T]) ID() uint8 {
+	return c.id
 }
 
-func (this *Component[T]) free(index int) {
-	this.instances.Free(index)
+func (c Component[T]) GetName() string {
+	return c.Name
 }
 
-func (this *Component[T]) add(entity *Entity) {
-	var value T
-	this.Set(entity, value)
+func (c Component[T]) Components() ComponentSet {
+	return c.components
 }
 
-func (this *Component[T]) Get(entity *Entity) *T {
-	if this.Has(entity) {
-		return this.instances.At(entity.components[this.id])
+func (c Component[T]) AddSystem(system DataSystem[T]) {
+	datas := ActiveWorld().componentDatas[c.id]
+	if len(datas) == 0 {
+		panic(fmt.Sprintf("Error adding system to %s, you must add components to the world before systems.", c.Name))
+	}
+	for _, data := range datas {
+		data.addComponentSystem(c.id, dataSystemAny[T]{inner: system})
+	}
+}
+
+func (c *Component[T]) Enable() {
+	ActiveWorld().Enable(c)
+}
+
+func (c Component[T]) Get(e *Entity) *T {
+	return c.get(ActiveWorld(), e, false)
+}
+
+func (c Component[T]) Add(e *Entity) *T {
+	return c.get(ActiveWorld(), e, true)
+}
+
+func (c Component[T]) Set(e *Entity, value T) {
+	ptr := c.get(ActiveWorld(), e, true)
+	*ptr = value
+}
+
+func (c Component[T]) getComponentInstance(w *World, e *Entity, create bool) any {
+	return c.get(w, e, create)
+}
+
+func (c Component[T]) get(w *World, e *Entity, create bool) *T {
+	if e.components.Has(c.id) {
+		return c.getLive(w, e)
+	} else if e.staging.Has(c.id) {
+		return c.getStaging(w, e)
+	} else if create {
+		return c.addStaging(w, e)
 	}
 	return nil
 }
 
-func (this *Component[T]) Has(entity *Entity) bool {
-	return (entity.has & (1 << this.id)) != 0
-}
-
-func (this *Component[T]) Set(entity *Entity, value T) bool {
-	if this.Has(entity) {
-		ref := this.instances.At(entity.components[this.id])
-		*ref = value
-
-		return true
-	} else {
-		if len(entity.components) <= int(this.id) {
-			entity.components = entity.components[:(this.id + 1)]
+func (c Component[T]) getLive(w *World, e *Entity) *T {
+	for i := range e.links {
+		link := e.links[i]
+		if link.staged {
+			continue
 		}
-		entity.components[this.id] = this.instances.Add(value)
-		entity.has |= (1 << this.id)
-
-		return false
+		data := w.data[link.dataID]
+		if data.getComponents().Has(c.id) {
+			return data.get(c.id, link).(*T)
+		}
 	}
+	return nil
 }
 
-func (this *Component[T]) Remove(entity *Entity) bool {
-	if this.Has(entity) {
-		this.instances.Free(entity.components[this.id])
-		entity.has &= ^(1 << this.id)
-		return true
-	} else {
-		return false
-	}
+func (c Component[T]) getStaging(w *World, e *Entity) *T {
+	data := w.staging[c.id]
+	link := e.linkFor(c.id, true)
+
+	return data.get(c.id, link).(*T)
 }
 
-func DefineComponent[T any](world *World, name string) *Component[T] {
-	component := new(Component[T])
-	component.id = uint8(len(world.components))
-	component.name = name
-	component.instances = ds.NewSparseList[T](world.componentInstanceSize, world.componentFreeSize)
+func (c Component[T]) addStaging(w *World, e *Entity) *T {
+	data := w.staging[c.id]
+	e.links = append(e.links, dataLink{staged: true})
+	e.staging.Set(c.id)
+	link := &e.links[len(e.links)-1]
+	data.add(w.ctx, e, link)
+	value := data.get(c.id, *link).(*T)
 
-	world.components = append(world.components, component)
+	for _, data := range w.componentDatas[c.id] {
+		data.onStage(w.ctx, e, value)
+	}
 
-	return component
+	return value
+}
+
+func (c Component[T]) createStorage(capacity uint32, freeCapacity uint32) storage {
+	getters := make([]DataGetter[T], c.id+1)
+	getters[c.id] = func(data *T) any {
+		return data
+	}
+
+	data := newStore(capacity, freeCapacity, c.Initial, c.components, getters)
+	return &data
 }
