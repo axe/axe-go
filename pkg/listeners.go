@@ -6,7 +6,7 @@ type ListenerEntry[L any] struct {
 	id        int
 }
 
-func (entry ListenerEntry[L]) Off() {
+func (entry *ListenerEntry[L]) Off() {
 	entry.remaining = 0
 }
 
@@ -42,9 +42,11 @@ func NewListeners[L any]() *Listeners[L] {
 func (l *Listeners[L]) Once(listener L) ListenerOff {
 	return l.OnCount(listener, 1)
 }
+
 func (l *Listeners[L]) On(listener L) ListenerOff {
 	return l.OnCount(listener, -1)
 }
+
 func (l *Listeners[L]) OnCount(listener L, count int) ListenerOff {
 	entry := ListenerEntry[L]{
 		listener:  listener,

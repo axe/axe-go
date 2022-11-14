@@ -34,6 +34,7 @@ type SpaceCollisionCallback[E any] func(subject E, otherSubject E, overlap float
 
 type Space[A Attr[A], E any] interface {
 	GameSystem
+
 	Collisions(flags util.Match[SpaceFlags], callback SpaceCollisionCallback[E])
 	Intersects(query SpaceQuery[A], callback SpaceSearchCallback[A, E]) int
 	Contains(query SpaceQuery[A], callback SpaceSearchCallback[A, E]) int

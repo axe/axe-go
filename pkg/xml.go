@@ -8,20 +8,23 @@ import (
 )
 
 type XmlGenericAssetLoader struct{}
+
 type XmlNode struct {
 	Token    xml.Token
 	Children []*XmlNode
 }
 
 var _ AssetFormat = &XmlGenericAssetLoader{}
-var xmlGenericAssetLoaderRegex, _ = regexp.Compile("\\.xml$")
+var xmlGenericAssetLoaderRegex, _ = regexp.Compile(`\.xml$`)
 
 func (loader *XmlGenericAssetLoader) Handles(ref AssetRef) bool {
 	return xmlGenericAssetLoaderRegex.MatchString(ref.URI)
 }
+
 func (loader *XmlGenericAssetLoader) Types() []AssetType {
 	return []AssetType{AssetTypeXml}
 }
+
 func (loader *XmlGenericAssetLoader) Load(asset *Asset) error {
 	decoder := xml.NewDecoder(asset.SourceReader)
 
@@ -64,15 +67,18 @@ func (loader *XmlGenericAssetLoader) Load(asset *Asset) error {
 
 	return nil
 }
+
 func (loader *XmlGenericAssetLoader) Unload(asset *Asset) error {
 	asset.LoadStatus.Reset()
 	asset.Data = nil
 	return nil
 }
+
 func (loader *XmlGenericAssetLoader) Activate(asset *Asset) error {
 	asset.ActivateStatus.Success()
 	return nil
 }
+
 func (loader *XmlGenericAssetLoader) Deactivate(asset *Asset) error {
 	asset.ActivateStatus.Reset()
 	return nil
@@ -103,9 +109,11 @@ func (loader *XmlAssetLoader[T]) Handles(ref AssetRef) bool {
 	}
 	return false
 }
+
 func (loader *XmlAssetLoader[T]) Types() []AssetType {
 	return loader.CustomTypes
 }
+
 func (loader *XmlAssetLoader[T]) Load(asset *Asset) error {
 	copy := loader.EmptyValue
 	decoder := xml.NewDecoder(asset.SourceReader)
@@ -119,15 +127,18 @@ func (loader *XmlAssetLoader[T]) Load(asset *Asset) error {
 	}
 	return err
 }
+
 func (loader *XmlAssetLoader[T]) Unload(asset *Asset) error {
 	asset.LoadStatus.Reset()
 	asset.Data = nil
 	return nil
 }
+
 func (loader *XmlAssetLoader[T]) Activate(asset *Asset) error {
 	asset.ActivateStatus.Success()
 	return nil
 }
+
 func (loader *XmlAssetLoader[T]) Deactivate(asset *Asset) error {
 	asset.ActivateStatus.Reset()
 	return nil

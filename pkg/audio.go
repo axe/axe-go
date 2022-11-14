@@ -83,9 +83,9 @@ type AudioVirtualOp string
 
 const (
 	AudioVirtualOpStop    AudioVirtualOp = "stop"    // when going virtual, stop and ignore the audio
-	AudioVirtualOpRestart                = "restart" // when coming back from virtual, restart from start
-	AudioVirtualOpPause                  = "pause"   // when going virtual remember place in audio, and when coming back from virtual start at that place
-	AudioVirtualOpPlay                   = "play"    // when going virtual remember place in audio and when it comes out of virtual play as if we could hear it the whole time
+	AudioVirtualOpRestart AudioVirtualOp = "restart" // when coming back from virtual, restart from start
+	AudioVirtualOpPause   AudioVirtualOp = "pause"   // when going virtual remember place in audio, and when coming back from virtual start at that place
+	AudioVirtualOpPlay    AudioVirtualOp = "play"    // when going virtual remember place in audio and when it comes out of virtual play as if we could hear it the whole time
 )
 
 type AudioSettings struct {

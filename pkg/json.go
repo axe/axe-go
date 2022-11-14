@@ -29,14 +29,16 @@ type JsonValue struct {
 }
 
 var _ AssetFormat = &JsonGenericAssetLoader{}
-var jsonGenericAssetLoaderRegex, _ = regexp.Compile("\\.json$")
+var jsonGenericAssetLoaderRegex, _ = regexp.Compile(`\.json$`)
 
 func (loader *JsonGenericAssetLoader) Handles(ref AssetRef) bool {
-	return xmlGenericAssetLoaderRegex.MatchString(ref.URI)
+	return jsonGenericAssetLoaderRegex.MatchString(ref.URI)
 }
+
 func (loader *JsonGenericAssetLoader) Types() []AssetType {
 	return []AssetType{AssetTypeJson}
 }
+
 func (loader *JsonGenericAssetLoader) Load(asset *Asset) error {
 	decoder := json.NewDecoder(asset.SourceReader)
 

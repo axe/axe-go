@@ -8,4 +8,4 @@ require (
 	golang.org/x/exp v0.0.0-20221031165847-c99f073a8326
 )
 
-require github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6 // indirect
+require github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6
