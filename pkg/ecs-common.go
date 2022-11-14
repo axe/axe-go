@@ -1,4 +1,4 @@
-package ecs
+package axe
 
 import (
 	"reflect"
@@ -12,7 +12,7 @@ func get[T any](e *Entity, create bool) *T {
 	if datasBase == nil {
 		return nil
 	}
-	datas := datasBase.(*Data[T])
+	datas := datasBase.(*EntityData[T])
 	return datas.get(e, create)
 }
 
@@ -33,18 +33,18 @@ func Set[T any](e *Entity, value T) bool {
 	return false
 }
 
-func DefineComponent[C any](name string, initial C) *Data[C] {
-	return newData(name, initial)
+func DefineComponent[C any](name string, initial C) *EntityData[C] {
+	return newEntityData(name, initial)
 }
 
-func DefineType[T any](name string, initial T, with func(t *Data[T])) *Data[T] {
-	data := newData(name, initial)
+func DefineType[T any](name string, initial T, with func(t *EntityData[T])) *EntityData[T] {
+	data := newEntityData(name, initial)
 	with(data)
 	return data
 }
 
-func DefineTypeComponent[T any, C any](t *Data[T], c *Data[C], get func(data *T) *C) {
-	t.values[c.id] = &dataValue[T, C]{
+func DefineTypeComponent[T any, C any](t *EntityData[T], c *EntityData[C], get func(data *T) *C) {
+	t.values[c.id] = &entityDataValue[T, C]{
 		dataId:  t.id,
 		valueID: c.id,
 		get:     get,

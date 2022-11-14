@@ -14,10 +14,6 @@ const (
 	ProjectionOutsideRelative
 )
 
-type World interface {
-	GameSystem
-}
-
 type Scene[A Attr[A]] struct {
 	Name  string
 	Jobs  *job.JobRunner
@@ -38,11 +34,9 @@ func (scene *Scene[A]) Init(game *Game) error {
 	if scene.Load != nil {
 		scene.Load(scene, game)
 	}
-	if scene.World != nil {
-		err := scene.World.Init(game)
-		if err != nil {
-			return err
-		}
+	err := scene.World.Init(game)
+	if err != nil {
+		return err
 	}
 	if scene.Space != nil {
 		err := scene.Space.Init(game)
@@ -55,18 +49,14 @@ func (scene *Scene[A]) Init(game *Game) error {
 
 func (scene *Scene[A]) Update(game *Game) {
 	scene.Jobs.Run()
-	if scene.World != nil {
-		scene.World.Update(game)
-	}
+	scene.World.Update(game)
 	if scene.Space != nil {
 		scene.Space.Update(game)
 	}
 }
 
 func (scene *Scene[A]) Destroy() {
-	if scene.World != nil {
-		scene.World.Destroy()
-	}
+	scene.World.Destroy()
 	if scene.Space != nil {
 		scene.Space.Destroy()
 	}

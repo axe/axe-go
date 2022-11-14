@@ -1,54 +1,62 @@
-package ecs
+package axe
 
 import "github.com/axe/axe-go/pkg/util"
 
-type Tree struct {
+type EntityTree struct {
 	entity   *Entity
 	parent   *Entity
 	children []*Entity
-	getTree  func(e *Entity) *Tree
+	getTree  func(e *Entity) *EntityTree
 }
 
-func NewTree(e *Entity, getTree func(e *Entity) *Tree) Tree {
-	return Tree{
+func NewEntityTree(e *Entity, getTree func(e *Entity) *EntityTree) EntityTree {
+	return EntityTree{
 		entity:  e,
 		getTree: getTree,
 	}
 }
 
-func (t *Tree) Entity() *Entity {
+func (t *EntityTree) Entity() *Entity {
 	return t.entity
 }
 
-func (t *Tree) Parent() *Entity {
+func (t *EntityTree) Parent() *Entity {
 	return t.parent
 }
 
-func (t *Tree) Children() []*Entity {
+func (t *EntityTree) Children() []*Entity {
 	return t.children
 }
 
-func (t *Tree) SetParent(parent *Entity) {
+func (t *EntityTree) SetParent(parent *Entity) {
 	parentTree := t.getTree(t.parent)
 	setParent(t, parentTree)
 }
 
-func (t *Tree) AddChild(child *Entity) {
+func (t *EntityTree) SetParentTree(parent *EntityTree) {
+	setParent(t, parent)
+}
+
+func (t *EntityTree) AddChildTree(child *EntityTree) {
+	setParent(child, t)
+}
+
+func (t *EntityTree) AddChild(child *Entity) {
 	childTree := t.getTree(child)
 	setParent(childTree, t)
 }
 
-func (t *Tree) RemoveChild(child *Entity) {
+func (t *EntityTree) RemoveChild(child *Entity) {
 	childTree := t.getTree(child)
 	setParent(childTree, nil)
 }
 
-func (t *Tree) Delete() {
+func (t *EntityTree) Delete() {
 	t.entity.Delete()
 	t.DeleteChildren()
 }
 
-func (t *Tree) DeleteChildren() {
+func (t *EntityTree) DeleteChildren() {
 	if t.children != nil {
 		for _, child := range t.children {
 			childTree := t.getTree(child)
@@ -57,7 +65,7 @@ func (t *Tree) DeleteChildren() {
 	}
 }
 
-func setParent(tree *Tree, parent *Tree) {
+func setParent(tree *EntityTree, parent *EntityTree) {
 	if tree.parent != nil {
 		parent.children = util.SliceRemove(parent.children, tree.entity)
 	}

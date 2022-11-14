@@ -120,32 +120,6 @@ func (t *Transform[A]) updateLocal() {
 var TRANSFORM2 = DefineComponent("transform2", Transform2f{dirty: transformDirtyLocal})
 var TRANSFORM3 = DefineComponent("transform3", Transform3f{dirty: transformDirtyLocal})
 
-type TransformSystem[A axe.Attr[A]] struct{}
-
-var _ EntityDataSystem[Transform2f] = &TransformSystem[axe.Vec2f]{}
-
-func NewTransformSystem[A axe.Attr[A]]() EntityDataSystem[Transform[A]] {
-	return &TransformSystem[A]{}
-}
-
-func (sys *TransformSystem[A]) OnStage(e *Entity, data *Transform[A]) {}
-func (sys *TransformSystem[A]) OnAdd(e *Entity, data *Transform[A]) {
-	if data.Local.columns == nil {
-		InitMatrix(data.Local)
-	}
-	if data.World.columns == nil {
-		InitMatrix(data.World)
-	}
-}
-func (sys *TransformSystem[A]) OnRemove(e *Entity, data *Transform[A]) {}
-func (sys *TransformSystem[A]) PreUpdate(game *Game) bool              { return true }
-func (sys *TransformSystem[A]) PostUpdate(game *Game)                  {}
-func (sys *TransformSystem[A]) Update(game *Game, e *Entity, data *Transform[A]) bool {
-	if data.Parent == nil {
-		data.Update(false)
-	}
-	return true
-}
 
 // MESH
 

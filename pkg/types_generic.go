@@ -1,7 +1,6 @@
 package axe
 
-import "reflect"
-
+/*
 type Named interface {
 	GetName() string
 }
@@ -202,3 +201,4 @@ func Set[S any](source *S, path []string, value any) (any, IGameType) {
 
 	return t.Set(&a, path, value)
 }
+*/

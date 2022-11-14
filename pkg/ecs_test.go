@@ -1,4 +1,4 @@
-package ecs
+package axe
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 var testTransform = DefineComponent("transform", testComponentTransform{})
 var testMesh = DefineComponent("mesh", testComponentMesh{})
 var testSpatial = DefineComponent("spatial", testComponentSpatial{})
-var testTransformSpatial = DefineType("transform-spatial", testTypeTransformSpatial{}, func(t *Data[testTypeTransformSpatial]) {
+var testTransformSpatial = DefineType("transform-spatial", testTypeTransformSpatial{}, func(t *EntityData[testTypeTransformSpatial]) {
 	DefineTypeComponent(t, testTransform, func(data *testTypeTransformSpatial) *testComponentTransform { return &data.Transform })
 	DefineTypeComponent(t, testSpatial, func(data *testTypeTransformSpatial) *testComponentSpatial { return &data.Spatial })
 })
@@ -65,15 +65,15 @@ func (t *testComponentTransform) Update() {
 
 type testSystemTransform struct{}
 
-var _ System[testComponentTransform] = &testSystemTransform{}
+var _ EntityDataSystem[testComponentTransform] = &testSystemTransform{}
 
-func (sys *testSystemTransform) OnStage(data *testComponentTransform, e *Entity, ctx SystemContext) {}
-func (sys *testSystemTransform) OnLive(data *testComponentTransform, e *Entity, ctx SystemContext)  {}
-func (sys *testSystemTransform) OnRemove(data *testComponentTransform, e *Entity, ctx SystemContext) {
+func (sys *testSystemTransform) OnStage(data *testComponentTransform, e *Entity, ctx EntityContext) {}
+func (sys *testSystemTransform) OnLive(data *testComponentTransform, e *Entity, ctx EntityContext)  {}
+func (sys *testSystemTransform) OnRemove(data *testComponentTransform, e *Entity, ctx EntityContext) {
 }
-func (sys *testSystemTransform) Init(ctx SystemContext) error { return nil }
-func (sys *testSystemTransform) Destroy(ctx SystemContext)    {}
-func (sys *testSystemTransform) Update(iter ds.Iterable[EntityData[*testComponentTransform]], ctx SystemContext) {
+func (sys *testSystemTransform) Init(ctx EntityContext) error { return nil }
+func (sys *testSystemTransform) Destroy(ctx EntityContext)    {}
+func (sys *testSystemTransform) Update(iter ds.Iterable[EntityValue[*testComponentTransform]], ctx EntityContext) {
 	i := iter.Iterator()
 	for i.HasNext() {
 		t := i.Next()
@@ -101,7 +101,7 @@ var testSettings = WorldSettings{
 	EntityStageCapacity:       8,
 	AverageComponentPerEntity: 3,
 }
-var testDataSettings = DataSettings{
+var testDataSettings = EntityDataSettings{
 	Capacity:      16,
 	StageCapacity: 8,
 }

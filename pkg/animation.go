@@ -1,14 +1,12 @@
 package axe
 
-type Calculator[T Attr[*T]] interface {
-	Add(a T, b T, out *T)
-}
-
 type Path[T Attr[T]] interface {
 	Set(out *T, delta float32)
 	PointCount() int
 	Point(index int) T
 }
+
+// Tween
 
 type Tween[T Attr[T]] struct {
 	Start T
@@ -31,4 +29,20 @@ func (path Tween[T]) Point(index int) T {
 		var empty T
 		return empty
 	}
+}
+
+// Point
+
+type PathPoint[T Attr[T]] struct {
+	Value T
+}
+
+var _ Path[Vec2f] = &PathPoint[Vec2f]{}
+
+func (path PathPoint[T]) Set(out *T, delta float32) {
+	path.Value.Set(out)
+}
+func (path PathPoint[T]) PointCount() int { return 1 }
+func (path PathPoint[T]) Point(index int) T {
+	return path.Value
 }
