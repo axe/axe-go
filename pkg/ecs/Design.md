@@ -10,3 +10,19 @@ Features:
 - Component system can iterate through component instances on update.
 - Entity system can iterate through entity instances on update.
 - Systems define which components they care about, so when it comes to processing all systems we can decipher which ones we need to run first and which we can run in parallel. Component systems that are marked isolated can be processed in parallel first. After that non-intersecting groups are formed and executed in parallel until all systems are handled. Or the world can be marked synchronous meaning no parallel logic is ran. Systems can also be given a priority which is respected above the parallel logic.
+
+
+
+
+
+World
+  Component[C]
+  Type[T]
+    TypeComponent[T,C]
+      get(t) c
+  DataStorage[D]
+
+  Data[D]
+
+
+

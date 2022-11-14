@@ -4,21 +4,13 @@ import (
 	"testing"
 )
 
-func initBits(on []uint32) Bits {
-	b := NewBits(on[len(on)-1] + 1)
-	for _, onIndex := range on {
-		b.Set(onIndex, true)
-	}
-	return b
-}
-
 func TestSparseList(t *testing.T) {
 
 	type ListBuilder func(list *SparseList[string])
 
 	type Expected struct {
 		items []string
-		free  Bits
+		free  Bits[uint32]
 	}
 
 	tests := []struct {
@@ -35,7 +27,7 @@ func TestSparseList(t *testing.T) {
 			},
 			Expected{
 				[]string{"1", "3", "5"},
-				NewBits(0),
+				NewBits[uint32](0),
 			},
 		},
 		{
@@ -49,7 +41,7 @@ func TestSparseList(t *testing.T) {
 			},
 			Expected{
 				[]string{"1", "7", "5"},
-				NewBits(0),
+				NewBits[uint32](0),
 			},
 		},
 		{
@@ -78,7 +70,7 @@ func TestSparseList(t *testing.T) {
 			},
 			Expected{
 				[]string{"1", "3", "7"},
-				NewBits(0),
+				NewBits[uint32](0),
 			},
 		},
 		{
@@ -107,7 +99,7 @@ func TestSparseList(t *testing.T) {
 			},
 			Expected{
 				[]string{"1", "5"},
-				NewBits(0),
+				NewBits[uint32](0),
 			},
 		},
 		{

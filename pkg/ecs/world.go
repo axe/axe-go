@@ -10,79 +10,78 @@ import (
 )
 
 type WorldSettings struct {
-	MaxEntityInstances   uint32
-	MaxDestroysPerUpdate uint32
-	MaxNewPerUpdate      uint32
-	RestructureOnChange  bool
+	EntityCapacity            uint32
+	EntityStageCapacity       uint32
+	AverageComponentPerEntity uint32
+	DeleteOnDestroy           bool
 }
 
-const MAX_DATA = 64
+type WorldSearch struct {
+	Match               util.Match[DataIDs]
+	IncludeStagedValues bool
+	IncludeStaged       bool
+}
+
+func (search WorldSearch) IsMatch(e *Entity) bool {
+	if !e.Live() && !search.IncludeStaged {
+		return false
+	}
+	if search.Match == nil {
+		return true
+	}
+	values := e.LiveValues()
+	if search.IncludeStagedValues {
+		values |= e.StagingValues()
+	}
+	return search.Match(values)
+}
 
 type World struct {
-	// Settings for the data in this world.
-	DataSettings WorldSettings
-	// List of entities in this world.
-	Entity ds.SparseList[Entity]
-	// Stack of staged entities.
-	staged ds.Stack[*Entity]
-	// All data storage, where the index is the generated dataId.
-	data []storage
-	// All staging components, where the index is the component id.
-	staging []storage
-	// Component storage, indexed by component id.
-	componentToData []storage
-	// Component storage list, in order of being added to the world.
-	componentStores []storage
-	// Stores by component id that contain the component.
-	componentDatas [][]storage
-	// Type storage, indexed by type id.
-	typeToData []storage
-	// Type storage list, in order of being added to the world.
-	typeStores []storage
-	// ecs.Get[Transform](e)
-	sourceByType map[reflect.Type]DataSource
-	// All global entity systems.
-	systems []System
-	// The cached system context for this world.
-	ctx SystemContext
+	Settings WorldSettings
+	Name     string
+
+	ctx               SystemContext
+	datas             [DATA_MAX]worldDataStore // []worldDatas[D]
+	datasSorted       []DataID
+	datasBase         [DATA_MAX]DataBase
+	values            [DATA_MAX]worldValueStore // []worldValues[V]
+	valuesSorted      []worldValueStore
+	arrangements      []arrangement
+	arrangementMap    map[DataIDs]*arrangement
+	entity            ds.SparseList[Entity]
+	staging           ds.Stack[*Entity]
+	stagingComponents ds.Stack[*Entity]
+	typeMap           map[reflect.Type]DataID
+	systems           []EntitySystem
 }
 
 var _ axe.GameSystem = &World{}
 
-type WorldSearch struct {
-	Match                   util.Match[ComponentSet]
-	IncludeStagedComponents bool
-	IncludeStaged           bool
-}
-
-func NewWorld(settings WorldSettings) *World {
+func NewWorld(name string, settings WorldSettings) *World {
 	world := &World{
-		DataSettings:    settings,
-		Entity:          ds.NewSparseList[Entity](settings.MaxEntityInstances),
-		staged:          ds.NewStack[*Entity](settings.MaxNewPerUpdate),
-		data:            make([]storage, 0, MAX_DATA),
-		staging:         make([]storage, MAX_DATA),
-		componentToData: make([]storage, MAX_DATA),
-		typeToData:      make([]storage, MAX_DATA),
-		typeStores:      make([]storage, 0, MAX_DATA),
-		componentDatas:  make([][]storage, MAX_DATA),
-		componentStores: make([]storage, 0, MAX_DATA),
-		sourceByType:    make(map[reflect.Type]DataSource, MAX_DATA),
-		systems:         make([]System, 0),
+		Name:     name,
+		Settings: settings,
+
+		datasSorted:       make([]DataID, 0),
+		valuesSorted:      make([]worldValueStore, 0),
+		arrangements:      make([]arrangement, 0),
+		arrangementMap:    make(map[DataIDs]*arrangement),
+		entity:            ds.NewSparseList[Entity](settings.EntityCapacity),
+		staging:           ds.NewStack[*Entity](settings.EntityStageCapacity),
+		stagingComponents: ds.NewStack[*Entity](settings.EntityStageCapacity),
+		typeMap:           make(map[reflect.Type]DataID),
+		systems:           make([]EntitySystem, 0),
 	}
 
 	world.ctx.World = world
 	activeWorld = world
-
 	return world
 }
 
 var activeWorld *World
 
 func ActiveWorld() *World {
-	if activeWorld == nil {
-		panic("There is no active world, you must create one or activate one")
-	}
+	util.Assert(activeWorld != nil, "There is no active world, you must create one or activate one")
 	return activeWorld
 }
 
@@ -94,136 +93,87 @@ func (w *World) Activate() {
 	activeWorld = w
 }
 
-func (w *World) Init(game *axe.Game) error {
-	w.Activate()
-
-	w.ctx.Game = game
-
-	for _, sys := range w.systems {
-		err := sys.Init(w.ctx)
-		if err != nil {
-			return err
+func (w *World) getArrangement(values DataIDs) *arrangement {
+	if arrangement, ok := w.arrangementMap[values]; ok {
+		return arrangement
+	}
+	id := ArrangementID(len(w.arrangements))
+	pairs := make([]dataValuePair, values.LastOn()+1)
+	remaining := values
+	offsetIndex := uint8(0)
+	datasChosen := DataIDs(0)
+	datasOrdered := make([]DataID, 0)
+	for _, dataID := range w.datasSorted {
+		data := w.datas[dataID]
+		if data == nil {
+			continue
 		}
-	}
+		dataValues := data.getValueIDs()
+		if remaining.All(dataValues) {
+			remaining.Flip(dataValues)
+			datasChosen.Set(dataID, true)
 
-	for _, data := range w.data {
-		err := data.init(w.ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (w *World) Destroy() {
-	w.Activate()
-
-	for _, sys := range w.systems {
-		sys.Destroy(w.ctx)
-	}
-
-	for _, data := range w.data {
-		data.destroy(w.ctx)
-	}
-
-	if w.IsActive() {
-		activeWorld = nil
-	}
-}
-
-func (w *World) Update(game *axe.Game) {
-	w.Activate()
-
-	w.Stage()
-
-	for _, system := range w.systems {
-		if system.PreUpdate(w.ctx) {
-			w.Entity.Iterate(func(item *Entity, index, liveIndex uint32) bool {
-				if item.Live() {
-					return system.Update(item, w.ctx)
+			for dataValues != 0 {
+				valueID := dataValues.TakeFirst()
+				pairs[valueID] = dataValuePair{
+					live:        true,
+					dataID:      dataID,
+					valueID:     DataID(valueID),
+					offsetIndex: offsetIndex,
 				}
-				return true
-			})
-			system.PostUpdate(w.ctx)
-		}
-	}
-
-	for _, data := range w.data {
-		data.update(w.ctx)
-	}
-
-	w.Shrink()
-}
-
-func (w *World) AddSystem(system System) {
-	w.systems = append(w.systems, system)
-}
-
-func (w *World) AddComponentsSystem(match util.Match[ComponentSet], system System) {
-	w.systems = append(w.systems, systemFiltered{
-		match: match,
-		inner: system,
-	})
-}
-
-func (w *World) Enable(source DataSource) {
-	dataId := uint8(len(w.data))
-
-	data := source.createStorage(w.DataSettings.MaxEntityInstances, w.DataSettings.MaxDestroysPerUpdate)
-	data.setID(dataId)
-	w.data = append(w.data, data)
-
-	components := source.Components()
-	if components.Size() == 1 {
-		componentId := components.Take()
-		w.componentToData[componentId] = data
-		w.componentStores = append(w.componentStores, data)
-		w.addComponentData(componentId, data)
-
-		staging := source.createStorage(w.DataSettings.MaxNewPerUpdate, w.DataSettings.MaxNewPerUpdate)
-		staging.setID(componentId)
-		w.staging[componentId] = staging
-	} else {
-		w.typeToData[source.ID()] = data
-		w.typeStores = append(w.typeStores, data)
-		for !components.Empty() {
-			componentId := components.Take()
-			w.addComponentData(componentId, data)
-		}
-		w.sortTypes()
-	}
-
-	w.sourceByType[data.getType()] = source
-}
-
-func (w *World) Search(search WorldSearch, found func(e *Entity, index uint32) bool) {
-	w.Activate()
-
-	w.Entity.Iterate(func(item *Entity, index, liveIndex uint32) bool {
-		components := item.components
-		if search.IncludeStagedComponents {
-			components |= item.staging
-		}
-		if search.Match == nil || search.Match(components) {
-			if item.Live() || search.IncludeStaged {
-				return found(item, liveIndex)
+			}
+			datasOrdered = append(datasOrdered, dataID)
+			offsetIndex++
+			if remaining == 0 {
+				break
 			}
 		}
-		return true
+	}
+	w.arrangements = append(w.arrangements, arrangement{
+		id:           id,
+		pairs:        pairs,
+		datas:        datasChosen,
+		datasOrdered: datasOrdered,
+		values:       values,
 	})
+	arrangement := &w.arrangements[id]
+	w.arrangementMap[values] = arrangement
+	return arrangement
+}
+
+func (w *World) sortDatas() {
+	sort.Slice(w.datasSorted, func(i, j int) bool {
+		a := w.datas[w.datasSorted[i]]
+		b := w.datas[w.datasSorted[j]]
+		if a.getValueIDs().Ons() > b.getValueIDs().Ons() {
+			return true
+		}
+		if a.getDataSize() > b.getDataSize() {
+			return true
+		}
+		return false
+	})
+}
+
+func (w *World) Enable(settings DataSettings, datas ...DataBase) {
+	w.Activate()
+
+	for _, data := range datas {
+		data.Enable(settings)
+	}
 }
 
 func (w *World) New() *Entity {
 	w.Activate()
 
-	e, id := w.Entity.Take()
+	e, id := w.entity.Take()
 	e.id = id
-	e.links = make([]dataLink, 0)
-	for _, system := range w.systems {
-		system.OnNew(e, w.ctx)
+	e.offsets = nil
+	e.staging = make([]valueStaging, 0, w.Settings.AverageComponentPerEntity)
+	w.staging.Push(e)
+	for _, sys := range w.systems {
+		sys.OnStage(e, w.ctx)
 	}
-	w.staged.Push(e)
 	return e
 }
 
@@ -233,140 +183,198 @@ func (w *World) Delete(e *Entity) {
 	}
 	w.Activate()
 
-	for _, system := range w.systems {
-		system.OnDestroy(e, w.ctx)
+	for _, sys := range w.systems {
+		sys.OnDelete(e, w.ctx)
 	}
-	for _, link := range e.links {
-		data := w.data[link.dataID]
-		data.remove(w.ctx, e, &link)
-	}
-	e.links = nil
-	e.components = 0
-	w.Entity.Free(e.id)
-}
 
-// Takes all staged entities and component values and puts them in place
-func (w *World) Stage() {
-	w.Activate()
-	w.stageNewEntities()
-	w.stageNewComponents()
-}
-
-func (w *World) Shrink() {
-	// w.Entity.Compress()
-	// for _, data := range w.data {
-	// data.shrink()
-	// }
-}
-
-func (w *World) stageNewEntities() {
-	for !w.staged.IsEmpty() {
-		staged := w.staged.Pop()
-		// setting the components to whats linked marks the entity as live
-		for _, link := range staged.links {
-			componentId := link.dataID
-			staged.components.Set(componentId)
-		}
-
-		// based on the components, find the best way to store the data
-		datas := w.getDataForComponents(staged.components)
-
-		// for each staged component data, get the live storage and
-		// copy the data over
-		liveLinks := make([]dataLink, 0)
-		for _, data := range datas {
-			liveLinks = append(liveLinks, dataLink{})
-			liveLink := &liveLinks[len(liveLinks)-1]
-			data.add(w.ctx, staged, liveLink)
-
-			components := data.getComponents()
-			for !components.Empty() {
-				componentId := components.Take()
-				componentStaging := w.staging[componentId]
-				stageLink := staged.linkFor(componentId, true)
-				stageValue := componentStaging.get(componentId, stageLink)
-				dataValue := data.get(componentId, *liveLink)
-				util.Copy(dataValue, stageValue)
-				componentStaging.remove(w.ctx, staged, &stageLink)
-			}
-		}
-		staged.links = liveLinks
-		staged.staging = 0
-
-		for _, system := range w.systems {
-			system.OnStage(staged, w.ctx)
-		}
-	}
-}
-
-func (w *World) stageNewComponents() {
-	if w.DataSettings.RestructureOnChange && len(w.typeStores) > 0 {
-		// TODO
-	} else {
-		for _, componentStaging := range w.staging {
-			if componentStaging == nil {
+	if e.offsets != nil {
+		arrangement := e.getArrangement(w)
+		for valueID, dataValue := range arrangement.pairs {
+			if !dataValue.live {
 				continue
 			}
-			pairs := componentStaging.getEntityOffsets()
-			componentId := componentStaging.getID()
+			w.values[valueID].remove(e, dataValue.dataID, e.offsets[dataValue.offsetIndex], true, w.ctx)
+		}
+		for offsetIndex, dataID := range arrangement.datasOrdered {
+			w.datas[dataID].remove(e, e.offsets[offsetIndex])
+		}
+	}
 
-			for _, pair := range pairs {
-				liveData := w.componentToData[componentId]
-				liveLink := dataLink{}
-				liveData.add(w.ctx, pair.entity, &liveLink)
-				dataValue := liveData.get(componentId, liveLink)
-				stageLink := dataLink{
-					dataID:     componentId,
-					dataOffset: pair.dataOffset,
-					staged:     true,
-				}
-				stageValue := componentStaging.get(componentId, stageLink)
-				util.Copy(dataValue, stageValue)
-				componentStaging.remove(w.ctx, pair.entity, &stageLink)
-				pair.entity.components.Set(componentId)
-				pair.entity.staging.Unset(componentId)
-				pair.entity.removeLink(stageLink)
-				pair.entity.links = append(pair.entity.links, liveLink)
+	if e.staging != nil {
+		for _, stagingValue := range e.staging {
+			w.values[stagingValue.valueID].remove(e, stagingValue.valueID, stagingValue.valueOffset, false, w.ctx)
+		}
+	}
+
+	e.offsets = nil
+	e.staging = nil
+	w.entity.Free(e.id)
+}
+
+func (w *World) Stage() {
+	w.Activate()
+
+	w.stageEntity()
+	w.stageValuesRestructure()
+}
+
+func (w *World) stageEntity() {
+	for !w.staging.IsEmpty() {
+		e := w.staging.Pop()
+
+		stagingValues := e.StagingValues()
+
+		arrangement := w.getArrangement(stagingValues)
+
+		e.arrangement = arrangement.id
+		e.offsets = make([]DataOffset, len(arrangement.datasOrdered))
+
+		for indexOffset, dataID := range arrangement.datasOrdered {
+			dataOffset := w.datas[dataID].add(e)
+			e.offsets[indexOffset] = dataOffset
+		}
+
+		w.stageArrangementValues(e, arrangement)
+
+		e.staging = nil
+	}
+}
+
+func (w *World) stageValuesRestructure() {
+	for !w.stagingComponents.IsEmpty() {
+		e := w.stagingComponents.Pop()
+
+		stagingValues := e.StagingValues()
+		existingArrangement := e.getArrangement(w)
+		removeDatas := existingArrangement.datas
+		movingValues := existingArrangement.values
+
+		arrangement := w.getArrangement(stagingValues | existingArrangement.values)
+
+		offsets := make([]DataOffset, len(arrangement.datasOrdered))
+
+		// for the new arrangement add new data or get offsets for unchanged
+		for indexOffset, dataID := range arrangement.datasOrdered {
+			if existingArrangement.datas.Get(dataID) {
+				dataPair := existingArrangement.getDataPair(dataID)
+				offsets[indexOffset] = e.offsets[dataPair.offsetIndex]
+				dataValues := w.datas[dataID].getValueIDs()
+				movingValues.Flip(dataValues)
+			} else {
+				dataOffset := w.datas[dataID].add(e)
+				offsets[indexOffset] = dataOffset
+			}
+			removeDatas.Set(dataID, false)
+		}
+
+		// stage new values
+		w.stageArrangementValues(e, arrangement)
+
+		// handle existing values moving between data
+		for !movingValues.IsEmpty() {
+			valueID := DataID(movingValues.TakeFirst())
+			sourcePair := existingArrangement.getValuePair(valueID)
+			targetPair := arrangement.getValuePair(valueID)
+			if sourcePair.dataID != targetPair.dataID {
+				w.values[valueID].move(sourcePair.dataID, e.offsets[sourcePair.offsetIndex], targetPair.dataID, offsets[targetPair.offsetIndex])
 			}
 		}
+
+		// remove any data that is no longer needed
+		for !removeDatas.IsEmpty() {
+			dataID := DataID(removeDatas.TakeFirst())
+			dataPair := existingArrangement.getDataPair(dataID)
+			offset := e.offsets[dataPair.offsetIndex]
+			w.datas[dataID].remove(e, offset)
+		}
+
+		e.arrangement = arrangement.id
+		e.offsets = offsets
+		e.staging = nil
 	}
 }
 
-func (w *World) getDataForComponents(components ComponentSet) []storage {
-	data := make([]storage, 0)
-	remaining := components
-	for _, typeData := range w.typeStores {
-		typeComponents := typeData.getComponents()
-		if typeComponents&remaining == typeComponents {
-			remaining ^= typeComponents
-			data = append(data, typeData)
-			if remaining.Empty() {
-				break
-			}
+func (w *World) stageArrangementValues(e *Entity, a *arrangement) {
+	for _, stagingValue := range e.staging {
+		data := a.pairs[stagingValue.valueID]
+		stageValues := w.values[stagingValue.valueID]
+		stageOffset := stagingValue.valueOffset
+		targetID := data.dataID
+		targetOffset := e.offsets[data.offsetIndex]
+		stageValues.unstage(e, stageOffset, targetID, targetOffset, w.ctx)
+	}
+}
+
+func (w *World) Init(game *axe.Game) error {
+	w.Activate()
+	w.ctx.Game = game
+
+	for _, sys := range w.systems {
+		err := sys.Init(w.ctx)
+		if err != nil {
+			return err
 		}
 	}
-	for !remaining.Empty() {
-		compomentId := remaining.Take()
-		data = append(data, w.componentToData[compomentId])
-	}
-	return data
-}
-
-func (w *World) addComponentData(componentId uint8, data storage) {
-	if w.componentDatas[componentId] == nil {
-		w.componentDatas[componentId] = make([]storage, 0, MAX_DATA)
-	}
-	w.componentDatas[componentId] = append(w.componentDatas[componentId], data)
-}
-
-func (w *World) sortTypes() {
-	sort.Slice(w.typeStores, func(i, j int) bool {
-		a := w.typeStores[i]
-		b := w.typeStores[j]
-		d := b.getComponents().Size() - a.getComponents().Size()
-		if d == 0 {
-			d = int(b.getType().Size() - a.getType().Size())
+	for _, values := range w.valuesSorted {
+		err := values.init(w.ctx)
+		if err != nil {
+			return err
 		}
-		return d < 0
-	})
+	}
+	return nil
+}
+
+func (w *World) Update(game *axe.Game) {
+	w.Stage()
+
+	for _, sys := range w.systems {
+		sys.Update(&w.entity, w.ctx)
+	}
+
+	for _, values := range w.valuesSorted {
+		values.update(w.ctx)
+	}
+}
+
+func (w *World) Destroy() {
+	w.Activate()
+
+	if w.Settings.DeleteOnDestroy {
+		entities := w.entity.Iterator()
+		for entities.HasNext() {
+			e := entities.Next()
+			w.Delete(e)
+		}
+	}
+	for _, sys := range w.systems {
+		sys.Destroy(w.ctx)
+	}
+	w.systems = w.systems[:0]
+	for _, values := range w.valuesSorted {
+		values.destroy(w.ctx)
+	}
+	for _, dataID := range w.datasSorted {
+		w.datas[dataID].destroy()
+	}
+	w.entity.Clear()
+
+	if w.IsActive() {
+		activeWorld = nil
+	}
+}
+
+func (w *World) AddSystem(sys EntitySystem) {
+	w.systems = append(w.systems, sys)
+}
+
+func (w *World) Iterable() ds.Iterable[Entity] {
+	w.Activate()
+
+	return &w.entity
+}
+
+func (w *World) Search(search WorldSearch) ds.Iterable[Entity] {
+	w.Activate()
+
+	return ds.NewFilterIterable[Entity](&w.entity, search.IsMatch)
 }

@@ -5,6 +5,8 @@ type List[T any] struct {
 	Size  int
 }
 
+var _ Iterable[int] = &List[int]{}
+
 func NewList[T any](capacity int) *List[T] {
 	return &List[T]{
 		Items: make([]T, 0, capacity),
@@ -57,6 +59,7 @@ func (l *List[T]) Last() T {
 	}
 	return l.Items[l.Size-1]
 }
+
 func (l *List[T]) IndexOf(item T) int {
 	for i := 0; i < l.Size; i++ {
 		if &l.Items[i] == &item {
@@ -70,4 +73,27 @@ func (l *List[T]) RemoveAt(index int) {
 		l.Size--
 		l.Items[index] = l.Items[l.Size]
 	}
+}
+
+func (l *List[T]) Iterator() Iterator[T] {
+	return &listIterator[T]{l, -1}
+}
+
+type listIterator[T any] struct {
+	list  *List[T]
+	index int
+}
+
+func (i *listIterator[T]) Reset() {
+	i.index = -1
+}
+func (i *listIterator[T]) HasNext() bool {
+	return i.index+1 < i.list.Size
+}
+func (i *listIterator[T]) Next() *T {
+	i.index++
+	if i.index < i.list.Size {
+		return &i.list.Items[i.index]
+	}
+	return nil
 }

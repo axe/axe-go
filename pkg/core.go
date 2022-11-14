@@ -39,10 +39,10 @@ func (scene *Scene[A]) Init(game *Game) error {
 		scene.Load(scene, game)
 	}
 	if scene.World != nil {
-		// err := scene.World.Init(game)
-		// if err != nil {
-		// return err
-		// }
+		err := scene.World.Init(game)
+		if err != nil {
+			return err
+		}
 	}
 	if scene.Space != nil {
 		err := scene.Space.Init(game)
@@ -52,6 +52,7 @@ func (scene *Scene[A]) Init(game *Game) error {
 	}
 	return nil
 }
+
 func (scene *Scene[A]) Update(game *Game) {
 	scene.Jobs.Run()
 	if scene.World != nil {
@@ -61,9 +62,10 @@ func (scene *Scene[A]) Update(game *Game) {
 		scene.Space.Update(game)
 	}
 }
+
 func (scene *Scene[A]) Destroy() {
 	if scene.World != nil {
-		// scene.World.Destroy()
+		scene.World.Destroy()
 	}
 	if scene.Space != nil {
 		scene.Space.Destroy()
@@ -84,6 +86,7 @@ type RenderTarget interface { // window or texture
 
 type View[A Attr[A]] interface {
 	GameSystem
+
 	Name() string
 	Scene() Scene[A]
 	Camera() Camera[A]

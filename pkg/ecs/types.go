@@ -1,80 +1,95 @@
 package ecs
 
 import (
-	"reflect"
-
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/ds"
 )
 
+type DataID uint8
+
+type DataOffset uint32
+
+type ArrangementID uint16
+
+type DataIDs = ds.Bits64Indexed[DataID]
+
+const DATA_MAX = 64
+
 type SystemContext struct {
-	Game  *axe.Game
 	World *World
+	Game  *axe.Game
 }
 
-type DataSource interface {
-	ID() uint8
-	GetName() string
-	Components() ComponentSet
-
-	createStorage(capacity uint32, freeCapacity uint32) storage
-	getComponentInstance(w *World, e *Entity, create bool) any
-}
-
-type DataGetter[D any] func(data *D) any
-
-// for lone component instances, all instances, or a type
-type DataSystem[T any] interface {
-	OnStage(data *T, e *Entity, ctx SystemContext)
-	OnAdd(data *T, e *Entity, ctx SystemContext)
-	OnRemove(data *T, e *Entity, ctx SystemContext)
-	PreUpdate(ctx SystemContext) bool
-	Update(data *T, e *Entity, ctx SystemContext) bool
-	PostUpdate(ctx SystemContext)
+type System[D any] interface {
+	OnStage(data *D, e *Entity, ctx SystemContext)
+	OnLive(data *D, e *Entity, ctx SystemContext)
+	OnRemove(data *D, e *Entity, ctx SystemContext)
 	Init(ctx SystemContext) error
+	Update(iter ds.Iterable[EntityData[*D]], ctx SystemContext)
 	Destroy(ctx SystemContext)
 }
 
-// all entities, or components match
-type System interface {
+type EntitySystem interface {
 	OnStage(e *Entity, ctx SystemContext)
-	OnNew(e *Entity, ctx SystemContext)
-	OnDestroy(e *Entity, ctx SystemContext)
-	PreUpdate(ctx SystemContext) bool
-	Update(e *Entity, ctx SystemContext) bool
-	PostUpdate(ctx SystemContext)
+	OnLive(e *Entity, ctx SystemContext)
+	OnDelete(e *Entity, ctx SystemContext)
 	Init(ctx SystemContext) error
+	Update(iter ds.Iterable[Entity], ctx SystemContext)
 	Destroy(ctx SystemContext)
 }
 
-type dataLink struct {
-	dataID     uint8
-	dataOffset uint32
-	staged     bool
+type EntityData[D any] struct {
+	Entity *Entity
+	Data   D
 }
 
-type entityDataPair[D any] struct {
-	data   D
-	entity *Entity
+type valueStaging struct {
+	valueID     DataID
+	valueOffset DataOffset
 }
 
-type entityOffsetPair struct {
-	dataOffset uint32
-	entity     *Entity
+type dataLocation struct {
+	dataID     DataID
+	valueID    DataID
+	live       bool
+	dataOffset DataOffset
 }
 
-type storage interface {
+type dataValuePair struct {
+	dataID      DataID
+	valueID     DataID
+	live        bool
+	offsetIndex uint8
+}
+
+type worldDataStore interface {
+	getValueIDs() DataIDs
+	getDataSize() uintptr
+	add(e *Entity) DataOffset
+	remove(e *Entity, offset DataOffset)
+	destroy()
+}
+
+type worldValueStore interface {
 	init(ctx SystemContext) error
-	destroy(ctx SystemContext)
-	add(ctx SystemContext, e *Entity, link *dataLink)
-	remove(ctx SystemContext, e *Entity, link *dataLink)
 	update(ctx SystemContext)
-	onStage(ctx SystemContext, e *Entity, data any)
-	setID(id uint8)
-	getID() uint8
-	getComponents() ComponentSet
-	get(component uint8, link dataLink) any
-	addComponentSystem(component uint8, system DataSystem[any])
-	addSystem(system DataSystem[any])
-	getEntityOffsets() []entityOffsetPair
-	getType() reflect.Type
+	destroy(ctx SystemContext)
+	unstage(e *Entity, stageOffset DataOffset, target DataID, targetOffset DataOffset, ctx SystemContext)
+	remove(e *Entity, data DataID, dataOffset DataOffset, live bool, ctx SystemContext)
+	move(sourceID DataID, sourceOffset DataOffset, targetID DataID, targetOffset DataOffset)
+}
+
+type worldValueData[V any] interface {
+	get(offset DataOffset, live bool) *V
+	free(offset DataOffset, live bool)
+}
+
+type dataValueData[D any] interface {
+	addTo(w *World, data *worldDatas[D])
+}
+
+type dataValue[D any, V any] struct {
+	dataId  DataID
+	valueID DataID
+	get     func(data *D) *V
 }

@@ -2,9 +2,10 @@ package ecs
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
-	"github.com/axe/axe-go/pkg/geom"
+	"github.com/axe/axe-go/pkg/ds"
 )
 
 /*
@@ -17,56 +18,123 @@ import (
 7. Populate & update world
 */
 
-func TestWorld(t *testing.T) {
+var testTransform = DefineComponent("transform", testComponentTransform{})
+var testMesh = DefineComponent("mesh", testComponentMesh{})
+var testSpatial = DefineComponent("spatial", testComponentSpatial{})
+var testTransformSpatial = DefineType("transform-spatial", testTypeTransformSpatial{}, func(t *Data[testTypeTransformSpatial]) {
+	DefineTypeComponent(t, testTransform, func(data *testTypeTransformSpatial) *testComponentTransform { return &data.Transform })
+	DefineTypeComponent(t, testSpatial, func(data *testTypeTransformSpatial) *testComponentSpatial { return &data.Spatial })
+})
 
-	type PositionScale struct {
-		Position geom.Vec3f
-		Scale    float32
+type testComponentTransform struct {
+	X, Y             float32
+	Angle            float32
+	GlobalX, GlobalY float32
+	Parent           *Entity
+	Children         []*Entity
+}
+
+func (t *testComponentTransform) SetParent(e *Entity, parent *Entity) {
+	parentTransform := testTransform.Get(parent)
+
+	t.Parent = parent
+	parentTransform.Children = append(parentTransform.Children, e)
+}
+
+func (t *testComponentTransform) Update() {
+	if t.Parent == nil {
+		t.GlobalX = t.X
+		t.GlobalY = t.Y
+	} else {
+		parentTransform := testTransform.Get(t.Parent)
+		theta := float64(parentTransform.Angle) / 180 * math.Pi
+		cos := math.Cos(theta)
+		sin := math.Sin(theta)
+		x := float64(t.X)
+		y := float64(t.Y)
+		t.GlobalX = float32(x*cos - y*sin + float64(parentTransform.GlobalX))
+		t.GlobalY = float32(y*cos + x*sin + float64(parentTransform.GlobalY))
 	}
+	if t.Children != nil {
+		for _, child := range t.Children {
+			childTransform := testTransform.Get(child)
+			childTransform.Update()
+		}
+	}
+}
 
-	POSITION := DefineComponent("position", geom.Vec3f{})
-	SCALE := DefineComponent("scale", float32(0))
+type testSystemTransform struct{}
 
-	POSITION_SCALE := DefineType("position+scale", PositionScale{})
-	POSITION_SCALE.AddComponent(POSITION, func(data *PositionScale) any { return &data.Position })
-	POSITION_SCALE.AddComponent(SCALE, func(data *PositionScale) any { return &data.Scale })
+var _ System[testComponentTransform] = &testSystemTransform{}
 
-	w := NewWorld(WorldSettings{
-		MaxEntityInstances:   64,
-		MaxDestroysPerUpdate: 32,
-		MaxNewPerUpdate:      32,
-	})
-	w.Enable(POSITION)
-	w.Enable(SCALE)
-	w.Enable(POSITION_SCALE)
+func (sys *testSystemTransform) OnStage(data *testComponentTransform, e *Entity, ctx SystemContext) {}
+func (sys *testSystemTransform) OnLive(data *testComponentTransform, e *Entity, ctx SystemContext)  {}
+func (sys *testSystemTransform) OnRemove(data *testComponentTransform, e *Entity, ctx SystemContext) {
+}
+func (sys *testSystemTransform) Init(ctx SystemContext) error { return nil }
+func (sys *testSystemTransform) Destroy(ctx SystemContext)    {}
+func (sys *testSystemTransform) Update(iter ds.Iterable[EntityData[*testComponentTransform]], ctx SystemContext) {
+	i := iter.Iterator()
+	for i.HasNext() {
+		t := i.Next()
+		if t.Data.Parent == nil {
+			t.Data.Update()
+		}
+	}
+}
 
-	e := w.New()
-	fmt.Printf("entity %s\n", statusOf(e))
-	pos := POSITION.Add(e)
-	pos.X = 1
-	pos.Y = 2
-	scale := SCALE.Add(e)
-	*scale = 4
+type testComponentMesh struct {
+	Data [][]float32
+}
 
-	fmt.Printf("entity %s\n", statusOf(e))
-	w.Stage()
+type testComponentSpatial struct {
+	Radius float32
+}
 
-	fmt.Printf("entity %s\n", statusOf(e))
-	fmt.Printf("entity pos %+v\n", *POSITION.Get(e))
-	fmt.Printf("entity scale %+v\n", *SCALE.Get(e))
+type testTypeTransformSpatial struct {
+	Transform testComponentTransform
+	Spatial   testComponentSpatial
+}
+
+var testSettings = WorldSettings{
+	EntityCapacity:            16,
+	EntityStageCapacity:       8,
+	AverageComponentPerEntity: 3,
+}
+var testDataSettings = DataSettings{
+	Capacity:      16,
+	StageCapacity: 8,
+}
+
+func TestWorld(t *testing.T) {
+	w := NewWorld("test", testSettings)
+	w.Enable(testDataSettings, testTransform, testMesh, testSpatial, testTransformSpatial)
+
+	testTransform.AddSystem(&testSystemTransform{})
+
+	e1 := w.New()
+	e1t := testTransform.Add(e1)
+	e1t.Angle = 90
+	e1s := testSpatial.Add(e1)
+	e1s.Radius = 5
 
 	e2 := w.New()
-	pos2 := POSITION.Add(e2)
-	pos2.X = 34
-	w.Stage()
-	fmt.Printf("entity2 pos %+v\n", *POSITION.Get(e2))
+	e2t := testTransform.Add(e2)
+	e2t.X = 10
+	e2t.SetParent(e2, e1)
 
-	scale2 := SCALE.Add(e2)
-	*scale2 = 86
-	fmt.Printf("entity2 staging components %+v\n", e2.StagingComponents())
-	w.Stage()
-	fmt.Printf("entity2 scale %+v\n", *SCALE.Get(e2))
-	fmt.Printf("entity2 staging components %+v\n", e2.StagingComponents())
+	w.Init(nil)
+	w.Update(nil)
+
+	transforms := testTransform.Iterable().Iterator()
+	for transforms.HasNext() {
+		t := transforms.Next()
+		fmt.Printf("%+v\n", t.Data)
+	}
+
+	w.Delete(e2)
+	w.Delete(e1)
+	w.Destroy()
 }
 
 func statusOf(e *Entity) string {

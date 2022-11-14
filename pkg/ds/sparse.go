@@ -2,71 +2,78 @@ package ds
 
 type SparseList[T any] struct {
 	items []T
-	free  Bits
+	free  Bits[uint32]
 }
+
+var _ Iterable[int] = &SparseList[int]{}
 
 func NewSparseList[T any](capacity uint32) SparseList[T] {
 	return SparseList[T]{
 		items: make([]T, 0, capacity),
-		free:  NewBits(capacity + 1),
+		free:  NewBits[uint32](capacity + 1),
 	}
 }
 
-func (this *SparseList[T]) At(index uint32) *T {
-	return &this.items[index]
+func (list *SparseList[T]) At(index uint32) *T {
+	return &list.items[index]
 }
 
-func (this *SparseList[T]) IsFree(index uint32) bool {
-	return this.free.Get(index)
+func (list *SparseList[T]) IsFree(index uint32) bool {
+	return list.free.Get(index)
 }
 
 // Returns a pointer and the index to a value in the list.
 // The value could be in any state since.
-func (this *SparseList[T]) Take() (*T, uint32) {
+func (list *SparseList[T]) Take() (*T, uint32) {
 	var index uint32
-	if this.free.IsEmpty() {
+	if list.free.IsEmpty() {
 		var value T
-		index = uint32(len(this.items))
-		this.items = append(this.items, value)
-		this.free.EnsureMax(index)
+		index = uint32(len(list.items))
+		list.items = append(list.items, value)
+		list.free.EnsureMax(index)
 	} else {
-		index = uint32(this.free.TakeFirst())
+		index = uint32(list.free.TakeFirst())
 	}
-	return &this.items[index], index
+	return &list.items[index], index
 }
 
 /**
  *
  */
-func (this *SparseList[T]) Add(value T) uint32 {
-	ref, index := this.Take()
+func (list *SparseList[T]) Add(value T) uint32 {
+	ref, index := list.Take()
 	*ref = value
 
 	return index
 }
 
-func (this *SparseList[T]) Free(index uint32) {
-	this.free.Set(index, true)
+func (list *SparseList[T]) Free(index uint32) {
+	list.free.Set(index, true)
+}
+
+func (list *SparseList[T]) Clear() {
+	list.items = list.items[:0]
+	list.free.Clear()
 }
 
 // Removes the value at the given index and replaces it with the value at the end of the list and returns
 // the index of that last item.
-func (this *SparseList[T]) Remove(index uint32) uint32 {
-	replacedWith := uint32(len(this.items) - 1)
-	this.items[index] = this.items[replacedWith]
-	this.items = this.items[:replacedWith]
+func (list *SparseList[T]) Remove(index uint32) uint32 {
+	replacedWith := uint32(len(list.items) - 1)
+	list.items[index] = list.items[replacedWith]
+	list.items = list.items[:replacedWith]
 	return replacedWith
 }
 
-func (this *SparseList[T]) Compress(keepOrder bool, moved func(newIndex uint32, oldIndex uint32, item *T)) {
-	free := &this.free
+func (list *SparseList[T]) Compress(keepOrder bool, moved func(newIndex uint32, oldIndex uint32, item *T)) {
+	free := &list.free
 	if free.IsEmpty() {
 		return
 	}
-	items := this.items
-	if this.Size() == 0 {
+	items := list.items
+	if list.Size() == 0 {
 		if !free.IsEmpty() {
-			this.items = items[:0]
+			list.items = items[:0]
 			free.Clear()
 		}
 	} else if keepOrder {
@@ -83,7 +90,7 @@ func (this *SparseList[T]) Compress(keepOrder bool, moved func(newIndex uint32, 
 				newIndex++
 			}
 		}
-		this.items = items[:newIndex]
+		list.items = items[:newIndex]
 		free.Clear()
 	} else {
 		newIndex := free.TakeFirst()
@@ -104,25 +111,25 @@ func (this *SparseList[T]) Compress(keepOrder bool, moved func(newIndex uint32, 
 			newIndex = free.TakeFirst()
 			oldIndex--
 		}
-		this.items = items[:oldIndex+1]
+		list.items = items[:oldIndex+1]
 		free.Clear()
 	}
 }
 
-func (this *SparseList[T]) Iterate(handle func(item *T, index uint32, liveIndex uint32) bool) {
-	free := this.free
+func (list *SparseList[T]) Iterate(handle func(item *T, index uint32, liveIndex uint32) bool) {
+	free := list.free
 	if free.IsEmpty() {
-		for i := range this.items {
+		for i := range list.items {
 			index := uint32(i)
-			if !handle(&this.items[index], index, index) {
+			if !handle(&list.items[index], index, index) {
 				break
 			}
 		}
 	} else {
 		liveIndex := uint32(0)
-		for i := range this.items {
+		for i := range list.items {
 			if !free.Get(uint32(i)) {
-				if !handle(&this.items[i], uint32(i), liveIndex) {
+				if !handle(&list.items[i], uint32(i), liveIndex) {
 					break
 				}
 				liveIndex++
@@ -131,28 +138,58 @@ func (this *SparseList[T]) Iterate(handle func(item *T, index uint32, liveIndex 
 	}
 }
 
-func (this *SparseList[T]) Pointers() []*T {
-	slice := make([]*T, 0, this.Size())
-	this.Iterate(func(item *T, _ uint32, _ uint32) bool {
+func (list *SparseList[T]) Pointers() []*T {
+	slice := make([]*T, 0, list.Size())
+	list.Iterate(func(item *T, _ uint32, _ uint32) bool {
 		slice = append(slice, item)
 		return true
 	})
 	return slice
 }
 
-func (this *SparseList[T]) Values() []T {
-	slice := make([]T, 0, this.Size())
-	this.Iterate(func(item *T, _ uint32, _ uint32) bool {
+func (list *SparseList[T]) Values() []T {
+	slice := make([]T, 0, list.Size())
+	list.Iterate(func(item *T, _ uint32, _ uint32) bool {
 		slice = append(slice, *item)
 		return true
 	})
 	return slice
 }
 
-func (this *SparseList[T]) Size() uint32 {
-	return uint32(len(this.items)) - this.free.Ons()
+func (list *SparseList[T]) Size() uint32 {
+	return uint32(len(list.items)) - list.free.Ons()
 }
 
-func (this *SparseList[T]) Remaining() uint32 {
-	return uint32(cap(this.items)-len(this.items)) + this.free.Ons()
+func (list *SparseList[T]) Remaining() uint32 {
+	return uint32(cap(list.items)-len(list.items)) + list.free.Ons()
+}
+
+func (list *SparseList[T]) Iterator() Iterator[T] {
+	return &sparseIterator[T]{list, -1}
+}
+
+type sparseIterator[T any] struct {
+	list  *SparseList[T]
+	index int32
+}
+
+func (i *sparseIterator[T]) Reset() {
+	i.index = -1
+}
+func (i *sparseIterator[T]) HasNext() bool {
+	n := i.nextOn()
+	return n != -1 && n < i.size()
+}
+func (i *sparseIterator[T]) Next() *T {
+	i.index = i.nextOn()
+	if i.index != -1 && i.index < i.size() {
+		return &i.list.items[i.index]
+	}
+	return nil
+}
+func (i *sparseIterator[T]) nextOn() int32 {
+	return i.list.free.OffAfter(i.index)
+}
+func (i *sparseIterator[T]) size() int32 {
+	return int32(len(i.list.items))
 }
