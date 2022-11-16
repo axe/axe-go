@@ -6,6 +6,7 @@ type SparseList[T any] struct {
 }
 
 var _ Iterable[int] = &SparseList[int]{}
+var _ Sized = &SparseList[int]{}
 
 func NewSparseList[T any](capacity uint32) SparseList[T] {
 	return SparseList[T]{
@@ -158,6 +159,18 @@ func (list *SparseList[T]) Values() []T {
 
 func (list *SparseList[T]) Size() uint32 {
 	return uint32(len(list.items)) - list.free.Ons()
+}
+
+func (list *SparseList[T]) Len() int {
+	return int(list.Size())
+}
+
+func (list *SparseList[T]) Cap() int {
+	return len(list.items)
+}
+
+func (list *SparseList[T]) IsEmpty() bool {
+	return list.Size() == 0
 }
 
 func (list *SparseList[T]) Remaining() uint32 {

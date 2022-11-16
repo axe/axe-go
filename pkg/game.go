@@ -183,13 +183,14 @@ type NoAudioSystem struct{}
 
 var _ AudioSystem = &NoAudioSystem{}
 
-func (audio *NoAudioSystem) Init(game *Game) error              { return nil }
-func (audio *NoAudioSystem) Update(game *Game)                  {}
-func (audio *NoAudioSystem) Destroy()                           {}
-func (audio *NoAudioSystem) Listeners() []AudioListener         { return nil }
-func (audio *NoAudioSystem) Instances() []AudioInstance         { return nil }
-func (audio *NoAudioSystem) Settings() map[string]AudioSettings { return nil }
-func (audio *NoAudioSystem) Sources() []AudioSource             { return nil }
+func (audio *NoAudioSystem) Init(game *Game) error                        { return nil }
+func (audio *NoAudioSystem) Update(game *Game)                            {}
+func (audio *NoAudioSystem) Destroy()                                     {}
+func (audio *NoAudioSystem) Listeners() []AudioListener                   { return nil }
+func (audio *NoAudioSystem) Instances() []AudioInstance                   { return nil }
+func (audio *NoAudioSystem) Settings() map[string]AudioSettings           { return nil }
+func (audio *NoAudioSystem) Sources() []AudioSource                       { return nil }
+func (audio *NoAudioSystem) EntitySystem() EntityDataSystem[AudioEmitter] { return nil }
 
 type NoWindowSystem struct{}
 

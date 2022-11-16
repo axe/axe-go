@@ -12,16 +12,21 @@ type AudioSystem interface { // & GameSystem
 	Instances() []AudioInstance
 	Settings() map[string]AudioSettings
 	Sources() []AudioSource
+	EntitySystem() EntityDataSystem[AudioEmitter]
 }
 
 type AudioAttenuation func(distance float32, volume float32) float32
 
 // this component can emit audio, and the audio is tied to it. if the component is destroyed the audio is as well.
 type AudioSource struct {
-	Name      string
-	Flags     uint
-	Position  SpaceCoord
-	Instances []AudioInstance
+	Name                string
+	Flags               uint
+	Position            SpaceCoord
+	Direction           SpaceCoord
+	DirectionInner      float32
+	DirectionOuter      float32
+	DirectionOuterScale float32
+	Instances           []AudioInstance
 }
 
 type AudioListener struct {

@@ -20,10 +20,10 @@ const (
 )
 
 type Transform[A Attr[A]] struct {
-	Local Matrix[A]
-	World Matrix[A]
-	Tree  EntityTree
+	Tree EntityTree
 
+	local    Matrix[A]
+	world    Matrix[A]
 	dirty    transformDirty
 	position A
 	rotation A
@@ -34,14 +34,18 @@ func (t Transform[A]) IsDirty() bool {
 	return t.dirty != transformDirtyNone
 }
 
+func (t *Transform[A]) World() Matrix[A] {
+	return t.world
+}
+
 func (t *Transform[A]) SetLocal(local Matrix[A]) {
-	t.Local = local
+	t.local = local
 	t.dirty |= transformDirtyLocal
 }
 
-func (t *Transform[A]) GetLocal() Matrix[A] {
+func (t *Transform[A]) Local() Matrix[A] {
 	t.updateLocal()
-	return t.Local
+	return t.local
 }
 
 func (t *Transform[A]) SetPosition(position A) {
@@ -79,9 +83,9 @@ func (t *Transform[A]) Update(updateWorld bool) {
 	if updateWorld {
 		if t.Tree.parent != nil {
 			parentTransform := Get[Transform[A]](t.Tree.parent)
-			t.World.Mul(parentTransform.World, t.Local)
+			t.world.Mul(parentTransform.world, t.local)
 		} else {
-			t.World.Set(t.Local)
+			t.world.Set(t.local)
 		}
 	}
 	if len(t.Tree.children) > 0 {
@@ -98,9 +102,9 @@ func (t *Transform[A]) SetParent(parent *Entity) {
 
 func (t *Transform[A]) updateLocal() {
 	if t.dirty > transformDirtyLocal {
-		t.Local.SetRotaton(t.rotation, false)
-		t.Local.Scale(t.scale)
-		t.Local.PostTranslate(t.position)
+		t.local.SetRotaton(t.rotation, false)
+		t.local.Scale(t.scale)
+		t.local.PostTranslate(t.position)
 		t.dirty = transformDirtyLocal
 	}
 }
@@ -117,11 +121,11 @@ func (sys *TransformSystem[A]) OnStage(data *Transform[A], e *Entity, ctx Entity
 
 }
 func (sys *TransformSystem[A]) OnLive(data *Transform[A], e *Entity, ctx EntityContext) {
-	if data.Local.columns == nil {
-		InitMatrix(data.Local)
+	if data.local.columns == nil {
+		InitMatrix(data.local)
 	}
-	if data.World.columns == nil {
-		InitMatrix(data.World)
+	if data.world.columns == nil {
+		InitMatrix(data.world)
 	}
 }
 func (sys *TransformSystem[A]) OnRemove(data *Transform[A], e *Entity, ctx EntityContext) {

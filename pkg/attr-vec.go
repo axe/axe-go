@@ -11,7 +11,14 @@ type Vec2f = Vec2[float32]
 type Vec2i = Vec2[int]
 
 var _ Attr[Vec2f] = &Vec2f{}
+var _ SpaceCoord = &Vec2f{}
 
+func (v Vec2[D]) To2d() (x, y float32) {
+	return float32(v.X), float32(v.Y)
+}
+func (v Vec2[D]) To3d() (x, y, z float32) {
+	return float32(v.X), float32(v.Y), float32(0)
+}
 func (v Vec2[D]) Distance(value Vec2[D]) float32 {
 	return float32(math.Sqrt(float64(v.DistanceSq(value))))
 }
@@ -91,7 +98,14 @@ type Vec3f = Vec3[float32]
 type Vec3i = Vec3[int]
 
 var _ Attr[Vec3f] = &Vec3f{}
+var _ SpaceCoord = &Vec3f{}
 
+func (v Vec3[D]) To2d() (x, y float32) {
+	return float32(v.X), float32(v.Y)
+}
+func (v Vec3[D]) To3d() (x, y, z float32) {
+	return float32(v.X), float32(v.Y), float32(v.Z)
+}
 func (v Vec3[D]) Distance(value Vec3[D]) float32 {
 	return float32(math.Sqrt(float64(v.DistanceSq(value))))
 }
