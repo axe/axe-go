@@ -5,7 +5,6 @@ import (
 	"math/bits"
 )
 
-
 type Matrix[A Attr[A]] struct {
 	columns []A
 }
@@ -221,6 +220,7 @@ func (m *Matrix[A]) SetAxisRotaton(radians float32, axis int, hasTranslation boo
 		n--
 	}
 	pattern := []float32{cos, sin, -sin}
+	patternN := len(pattern)
 	for c := 0; c < n; c++ {
 		for r := 0; r < n; r++ {
 			if c == axis || r == axis {
@@ -230,7 +230,7 @@ func (m *Matrix[A]) SetAxisRotaton(radians float32, axis int, hasTranslation boo
 					empty.SetComponent(r, 0, &m.columns[c])
 				}
 			} else {
-				comp := pattern[(r-c)%n]
+				comp := pattern[(r-c+patternN)%patternN]
 				empty.SetComponent(r, comp, &m.columns[c])
 			}
 		}

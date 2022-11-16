@@ -17,7 +17,7 @@ const (
 type Scene[A Attr[A]] struct {
 	Name  string
 	Jobs  *job.JobRunner
-	World World
+	World *World
 	Space Space[A, SpaceComponent[A]]
 	Load  func(scene *Scene[A], game *Game)
 }

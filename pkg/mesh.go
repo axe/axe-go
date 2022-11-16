@@ -8,7 +8,7 @@ Formats:
 
 */
 
-type Mesh struct {
+type MeshData struct {
 	Name      string
 	Vertices  [][3]float32
 	Normals   [][3]float32

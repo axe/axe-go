@@ -9,6 +9,10 @@ type Transform2f = Transform[Vec2f]
 type Transform3f = Transform[Vec3f]
 type Transform4f = Transform[Vec4f]
 
+type TransformCreate2f = TransformCreate[Vec2f]
+type TransformCreate3f = TransformCreate[Vec3f]
+type TransformCreate4f = TransformCreate[Vec4f]
+
 type transformDirty uint8
 
 const (
@@ -18,6 +22,35 @@ const (
 	transformDirtyRotation
 	transformDirtyScale
 )
+
+func NewTransform[A Attr[A]](create TransformCreate[A]) Transform[A] {
+	return Transform[A]{
+		local:    NewMatrix[A](),
+		world:    NewMatrix[A](),
+		position: create.Position,
+		rotation: create.Rotation,
+		scale:    create.Scale,
+		dirty:    transformDirtyPosition | transformDirtyRotation | transformDirtyScale,
+	}
+}
+
+func NewTransform2(create TransformCreate2f) Transform2f {
+	return NewTransform(create)
+}
+
+func NewTransform3(create TransformCreate3f) Transform3f {
+	return NewTransform(create)
+}
+
+func NewTransform4(create TransformCreate4f) Transform4f {
+	return NewTransform(create)
+}
+
+type TransformCreate[A Attr[A]] struct {
+	Position A
+	Rotation A
+	Scale    A
+}
 
 type Transform[A Attr[A]] struct {
 	Tree EntityTree
@@ -118,15 +151,15 @@ func NewTransformSystem[A Attr[A]]() EntityDataSystem[Transform[A]] {
 }
 
 func (sys *TransformSystem[A]) OnStage(data *Transform[A], e *Entity, ctx EntityContext) {
-
-}
-func (sys *TransformSystem[A]) OnLive(data *Transform[A], e *Entity, ctx EntityContext) {
 	if data.local.columns == nil {
 		InitMatrix(data.local)
 	}
 	if data.world.columns == nil {
 		InitMatrix(data.world)
 	}
+}
+func (sys *TransformSystem[A]) OnLive(data *Transform[A], e *Entity, ctx EntityContext) {
+
 }
 func (sys *TransformSystem[A]) OnRemove(data *Transform[A], e *Entity, ctx EntityContext) {
 

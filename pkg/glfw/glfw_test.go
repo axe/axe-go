@@ -7,6 +7,7 @@ import (
 	"time"
 
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/job"
 	"github.com/axe/axe-go/pkg/ui"
 )
 
@@ -16,43 +17,52 @@ func TestGame(t *testing.T) {
 		Name:               "Test GLFW",
 		FixedDrawFrequency: time.Second / 60,
 		Stages: []axe.Stage{{
-			Name:   "first",
-			Assets: []axe.AssetRef{{Name: "cube", URI: "./square.png"}},
+			Name: "first",
+			Assets: []axe.AssetRef{
+				{Name: "cube texture", URI: "./square.png"},
+				// {Name: "cube model", URI: "./cube.obj"}, // OBJ not supported yet for MeshData
+			},
 			Windows: []axe.StageWindow{{
 				Name:       "main",
 				Title:      "Test GLFW Main Window",
 				Placement:  ui.Maximized(),
 				Fullscreen: false,
 			}},
-			// Scenes: []axe.Scene[float32, axe.Vec2[float32]]{{
-			// 	Name: "main",
-			// 	World: axe.NewWorld(axe.WorldOptions{
-			// 		EntityMax:              128,
-			// 		StageSize:              16,
-			// 		UncommonComponentCount: 4,
-			// 	}),
-			// 	Load: func(scene *axe.Scene[float32, axe.Vec2[float32]], game *axe.Game) {
-			// 		type Sprite struct {
-			// 			Texture axe.Texture
-			// 		}
+			Scenes3: []axe.Scene3f{{
+				Name: "main",
+				World: axe.NewWorld("main", axe.WorldSettings{
+					EntityCapacity:            2048,
+					EntityStageCapacity:       128,
+					AverageComponentPerEntity: 4,
+					DeleteOnDestroy:           true,
+				}),
+				Jobs: job.NewRunner(12, 1000),
+				Load: func(scene *axe.Scene3f, game *axe.Game) {
+					scene.World.Enable(
+						// Component data settings
+						axe.EntityDataSettings{Capacity: 2048, StageCapacity: 128},
+						// Components
+						axe.TAG, axe.MESH, axe.TRANSFORM3, axe.AUDIO,
+					)
 
-			// 		TRANSFORM := axe.DefineComponent("transform", axe.Transform{}, true)
-			// 		SPRITE := axe.DefineComponent("sprite", Sprite{}, true)
+					// Systems
+					axe.TRANSFORM3.AddSystem(axe.NewTransformSystem[axe.Vec4f]())
 
-			// 		transforms := TRANSFORM.Enable(scene.World)
-			// 		TRANSFORM.AddSystem(scene.World, axe.NewTransformSystem)
-
-			// 		sprites := SPRITE.Enable(scene.World)
-			// 		SPRITE.AddSystem(scene.World, nil)
-
-			// 		e := scene.World.Create()
-			// 		transforms.Set(e, axe.Transform{Local: 23})
-			// 		sprites.Take(e).Texture = game.Assets.Get("cube").Data.(axe.Texture)
-			// 	},
-			// }},
+					// Entities
+					e := axe.NewEntity()
+					axe.TAG.Set(e, axe.Tag("cube"))
+					axe.MESH.Set(e, axe.Mesh{Name: "cube model"})
+					axe.TRANSFORM3.Set(e, axe.NewTransform4(axe.TransformCreate4f{
+						Position: axe.Vec4f{0, 0, 0, 0},
+						Scale:    axe.Vec4f{1, 1, 1, 0},
+					}))
+				},
+			}},
 		}},
 	})
 	Setup(game)
+
+	// WIP below
 
 	itb := axe.InputTriggerBuilder{}
 
