@@ -6,7 +6,7 @@ type InputActionListener struct {
 	Handler func(action *InputAction) bool
 }
 
-var INPUT_ACTION = DefineComponent("input-action", InputActionListener{})
+var INPUTACTION = DefineComponent("input-action", InputActionListener{})
 
 type InputActionSystem struct {
 	unhandled InputActionHandler

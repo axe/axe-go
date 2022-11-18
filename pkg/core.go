@@ -31,6 +31,9 @@ func (scene *Scene[A]) Init(game *Game) error {
 	if scene.Jobs == nil {
 		scene.Jobs = job.NewRunner(game.Settings.JobGroups, game.Settings.JobBudget)
 	}
+	if scene.World == nil {
+		scene.World = NewWorld(game.Settings.WorldName, game.Settings.WorldSettings)
+	}
 	if scene.Load != nil {
 		scene.Load(scene, game)
 	}
@@ -48,15 +51,21 @@ func (scene *Scene[A]) Init(game *Game) error {
 }
 
 func (scene *Scene[A]) Update(game *Game) {
-	scene.Jobs.Run()
-	scene.World.Update(game)
+	if scene.Jobs != nil {
+		scene.Jobs.Run()
+	}
+	if scene.World != nil {
+		scene.World.Update(game)
+	}
 	if scene.Space != nil {
 		scene.Space.Update(game)
 	}
 }
 
 func (scene *Scene[A]) Destroy() {
-	scene.World.Destroy()
+	if scene.World != nil {
+		scene.World.Destroy()
+	}
 	if scene.Space != nil {
 		scene.Space.Destroy()
 	}

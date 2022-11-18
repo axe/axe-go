@@ -9,3 +9,5 @@ require (
 )
 
 require github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6
+
+require github.com/udhos/gwob v0.0.0-20200524213453-619810f75817 // indirect

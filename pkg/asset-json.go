@@ -6,7 +6,7 @@ import (
 	"regexp"
 )
 
-type JsonGenericAssetLoader struct{}
+type JsonGenericAssetFormat struct{}
 type JsonValueKind int
 
 const (
@@ -28,18 +28,18 @@ type JsonValue struct {
 	Parent *JsonValue
 }
 
-var _ AssetFormat = &JsonGenericAssetLoader{}
-var jsonGenericAssetLoaderRegex, _ = regexp.Compile(`\.json$`)
+var _ AssetFormat = &JsonGenericAssetFormat{}
+var jsonGenericAssetFormatRegex, _ = regexp.Compile(`\.json$`)
 
-func (loader *JsonGenericAssetLoader) Handles(ref AssetRef) bool {
-	return jsonGenericAssetLoaderRegex.MatchString(ref.URI)
+func (format *JsonGenericAssetFormat) Handles(ref AssetRef) bool {
+	return jsonGenericAssetFormatRegex.MatchString(ref.URI)
 }
 
-func (loader *JsonGenericAssetLoader) Types() []AssetType {
+func (format *JsonGenericAssetFormat) Types() []AssetType {
 	return []AssetType{AssetTypeJson}
 }
 
-func (loader *JsonGenericAssetLoader) Load(asset *Asset) error {
+func (format *JsonGenericAssetFormat) Load(asset *Asset) error {
 	decoder := json.NewDecoder(asset.SourceReader)
 
 	var setValue func(out *JsonValue) error
@@ -136,15 +136,15 @@ func (loader *JsonGenericAssetLoader) Load(asset *Asset) error {
 
 	return err
 }
-func (loader *JsonGenericAssetLoader) Unload(asset *Asset) error {
+func (format *JsonGenericAssetFormat) Unload(asset *Asset) error {
 	asset.LoadStatus.Reset()
 	return nil
 }
-func (loader *JsonGenericAssetLoader) Activate(asset *Asset) error {
+func (format *JsonGenericAssetFormat) Activate(asset *Asset) error {
 	asset.ActivateStatus.Success()
 	return nil
 }
-func (loader *JsonGenericAssetLoader) Deactivate(asset *Asset) error {
+func (format *JsonGenericAssetFormat) Deactivate(asset *Asset) error {
 	asset.ActivateStatus.Reset()
 	return nil
 }

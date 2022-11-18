@@ -7,5 +7,5 @@ func Setup(game *axe.Game) {
 	game.Windows = NewWindowSystem()
 	game.Graphics = NewGraphicsSystem()
 
-	game.Assets.AddLoader(&TextureLoader{})
+	game.Assets.AddFormat(&TextureLoader{})
 }

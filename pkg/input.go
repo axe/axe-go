@@ -153,6 +153,14 @@ func NewInputActionSet(name string) *InputActionSet {
 	}
 }
 
+func CreateInputActionSet(name string, actions map[string]InputTrigger) *InputActionSet {
+	set := NewInputActionSet(name)
+	for name, trigger := range actions {
+		set.Add(NewInputAction(name, trigger))
+	}
+	return set
+}
+
 func (set *InputActionSet) Init(inputs InputSystem) {
 	for _, action := range set.Actions {
 		action.Init(inputs)
@@ -194,6 +202,14 @@ func NewInputActionSets() InputActionSets {
 		Sets:    make(map[string]*InputActionSet),
 		Handler: nil,
 	}
+}
+
+func CreateInputActionSets(actionSets map[string]map[string]InputTrigger) InputActionSets {
+	sets := NewInputActionSets()
+	for name, actions := range actionSets {
+		sets.Sets[name] = CreateInputActionSet(name, actions)
+	}
+	return sets
 }
 
 func (sets *InputActionSets) Init(inputs InputSystem) {

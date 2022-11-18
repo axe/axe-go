@@ -28,6 +28,9 @@ func (ds *DebugSystem) LogError(err error) {
 		fmt.Printf("%v\n", err)
 	}
 }
+func (ds *DebugSystem) LogDebug(format string, values ...any) {
+	fmt.Printf(format, values...)
+}
 
 type DebugLog struct {
 	Severity int

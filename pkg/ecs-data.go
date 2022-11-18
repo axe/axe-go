@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/axe/axe-go/pkg/ds"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type EntityDataSettings struct {
@@ -98,6 +99,7 @@ func (d *EntityData[V]) Iterable() ds.Iterable[EntityValue[*V]] {
 
 func (d *EntityData[V]) AddSystem(sys EntityDataSystem[V]) {
 	w := ActiveWorld()
+	util.Assert(w.values[d.id] != nil, "a component must be enabled before adding a system")
 	values := w.values[d.id].(*worldValues[V])
 	values.systems = append(values.systems, sys)
 }

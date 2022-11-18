@@ -7,25 +7,25 @@ import (
 	"strings"
 )
 
-type XmlGenericAssetLoader struct{}
+type XmlGenericAssetFormat struct{}
 
 type XmlNode struct {
 	Token    xml.Token
 	Children []*XmlNode
 }
 
-var _ AssetFormat = &XmlGenericAssetLoader{}
+var _ AssetFormat = &XmlGenericAssetFormat{}
 var xmlGenericAssetLoaderRegex, _ = regexp.Compile(`\.xml$`)
 
-func (loader *XmlGenericAssetLoader) Handles(ref AssetRef) bool {
+func (format *XmlGenericAssetFormat) Handles(ref AssetRef) bool {
 	return xmlGenericAssetLoaderRegex.MatchString(ref.URI)
 }
 
-func (loader *XmlGenericAssetLoader) Types() []AssetType {
+func (format *XmlGenericAssetFormat) Types() []AssetType {
 	return []AssetType{AssetTypeXml}
 }
 
-func (loader *XmlGenericAssetLoader) Load(asset *Asset) error {
+func (format *XmlGenericAssetFormat) Load(asset *Asset) error {
 	decoder := xml.NewDecoder(asset.SourceReader)
 
 	root := make([]*XmlNode, 0)
@@ -68,23 +68,23 @@ func (loader *XmlGenericAssetLoader) Load(asset *Asset) error {
 	return nil
 }
 
-func (loader *XmlGenericAssetLoader) Unload(asset *Asset) error {
+func (format *XmlGenericAssetFormat) Unload(asset *Asset) error {
 	asset.LoadStatus.Reset()
 	asset.Data = nil
 	return nil
 }
 
-func (loader *XmlGenericAssetLoader) Activate(asset *Asset) error {
+func (format *XmlGenericAssetFormat) Activate(asset *Asset) error {
 	asset.ActivateStatus.Success()
 	return nil
 }
 
-func (loader *XmlGenericAssetLoader) Deactivate(asset *Asset) error {
+func (format *XmlGenericAssetFormat) Deactivate(asset *Asset) error {
 	asset.ActivateStatus.Reset()
 	return nil
 }
 
-type XmlAssetLoader[T any] struct {
+type XmlAssetFormat[T any] struct {
 	EmptyValue        T
 	Suffix            string
 	SuffixInsensitive bool
@@ -92,30 +92,30 @@ type XmlAssetLoader[T any] struct {
 	CustomTypes       []AssetType
 }
 
-var _ AssetFormat = &XmlAssetLoader[any]{}
+var _ AssetFormat = &XmlAssetFormat[any]{}
 
-func (loader *XmlAssetLoader[T]) Handles(ref AssetRef) bool {
-	if loader.Suffix != "" {
-		suffix := loader.Suffix
+func (format *XmlAssetFormat[T]) Handles(ref AssetRef) bool {
+	if format.Suffix != "" {
+		suffix := format.Suffix
 		uri := ref.URI
-		if loader.SuffixInsensitive {
+		if format.SuffixInsensitive {
 			suffix = strings.ToLower(suffix)
 			uri = strings.ToLower(uri)
 		}
 		return strings.HasSuffix(uri, suffix)
 	}
-	if loader.Regex != nil {
-		return loader.Regex.MatchString(ref.URI)
+	if format.Regex != nil {
+		return format.Regex.MatchString(ref.URI)
 	}
 	return false
 }
 
-func (loader *XmlAssetLoader[T]) Types() []AssetType {
-	return loader.CustomTypes
+func (format *XmlAssetFormat[T]) Types() []AssetType {
+	return format.CustomTypes
 }
 
-func (loader *XmlAssetLoader[T]) Load(asset *Asset) error {
-	copy := loader.EmptyValue
+func (format *XmlAssetFormat[T]) Load(asset *Asset) error {
+	copy := format.EmptyValue
 	decoder := xml.NewDecoder(asset.SourceReader)
 	err := decoder.Decode(&copy)
 
@@ -128,18 +128,18 @@ func (loader *XmlAssetLoader[T]) Load(asset *Asset) error {
 	return err
 }
 
-func (loader *XmlAssetLoader[T]) Unload(asset *Asset) error {
+func (format *XmlAssetFormat[T]) Unload(asset *Asset) error {
 	asset.LoadStatus.Reset()
 	asset.Data = nil
 	return nil
 }
 
-func (loader *XmlAssetLoader[T]) Activate(asset *Asset) error {
+func (format *XmlAssetFormat[T]) Activate(asset *Asset) error {
 	asset.ActivateStatus.Success()
 	return nil
 }
 
-func (loader *XmlAssetLoader[T]) Deactivate(asset *Asset) error {
+func (format *XmlAssetFormat[T]) Deactivate(asset *Asset) error {
 	asset.ActivateStatus.Reset()
 	return nil
 }

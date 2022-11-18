@@ -29,9 +29,13 @@ type GameSettings struct {
 	FixedUpdateFrequency time.Duration
 	FixedDrawFrequency   time.Duration
 	FirstStage           string
-	Stages               []Stage
 	JobGroups            int
 	JobBudget            int
+	Stages               []Stage
+	Assets               []AssetRef
+	Windows              []StageWindow
+	WorldName            string
+	WorldSettings        WorldSettings
 }
 
 type Game struct {

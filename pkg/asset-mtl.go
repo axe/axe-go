@@ -1,0 +1,95 @@
+package axe
+
+import (
+	"regexp"
+
+	"github.com/udhos/gwob"
+)
+
+var _ AssetFormat = &MtlFormat{}
+var mtlFormatRegex, _ = regexp.Compile(`\.mtl$`)
+
+type MtlFormat struct {
+}
+
+func (format *MtlFormat) Handles(ref AssetRef) bool {
+	return mtlFormatRegex.MatchString(ref.URI)
+}
+
+func (format *MtlFormat) Types() []AssetType {
+	return []AssetType{AssetTypeModel}
+}
+
+func (format *MtlFormat) Load(asset *Asset) error {
+	lib, err := gwob.ReadMaterialLibFromReader(asset.SourceReader, &gwob.ObjParserOptions{})
+
+	if err != nil {
+		asset.LoadStatus.Fail(err)
+		return err
+	}
+
+	materials := Materials{}
+	asset.Dependent = make([]AssetRef, 0)
+
+	for materialName, material := range lib.Lib {
+		mat := Material{
+			Name:       material.Name,
+			Illum:      material.Illum,
+			Opacity:    material.D,
+			Refraction: material.Ni,
+			Shininess:  material.Ns,
+			Ambient: TextureColor{
+				Texture: material.MapKa,
+				Color:   material.Ka,
+			},
+			Diffuse: TextureColor{
+				Texture: material.MapKd,
+				Color:   material.Kd,
+			},
+			Specular: TextureColor{
+				Texture: material.MapKs,
+				Color:   material.Ks,
+			},
+			Emissive: TextureColor{
+				Texture: material.MapKe,
+			},
+			TextureBump: material.Bump,
+		}
+
+		if mat.Ambient.Texture != "" {
+			asset.AddNext(mat.Ambient.Texture, true)
+		}
+		if mat.Specular.Texture != "" {
+			asset.AddNext(mat.Specular.Texture, true)
+		}
+		if mat.Diffuse.Texture != "" {
+			asset.AddNext(mat.Diffuse.Texture, true)
+		}
+		if mat.Emissive.Texture != "" {
+			asset.AddNext(mat.Emissive.Texture, true)
+		}
+		if mat.TextureBump != "" {
+			asset.AddNext(mat.TextureBump, true)
+		}
+
+		materials[materialName] = mat
+	}
+
+	asset.Data = materials
+	asset.LoadStatus.Success()
+
+	return nil
+}
+
+func (format *MtlFormat) Unload(asset *Asset) error {
+	asset.LoadStatus.Reset()
+	return nil
+}
+func (format *MtlFormat) Activate(asset *Asset) error {
+	asset.ActivateStatus.Success()
+	return nil
+}
+func (format *MtlFormat) Deactivate(asset *Asset) error {
+	asset.ActivateStatus.Reset()
+	return nil
+}

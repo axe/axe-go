@@ -13,15 +13,19 @@ type MeshData struct {
 	Vertices  [][3]float32
 	Normals   [][3]float32
 	Uvs       [][2]float32
-	Faces     []Face
-	Materials []Material
+	Groups    []MeshFaceGroup
+	Materials string
+}
+
+type MeshFaceGroup struct {
+	Material string
+	Faces    []Face
 }
 
 type Face struct {
 	Vertices []int
 	Uvs      []int
 	Normals  []int
-	Material string
 }
 
 type Material struct {
@@ -41,3 +45,5 @@ type TextureColor struct {
 	Texture string
 	Color   [3]float32
 }
+
+type Materials map[string]Material

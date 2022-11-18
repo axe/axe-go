@@ -1,5 +1,8 @@
 package axe
 
-type Color struct {
-	R, G, B, A int
+type Colori = Color[int]
+type Colorf = Color[float32]
+
+type Color[C any] struct {
+	R, G, B, A C
 }

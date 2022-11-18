@@ -1,0 +1,3 @@
+newmtl cube
+illum 1
+map_Kd square.png

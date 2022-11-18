@@ -29,7 +29,7 @@ func (tex *texture) Height() int       { return tex.image.Rect.Size().Y }
 type TextureLoader struct{}
 
 var _ axe.AssetFormat = &TextureLoader{}
-var textureLoaderRegex, _ = regexp.Compile("\\.(png|jpg|jpeg)$")
+var textureLoaderRegex, _ = regexp.Compile(`\.(png|jpg|jpeg)$`)
 
 func (loader *TextureLoader) Handles(ref axe.AssetRef) bool {
 	return textureLoaderRegex.MatchString(strings.ToLower(ref.URI))
@@ -52,7 +52,7 @@ func (loader *TextureLoader) Load(asset *axe.Asset) error {
 
 	rgba := image.NewRGBA(img.Bounds())
 	if rgba.Stride != rgba.Rect.Size().X*4 {
-		err = errors.New("Unsupported texture Stride")
+		err = errors.New("unsupported texture Stride")
 		asset.LoadStatus.Fail(err)
 		return err
 	}
@@ -77,7 +77,7 @@ func (loader *TextureLoader) Activate(asset *axe.Asset) error {
 
 	tex, isTexture := asset.Data.(*texture)
 	if !isTexture {
-		err := fmt.Errorf("Error activating missing texture.")
+		err := fmt.Errorf("error activating missing texture")
 		asset.ActivateStatus.Fail(err)
 		return err
 	}
@@ -105,7 +105,7 @@ func (loader *TextureLoader) Activate(asset *axe.Asset) error {
 	errCode := gl.GetError()
 
 	if errCode != 0 {
-		err := fmt.Errorf("Error activating texture with code %d", errCode)
+		err := fmt.Errorf("error activating texture with code %d", errCode)
 		asset.ActivateStatus.Fail(err)
 		return err
 	}

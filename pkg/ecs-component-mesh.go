@@ -3,7 +3,7 @@ package axe
 var MESH = DefineComponent("mesh", Mesh{})
 
 type Mesh struct {
-	Name string
+	Ref AssetRef
 
-	mesh *MeshData
+	data *MeshData
 }

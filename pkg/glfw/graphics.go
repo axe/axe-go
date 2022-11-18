@@ -13,11 +13,11 @@ func NewGraphicsSystem() axe.GraphicsSystem {
 }
 
 type graphicsSystem struct {
-	texture   *texture
-	rotationX float32
-	rotationY float32
-	window    *window
-	offs      axe.ListenerOffs
+	// texture   *texture
+	// rotationX float32
+	// rotationY float32
+	window *window
+	offs   axe.ListenerOffs
 }
 
 var _ axe.GraphicsSystem = &graphicsSystem{}
@@ -44,28 +44,26 @@ func (gr *graphicsSystem) Init(game *axe.Game) error {
 	gl.ClearDepth(1)                  // system dependent
 	gl.DepthFunc(gl.LEQUAL)           // view dependent
 
-	ambient := []float32{0.5, 0.5, 0.5, 1}
-	diffuse := []float32{1, 1, 1, 1}
-	lightPosition := []float32{-5, 5, 10, 0}
-	gl.Lightfv(gl.LIGHT0, gl.AMBIENT, &ambient[0])        // view dependent
-	gl.Lightfv(gl.LIGHT0, gl.DIFFUSE, &diffuse[0])        // view dependent
-	gl.Lightfv(gl.LIGHT0, gl.POSITION, &lightPosition[0]) // view dependent
-	gl.Enable(gl.LIGHT0)                                  // view dependent
+	// ambient := []float32{0.5, 0.5, 0.5, 1}
+	// diffuse := []float32{1, 1, 1, 1}
+	// lightPosition := []float32{-5, 5, 10, 0}
+	// gl.Lightfv(gl.LIGHT0, gl.AMBIENT, &ambient[0])        // view dependent
+	// gl.Lightfv(gl.LIGHT0, gl.DIFFUSE, &diffuse[0])        // view dependent
+	// gl.Lightfv(gl.LIGHT0, gl.POSITION, &lightPosition[0]) // view dependent
+	// gl.Enable(gl.LIGHT0)                                  // view dependent
 
 	gr.resize(gr.window.size.X, gr.window.size.Y) // view dependent
 	gl.MatrixMode(gl.MODELVIEW)                   // view dependent
 	gl.LoadIdentity()                             // view dependent
 
-	asset := game.Assets.Add(axe.AssetRef{
-		Name: "square",
-		URI:  "./square.png",
-		Type: axe.AssetTypeTexture,
-	})
-	err = asset.Activate()
-	if err != nil {
-		return err
-	}
-	gr.texture = asset.Data.(*texture)
+	// asset := game.Assets.Add(axe.AssetRef{
+	// 	URI: "./square.png",
+	// })
+	// err = asset.Activate()
+	// if err != nil {
+	// 	return err
+	// }
+	// gr.texture = asset.Data.(*texture)
 
 	return nil
 }
@@ -102,83 +100,92 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 	gl.MatrixMode(gl.MODELVIEW) // view dependent
 	gl.LoadIdentity()           // view dependent
 
-	// done by renderer
-	gl.Translatef(0, 0, -3.0)
-	gl.Rotatef(gr.rotationX, 1, 0, 0)
-	gl.Rotatef(gr.rotationY, 0, 1, 0)
+	if !axe.HasActiveWorld() {
+		// fmt.Printf("no active world: %v\n", time.Now().Sub(game.State.StartTime))
+		gr.window.window.SwapBuffers()
+		return
+	}
 
-	dt := game.State.UpdateTimer.Elapsed.Seconds()
+	lights := axe.LIGHT.Iterable().Iterator()
+	lightIndex := uint32(0)
+	for lights.HasNext() {
+		if lightIndex == 0 {
+			gl.Enable(gl.LIGHTING)
+		}
+		light := lights.Next()
+		gl.Lightfv(gl.LIGHT0, gl.AMBIENT, &light.Data.Ambient.R)   // view dependent
+		gl.Lightfv(gl.LIGHT0, gl.DIFFUSE, &light.Data.Diffuse.R)   // view dependent
+		gl.Lightfv(gl.LIGHT0, gl.POSITION, &light.Data.Position.X) // view dependent
+		gl.Enable(gl.LIGHT0 + lightIndex)                          // view dependent
+		lightIndex++
+		if lightIndex >= 8 {
+			break
+		}
+	}
+	if lightIndex == 0 {
+		gl.Disable(gl.LIGHTING)
+	}
 
-	gr.rotationX += float32(dt * 6)
-	gr.rotationY += float32(dt * 4)
+	meshes := axe.MESH.Iterable().Iterator()
+	for meshes.HasNext() {
+		entityMesh := meshes.Next()
 
-	gl.BindTexture(gl.TEXTURE_2D, gr.texture.id)
+		meshAsset := game.Assets.GetRef(entityMesh.Data.Ref)
+		if meshAsset == nil {
+			// fmt.Println("no mesh asset")
+			continue
+		}
+		meshData := meshAsset.Data.(axe.MeshData)
+		meshMaterialsAsset := game.Assets.GetEither(meshData.Materials)
+		if meshMaterialsAsset == nil {
+			// fmt.Printf("no mesh materials asset %s\n", meshData.Materials)
+			continue
+		}
+		meshMaterials := meshMaterialsAsset.Data.(axe.Materials)
 
-	gl.Color4f(1, 1, 1, 1)
+		transform := axe.TRANSFORM3.Get(entityMesh.Entity)
+		if transform != nil {
+			pos := transform.GetPosition()
+			rot := transform.GetRotation()
+			scl := transform.GetScale()
 
-	gl.Begin(gl.QUADS)
+			gl.LoadIdentity()
+			gl.Translatef(pos.X, pos.Y, pos.Z)
+			gl.Rotatef(rot.X, 1, 0, 0)
+			gl.Rotatef(rot.Y, 0, 1, 0)
+			gl.Rotatef(rot.Z, 0, 0, 1)
+			gl.Scalef(scl.X, scl.Y, scl.Z)
+		}
 
-	gl.Normal3f(0, 0, 1)
-	gl.TexCoord2f(0, 0)
-	gl.Vertex3f(-1, -1, 1)
-	gl.TexCoord2f(1, 0)
-	gl.Vertex3f(1, -1, 1)
-	gl.TexCoord2f(1, 1)
-	gl.Vertex3f(1, 1, 1)
-	gl.TexCoord2f(0, 1)
-	gl.Vertex3f(-1, 1, 1)
+		for _, group := range meshData.Groups {
+			if material, ok := meshMaterials[group.Material]; ok {
+				textureAsset := game.Assets.GetEither(material.Diffuse.Texture)
+				if textureAsset == nil {
+					// fmt.Println("no texture asset")
+					continue
+				}
+				texture := textureAsset.Data.(*texture)
 
-	gl.Normal3f(0, 0, -1)
-	gl.TexCoord2f(1, 0)
-	gl.Vertex3f(-1, -1, -1)
-	gl.TexCoord2f(1, 1)
-	gl.Vertex3f(-1, 1, -1)
-	gl.TexCoord2f(0, 1)
-	gl.Vertex3f(1, 1, -1)
-	gl.TexCoord2f(0, 0)
-	gl.Vertex3f(1, -1, -1)
+				gl.BindTexture(gl.TEXTURE_2D, texture.id)
+				gl.Color4f(1, 1, 1, 1)
 
-	gl.Normal3f(0, 1, 0)
-	gl.TexCoord2f(0, 1)
-	gl.Vertex3f(-1, 1, -1)
-	gl.TexCoord2f(0, 0)
-	gl.Vertex3f(-1, 1, 1)
-	gl.TexCoord2f(1, 0)
-	gl.Vertex3f(1, 1, 1)
-	gl.TexCoord2f(1, 1)
-	gl.Vertex3f(1, 1, -1)
+				gl.Begin(gl.TRIANGLES)
+				for _, face := range group.Faces {
+					for i := 0; i < 3; i++ {
+						if face.Normals != nil {
+							gl.Normal3fv(&meshData.Normals[face.Normals[i]][0])
+						}
+						if face.Uvs != nil {
+							gl.TexCoord3fv(&meshData.Uvs[face.Uvs[i]][0])
+						}
+						gl.Vertex3fv(&meshData.Vertices[face.Vertices[i]][0])
+					}
+				}
+				gl.End()
+			}
 
-	gl.Normal3f(0, -1, 0)
-	gl.TexCoord2f(1, 1)
-	gl.Vertex3f(-1, -1, -1)
-	gl.TexCoord2f(0, 1)
-	gl.Vertex3f(1, -1, -1)
-	gl.TexCoord2f(0, 0)
-	gl.Vertex3f(1, -1, 1)
-	gl.TexCoord2f(1, 0)
-	gl.Vertex3f(-1, -1, 1)
-
-	gl.Normal3f(1, 0, 0)
-	gl.TexCoord2f(1, 0)
-	gl.Vertex3f(1, -1, -1)
-	gl.TexCoord2f(1, 1)
-	gl.Vertex3f(1, 1, -1)
-	gl.TexCoord2f(0, 1)
-	gl.Vertex3f(1, 1, 1)
-	gl.TexCoord2f(0, 0)
-	gl.Vertex3f(1, -1, 1)
-
-	gl.Normal3f(-1, 0, 0)
-	gl.TexCoord2f(0, 0)
-	gl.Vertex3f(-1, -1, -1)
-	gl.TexCoord2f(1, 0)
-	gl.Vertex3f(-1, -1, 1)
-	gl.TexCoord2f(1, 1)
-	gl.Vertex3f(-1, 1, 1)
-	gl.TexCoord2f(0, 1)
-	gl.Vertex3f(-1, 1, -1)
-
-	gl.End()
+		}
+	}
 
 	gr.window.window.SwapBuffers() // system dependent
 }

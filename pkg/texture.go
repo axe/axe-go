@@ -27,7 +27,7 @@ type Tile struct {
 func NewTile(tex Texture) Tile {
 	name := ""
 	if tex.Asset() != nil {
-		name = tex.Asset().Ref.Name
+		name = tex.Asset().Ref.UniqueName()
 	}
 
 	return Tile{

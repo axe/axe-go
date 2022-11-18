@@ -15,6 +15,10 @@ type WorldSettings struct {
 	DeleteOnDestroy           bool
 }
 
+func (ws WorldSettings) IsZero() bool {
+	return ws.EntityCapacity == 0 && ws.EntityStageCapacity == 0 && ws.AverageComponentPerEntity == 0 && !ws.DeleteOnDestroy
+}
+
 type WorldSearch struct {
 	Match               util.Match[EntityDataIDs]
 	IncludeStagedValues bool
@@ -82,6 +86,10 @@ var activeWorld *World
 func ActiveWorld() *World {
 	util.Assert(activeWorld != nil, "There is no active world, you must create one or activate one")
 	return activeWorld
+}
+
+func HasActiveWorld() bool {
+	return activeWorld != nil
 }
 
 func (w *World) IsActive() bool {

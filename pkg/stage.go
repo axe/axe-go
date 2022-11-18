@@ -146,10 +146,6 @@ type StageManagerEvents struct {
 	StageExited   func(previous *Stage, current *Stage)
 }
 
-// type SceneType interface {
-// 	~Scene2f | ~Scene3f
-// }
-
 type Stage struct {
 	Name    string
 	Assets  []AssetRef
@@ -160,50 +156,69 @@ type Stage struct {
 	Views3  []View3f
 	Actions InputActionSets
 
-	assets []*Asset
+	pendingAssets map[string]*Asset
+	loadedAssets  map[string]*Asset
 }
 
 func (stage Stage) HasStartedLoading() bool {
-	return stage.assets != nil
+	return stage.pendingAssets != nil
 }
 
 func (stage *Stage) Load(game *Game) {
-	if stage.assets == nil {
-		stage.assets = game.Assets.AddMany(stage.Assets)
+	if stage.pendingAssets == nil {
+		stage.pendingAssets = game.Assets.AddManyMap(stage.Assets)
+		stage.loadedAssets = make(map[string]*Asset, len(stage.pendingAssets))
 	}
-	for _, asset := range stage.assets {
+	for key, asset := range stage.pendingAssets {
+		// If loading hasn't started, kick it off
 		if !asset.LoadStatus.Started {
+			game.Debug.LogDebug("Loading asset: %s\n", asset.Ref.URI)
 			go game.Debug.LogError(asset.Load()) // TODO handle
 		}
-		if !asset.LoadStatus.IsSuccess() {
+		// If loading is not done, check the next asset
+		if !asset.LoadStatus.Done {
 			continue
 		}
+		game.Debug.LogDebug("Asset loaded: %s\n", asset.Ref.URI)
+		// The asset is loaded, remove it from pending and add it to loaded.
+		delete(stage.pendingAssets, key)
+		stage.loadedAssets[key] = asset
+		// The asset is loaded, if any need to follow add them
+		if len(asset.Next) > 0 {
+			for _, nextRef := range asset.Next {
+				nextAsset := game.Assets.Add(nextRef)
+
+				if stage.loadedAssets[nextAsset.Ref.URI] == nil {
+					stage.pendingAssets[nextAsset.Ref.URI] = nextAsset
+				}
+			}
+		}
+	}
+	for _, asset := range stage.loadedAssets {
+		// If the asset has not been activated, activate it
 		if !asset.ActivateStatus.Started {
+			game.Debug.LogDebug("Activating asset: %s\n", asset.Ref.URI)
 			game.Debug.LogError(asset.Activate()) // TODO handle
 		}
 	}
 }
 
 func (stage *Stage) IsLoaded() bool {
-	if stage.assets != nil {
-		for _, asset := range stage.assets {
-			if !asset.ActivateStatus.IsSuccess() {
-				return false
-			}
-		}
+	if stage.pendingAssets != nil {
+		return len(stage.pendingAssets) == 0
 	}
-	return true
+	return false
 }
 
 func (stage *Stage) Unload(activeStage *Stage) {
-	if stage.assets != nil {
+	if stage.loadedAssets != nil {
 		unusedAssets := make(map[string]*Asset)
-		for i := range stage.assets {
-			asset := stage.assets[i]
+		for i := range stage.loadedAssets {
+			asset := stage.loadedAssets[i]
 			unusedAssets[asset.Ref.URI] = asset
 		}
-		if activeStage != nil && activeStage.assets != nil {
-			for _, asset := range activeStage.assets {
+		if activeStage != nil && activeStage.loadedAssets != nil {
+			for _, asset := range activeStage.loadedAssets {
 				delete(unusedAssets, asset.Ref.URI)
 			}
 		}
@@ -211,24 +226,25 @@ func (stage *Stage) Unload(activeStage *Stage) {
 			asset.Unload() // TODO error?
 		}
 	}
-	stage.assets = nil
+	stage.loadedAssets = nil
+	stage.pendingAssets = nil
 }
 
 func (stage *Stage) Start(game *Game) {
 	stage.Actions.Init(game.Input)
 
-	for _, scene := range stage.Scenes2 {
-		game.Debug.LogError(scene.Init(game))
+	for i := range stage.Scenes2 {
+		game.Debug.LogError(stage.Scenes2[i].Init(game))
 	}
-	for _, scene := range stage.Scenes3 {
-		game.Debug.LogError(scene.Init(game))
+	for i := range stage.Scenes3 {
+		game.Debug.LogError(stage.Scenes3[i].Init(game))
 	}
 
-	for _, view := range stage.Views2 {
-		game.Debug.LogError(view.Init(game))
+	for i := range stage.Views2 {
+		game.Debug.LogError(stage.Views2[i].Init(game))
 	}
-	for _, view := range stage.Views3 {
-		game.Debug.LogError(view.Init(game))
+	for i := range stage.Views3 {
+		game.Debug.LogError(stage.Views3[i].Init(game))
 	}
 }
 
@@ -241,18 +257,18 @@ func (stage *Stage) Update(game *Game) {
 	// update space
 	// update collisions
 	// update space
-	for _, scene := range stage.Scenes2 {
-		scene.Update(game)
+	for i := range stage.Scenes2 {
+		stage.Scenes2[i].Update(game)
 	}
-	for _, scene := range stage.Scenes3 {
-		scene.Update(game)
+	for i := range stage.Scenes3 {
+		stage.Scenes3[i].Update(game)
 	}
 
 	// update camera
-	for _, view := range stage.Views2 {
-		view.Update(game)
+	for i := range stage.Views2 {
+		stage.Views2[i].Update(game)
 	}
-	for _, view := range stage.Views3 {
-		view.Update(game)
+	for i := range stage.Views3 {
+		stage.Views3[i].Update(game)
 	}
 }

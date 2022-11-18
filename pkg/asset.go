@@ -3,16 +3,15 @@ package axe
 import (
 	"fmt"
 	"io"
-	"net/http"
-	"os"
-	"regexp"
 )
 
 type AssetSystem struct {
-	FormatMap map[AssetType]AssetFormat
-	Formats   []AssetFormat
-	Sources   []AssetSource
-	Assets    map[string]*Asset
+	FormatMap     map[AssetType]AssetFormat
+	Formats       []AssetFormat
+	Sources       []AssetSource
+	DefaultSource AssetSource
+	Assets        map[string]*Asset
+	NamedAssets   map[string]*Asset
 }
 
 var _ GameSystem = &AssetSystem{}
@@ -27,6 +26,9 @@ const (
 	AssetTypeFragmentShader AssetType = "fragment-shader"
 	AssetTypeXml            AssetType = "xml"
 	AssetTypeJson           AssetType = "json"
+	AssetTypeModel          AssetType = "model"
+	AssetTypeMaterials      AssetType = "materials"
+	AssetTypeMaterial       AssetType = "material"
 )
 
 type AssetStatus struct {
@@ -78,12 +80,27 @@ type AssetFormat interface {
 type AssetSource interface {
 	Handles(ref AssetRef) bool
 	Read(ref AssetRef) (io.Reader, error)
+	Relative(uri string, relative string) string
 }
 
 type AssetRef struct {
 	Name string
 	URI  string
 	Type AssetType
+}
+
+func (ref AssetRef) UniqueName() string {
+	if ref.Name != "" {
+		return ref.Name
+	}
+	return ref.URI
+}
+func (ref AssetRef) String() string {
+	if ref.Name != "" && ref.Name != ref.URI {
+		return fmt.Sprintf("%s (%s)", ref.Name, ref.URI)
+	} else {
+		return ref.URI
+	}
 }
 
 type Asset struct {
@@ -94,6 +111,8 @@ type Asset struct {
 	LoadStatus     AssetStatus
 	Data           any
 	ActivateStatus AssetStatus
+	Dependent      []AssetRef
+	Next           []AssetRef
 }
 
 func (a Asset) IsValid() bool {
@@ -102,7 +121,7 @@ func (a Asset) IsValid() bool {
 
 func (a *Asset) Load() error {
 	if !a.IsValid() {
-		return fmt.Errorf("Asset %s (%s) must have a source and loader to be loaded", a.Ref.Name, a.Ref.URI)
+		return fmt.Errorf("Asset %s must have a source and format to be loaded", a.Ref.String())
 	}
 	if err := a.LoadReader(); err != nil {
 		return err
@@ -113,12 +132,27 @@ func (a *Asset) Load() error {
 	return nil
 }
 
+func (a *Asset) AddNext(relative string, dependent bool) {
+	rel := a.Relative(relative)
+	a.Next = append(a.Next, rel)
+	if dependent {
+		a.Dependent = append(a.Dependent, rel)
+	}
+}
+
+func (a *Asset) Relative(relative string) AssetRef {
+	return AssetRef{
+		URI:  a.Source.Relative(a.Ref.URI, relative),
+		Name: relative,
+	}
+}
+
 func (a *Asset) LoadReader() error {
 	if a.SourceReader != nil {
 		return nil
 	}
 	if a.Source == nil {
-		return fmt.Errorf("Asset %s (%s) must have a source to be loaded", a.Ref.Name, a.Ref.URI)
+		return fmt.Errorf("Asset %s must have a source to be loaded", a.Ref.String())
 	}
 	reader, err := a.Source.Read(a.Ref)
 	if err != nil {
@@ -133,7 +167,7 @@ func (a *Asset) LoadData() error {
 		return nil
 	}
 	if a.Format == nil || a.SourceReader == nil {
-		return fmt.Errorf("Asset %s (%s) must have a loader and source to be loaded", a.Ref.Name, a.Ref.URI)
+		return fmt.Errorf("Asset %s must have a format and source to be loaded", a.Ref.String())
 	}
 	return a.Format.Load(a)
 }
@@ -167,19 +201,20 @@ func (a *Asset) Unload() error {
 
 func NewAssetSystem() AssetSystem {
 	return AssetSystem{
-		FormatMap: make(map[AssetType]AssetFormat),
-		Formats:   make([]AssetFormat, 0, 16),
-		Sources:   make([]AssetSource, 0, 16),
-		Assets:    make(map[string]*Asset, 128),
+		FormatMap:   make(map[AssetType]AssetFormat),
+		Formats:     make([]AssetFormat, 0, 16),
+		Sources:     make([]AssetSource, 0, 16),
+		Assets:      make(map[string]*Asset, 128),
+		NamedAssets: make(map[string]*Asset),
 	}
 }
 
-func (assets *AssetSystem) AddLoader(loader AssetFormat) {
-	assets.Formats = append(assets.Formats, loader)
-	types := loader.Types()
+func (assets *AssetSystem) AddFormat(format AssetFormat) {
+	assets.Formats = append(assets.Formats, format)
+	types := format.Types()
 	if len(types) > 0 {
 		for _, t := range types {
-			assets.FormatMap[t] = loader
+			assets.FormatMap[t] = format
 		}
 	}
 }
@@ -189,6 +224,9 @@ func (assets *AssetSystem) AddSource(source AssetSource) {
 }
 
 func (assets *AssetSystem) Add(ref AssetRef) *Asset {
+	if ref.Name != "" && ref.URI == "" {
+		return assets.NamedAssets[ref.Name]
+	}
 	if loaded, ok := assets.Assets[ref.URI]; ok {
 		return loaded
 	}
@@ -200,6 +238,9 @@ func (assets *AssetSystem) Add(ref AssetRef) *Asset {
 			asset.Source = source
 			break
 		}
+	}
+	if asset.Source == nil {
+		asset.Source = assets.DefaultSource
 	}
 	for _, format := range assets.Formats {
 		if format.Handles(ref) {
@@ -213,6 +254,9 @@ func (assets *AssetSystem) Add(ref AssetRef) *Asset {
 		}
 	}
 	assets.Assets[ref.URI] = asset
+	if ref.Name != "" && assets.NamedAssets[ref.Name] == nil {
+		assets.NamedAssets[ref.Name] = asset
+	}
 	return asset
 }
 
@@ -226,11 +270,31 @@ func (assets *AssetSystem) AddMany(refs []AssetRef) []*Asset {
 	return many
 }
 
+func (assets *AssetSystem) AddManyMap(refs []AssetRef) map[string]*Asset {
+	many := make(map[string]*Asset)
+	if len(refs) > 0 {
+		for _, ref := range refs {
+			asset := assets.Add(ref)
+			many[asset.Ref.URI] = asset
+		}
+	}
+	return many
+}
+
 func (assets *AssetSystem) Init(game *Game) error {
+	assets.DefaultSource = &LocalAssetSource{}
 	assets.AddSource(&LocalAssetSource{})
 	assets.AddSource(&WebAssetSource{})
-	assets.AddLoader(&XmlGenericAssetLoader{})
-	assets.AddLoader(&JsonGenericAssetLoader{})
+
+	assets.AddFormat(&XmlGenericAssetFormat{})
+	assets.AddFormat(&JsonGenericAssetFormat{})
+	assets.AddFormat(&ObjFormat{})
+	assets.AddFormat(&MtlFormat{})
+
+	if len(game.Settings.Assets) > 0 {
+		assets.AddMany(game.Settings.Assets)
+	}
+
 	return nil
 }
 
@@ -254,37 +318,28 @@ func (assets *AssetSystem) Destroy() {
 	}
 }
 
-func (assets *AssetSystem) Get(name string) *Asset {
-	return assets.Assets[name]
+func (assets *AssetSystem) Get(uri string) *Asset {
+	return assets.Assets[uri]
 }
 
-type LocalAssetSource struct{}
-
-var _ AssetSource = &LocalAssetSource{}
-var localAssetSourceRegex, _ = regexp.Compile(`^(/|\./|[a-zA-Z]:)`)
-
-func (local *LocalAssetSource) Handles(ref AssetRef) bool {
-	return localAssetSourceRegex.MatchString(ref.URI)
-}
-func (local *LocalAssetSource) Read(ref AssetRef) (io.Reader, error) {
-	return os.Open(ref.URI)
+func (assets *AssetSystem) GetNamed(name string) *Asset {
+	return assets.NamedAssets[name]
 }
 
-type WebAssetSource struct{}
-
-var _ AssetSource = &WebAssetSource{}
-var webAssetSourceRegex, _ = regexp.Compile("^https?:")
-
-func (local *WebAssetSource) Handles(ref AssetRef) bool {
-	return webAssetSourceRegex.MatchString(ref.URI)
-}
-func (local *WebAssetSource) Read(ref AssetRef) (io.Reader, error) {
-	client := http.Client{
-		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			r.URL.Opaque = r.URL.Path
-			return nil
-		},
+func (assets *AssetSystem) GetEither(nameOrURI string) *Asset {
+	asset := assets.Assets[nameOrURI]
+	if asset != nil {
+		return asset
 	}
-	resp, err := client.Get(ref.URI)
-	return resp.Body, err
+	return assets.NamedAssets[nameOrURI]
+}
+
+func (assets *AssetSystem) GetRef(ref AssetRef) *Asset {
+	if ref.URI != "" {
+		return assets.Assets[ref.URI]
+	}
+	if ref.Name != "" {
+		return assets.NamedAssets[ref.Name]
+	}
+	return nil
 }

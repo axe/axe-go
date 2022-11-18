@@ -1,0 +1,130 @@
+package axe
+
+import (
+	"regexp"
+
+	"github.com/udhos/gwob"
+)
+
+var _ AssetFormat = &ObjFormat{}
+var objFormatRegex, _ = regexp.Compile(`\.obj$`)
+
+type ObjFormat struct {
+}
+
+func (format *ObjFormat) Handles(ref AssetRef) bool {
+	return objFormatRegex.MatchString(ref.URI)
+}
+
+func (format *ObjFormat) Types() []AssetType {
+	return []AssetType{AssetTypeModel}
+}
+
+func (format *ObjFormat) Load(asset *Asset) error {
+	obj, err := gwob.NewObjFromReader(asset.Ref.Name, asset.SourceReader, nil)
+	if err != nil {
+		asset.LoadStatus.Fail(err)
+		return err
+	}
+
+	strideElements := obj.StrideSize >> 2
+	offsetVertex := obj.StrideOffsetPosition >> 2
+	offsetNormal := obj.StrideOffsetNormal >> 2
+	offsetTexCoord := obj.StrideOffsetTexture >> 2
+
+	countVertex := obj.NumberOfElements()
+	countNormals := 0
+	if obj.NormCoordFound {
+		countNormals = countVertex
+	}
+	countTexCoords := 0
+	if obj.TextCoordFound {
+		countTexCoords = countVertex
+	}
+
+	mesh := MeshData{
+		Name:      asset.Ref.Name,
+		Vertices:  make([][3]float32, countVertex),
+		Normals:   make([][3]float32, countNormals),
+		Uvs:       make([][2]float32, countTexCoords),
+		Groups:    make([]MeshFaceGroup, len(obj.Groups)),
+		Materials: obj.Mtllib,
+	}
+
+	for i := range mesh.Vertices {
+		off := i * strideElements
+		offVertex := off + offsetVertex
+
+		mesh.Vertices[i] = [3]float32{
+			obj.Coord[offVertex+0],
+			obj.Coord[offVertex+1],
+			obj.Coord[offVertex+2],
+		}
+
+		if obj.NormCoordFound {
+			offNormal := off + offsetNormal
+
+			mesh.Normals[i] = [3]float32{
+				obj.Coord[offNormal+0],
+				obj.Coord[offNormal+1],
+				obj.Coord[offNormal+2],
+			}
+		}
+
+		if obj.TextCoordFound {
+			offTexCoord := off + offsetTexCoord
+
+			mesh.Uvs[i] = [2]float32{
+				obj.Coord[offTexCoord+0],
+				obj.Coord[offTexCoord+1],
+			}
+		}
+	}
+
+	for _, group := range obj.Groups {
+		meshGroup := MeshFaceGroup{
+			Material: group.Usemtl,
+			Faces:    make([]Face, 0),
+		}
+
+		s := group.IndexBegin
+		e := s + group.IndexCount
+		for i := s; i < e; i += 3 {
+			a := obj.Indices[i]
+			b := obj.Indices[i+1]
+			c := obj.Indices[i+2]
+
+			face := Face{
+				Vertices: []int{a, b, c},
+			}
+			if obj.NormCoordFound {
+				face.Normals = []int{a, b, c}
+			}
+			if obj.TextCoordFound {
+				face.Uvs = []int{a, b, c}
+			}
+
+			meshGroup.Faces = append(meshGroup.Faces, face)
+		}
+		mesh.Groups = append(mesh.Groups, meshGroup)
+	}
+
+	asset.Data = mesh
+	asset.LoadStatus.Success()
+	asset.AddNext(obj.Mtllib, true)
+
+	return nil
+}
+
+func (format *ObjFormat) Unload(asset *Asset) error {
+	asset.LoadStatus.Reset()
+	return nil
+}
+func (format *ObjFormat) Activate(asset *Asset) error {
+	asset.ActivateStatus.Success()
+	return nil
+}
+func (format *ObjFormat) Deactivate(asset *Asset) error {
+	asset.ActivateStatus.Reset()
+	return nil
+}

@@ -1,6 +1,9 @@
 # axe-go
 Axe Game Engine for Go
 
+### Todo
+- [ ] OBJ loader
+
 ### Use
 - Load preferences
 - Initialize systems (audio, graphics, input, window)
