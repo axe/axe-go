@@ -13,6 +13,10 @@ type Attr[V any] interface {
 	Distance(value V) float32
 	// squared distance between this and value
 	DistanceSq(value V) float32
+	// distance between this and zero
+	Length() float32
+	// squared distance between this and zero
+	LengthSq() float32
 	// dot product between this and value
 	Dot(value V) float32
 	// the number of float components that make up this attribute

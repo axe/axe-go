@@ -19,6 +19,12 @@ func (v Vec2[D]) To2d() (x, y float32) {
 func (v Vec2[D]) To3d() (x, y, z float32) {
 	return float32(v.X), float32(v.Y), float32(0)
 }
+func (v Vec2[D]) Length() float32 {
+	return float32(math.Sqrt(float64(v.LengthSq())))
+}
+func (v Vec2[D]) LengthSq() float32 {
+	return float32(v.X*v.X + v.Y*v.Y)
+}
 func (v Vec2[D]) Distance(value Vec2[D]) float32 {
 	return float32(math.Sqrt(float64(v.DistanceSq(value))))
 }
@@ -105,6 +111,21 @@ func (v Vec3[D]) To2d() (x, y float32) {
 }
 func (v Vec3[D]) To3d() (x, y, z float32) {
 	return float32(v.X), float32(v.Y), float32(v.Z)
+}
+func (v Vec3[D]) Normal(out *Vec3[D]) float32 {
+	m := v.Length()
+	if m == 0 {
+		v.SetComponents(0, out)
+	} else {
+		v.Scale(1.0/m, out)
+	}
+	return m
+}
+func (v Vec3[D]) Length() float32 {
+	return float32(math.Sqrt(float64(v.LengthSq())))
+}
+func (v Vec3[D]) LengthSq() float32 {
+	return float32(v.X*v.X + v.Y*v.Y + v.Z*v.Z)
 }
 func (v Vec3[D]) Distance(value Vec3[D]) float32 {
 	return float32(math.Sqrt(float64(v.DistanceSq(value))))
@@ -202,6 +223,12 @@ type Vec4i = Vec4[int]
 
 var _ Attr[Vec4f] = &Vec4f{}
 
+func (v Vec4[D]) Length() float32 {
+	return float32(math.Sqrt(float64(v.LengthSq())))
+}
+func (v Vec4[D]) LengthSq() float32 {
+	return float32(v.X*v.X + v.Y*v.Y + v.Z*v.Z + v.W*v.W)
+}
 func (v Vec4[D]) Distance(value Vec4[D]) float32 {
 	return float32(math.Sqrt(float64(v.DistanceSq(value))))
 }
