@@ -8,8 +8,9 @@ import (
 )
 
 type EntityDataSettings struct {
-	Capacity      uint32
-	StageCapacity uint32
+	Capacity             uint32
+	StageCapacity        uint32
+	ExcludeDefaultSystem bool
 }
 
 type EntityDataBase interface {
@@ -19,10 +20,11 @@ type EntityDataBase interface {
 }
 
 type EntityData[D any] struct {
-	id     EntityDataID
-	name   string
-	inital D
-	values [ENTITY_DATA_MAX]entityDataValueData[D]
+	id            EntityDataID
+	name          string
+	initial       D
+	values        [ENTITY_DATA_MAX]entityDataValueData[D]
+	defaultSystem EntityDataSystem[D]
 }
 
 var _ EntityDataBase = &EntityData[int]{}
@@ -34,9 +36,9 @@ func newEntityData[D any](name string, initial D) *EntityData[D] {
 	nextDataID++
 
 	data := &EntityData[D]{
-		id:     id,
-		name:   name,
-		inital: initial,
+		id:      id,
+		name:    name,
+		initial: initial,
 	}
 
 	data.values[id] = &entityDataValue[D, D]{
@@ -78,6 +80,11 @@ func (d *EntityData[V]) get(e *Entity, create bool) *V {
 	return value
 }
 
+func (d *EntityData[V]) SetSystem(sys EntityDataSystem[V]) *EntityData[V] {
+	d.defaultSystem = sys
+	return d
+}
+
 func (d *EntityData[V]) Get(e *Entity) *V {
 	return d.get(e, false)
 }
@@ -109,12 +116,12 @@ func (d *EntityData[V]) AddSystem(sys EntityDataSystem[V]) {
 
 func (d *EntityData[D]) Enable(settings EntityDataSettings) {
 	w := ActiveWorld()
-	dataType := reflect.TypeOf(d.inital)
+	dataType := reflect.TypeOf(d.initial)
 
 	data := &worldDatas[D]{
 		data:     ds.NewSparseList[EntityValue[D]](settings.Capacity),
 		dataSize: dataType.Size(),
-		initial:  d.inital,
+		initial:  d.initial,
 		valueIDs: 0,
 	}
 
@@ -140,6 +147,10 @@ func (d *EntityData[D]) Enable(settings EntityDataSettings) {
 	}
 
 	w.sortDatas()
+
+	if !settings.ExcludeDefaultSystem && d.defaultSystem != nil {
+		value.systems = append(value.systems, d.defaultSystem)
+	}
 }
 
 var _ entityDataValueData[int] = &entityDataValue[int, int]{}

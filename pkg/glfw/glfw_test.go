@@ -45,6 +45,7 @@ func TestGame(t *testing.T) {
 					"pasteUp":  itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyV, Ctrl: true, UpOnly: true}),
 					"pressA":   itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyA, PressInterval: time.Second / 4, FirstPressDelay: time.Second}),
 					"logInput": itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyC}),
+					"delete":   itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyBackspace}),
 				},
 			}),
 			Views3: []axe.View3f{},
@@ -56,12 +57,6 @@ func TestGame(t *testing.T) {
 						// Components
 						axe.TAG, axe.MESH, axe.TRANSFORM3, axe.AUDIO, axe.ACTION, axe.LIGHT, axe.LOGIC, axe.INPUT,
 					)
-
-					// Systems
-					axe.TRANSFORM3.AddSystem(axe.NewTransformSystem4f())
-					axe.ACTION.AddSystem(axe.NewInputActionSystem(nil))
-					axe.LOGIC.AddSystem(axe.NewLogicSystem())
-					axe.INPUT.AddSystem(axe.NewInputEventsSystem())
 
 					// Entities
 					e := axe.NewEntity()
@@ -92,6 +87,8 @@ func TestGame(t *testing.T) {
 								game.Running = false
 							case "logInput":
 								logInput = !logInput
+							case "delete":
+								e.Delete()
 							default:
 								inputNames := []string{}
 								if action.Data.Inputs != nil {

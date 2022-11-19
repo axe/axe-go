@@ -8,7 +8,7 @@ type InputActionListener struct {
 	Handler func(action *InputAction) bool
 }
 
-var ACTION = DefineComponent("input-action", InputActionListener{})
+var ACTION = DefineComponent("input-action", InputActionListener{}).SetSystem(NewInputActionSystem(nil))
 
 type InputActionSystem struct {
 	unhandled InputActionHandler
@@ -83,7 +83,7 @@ func (sys *InputActionSystem) Destroy(ctx EntityContext) {
 
 type InputEvents = InputSystemEvents
 
-var INPUT = DefineComponent("input", InputEvents{})
+var INPUT = DefineComponent("input", InputEvents{}).SetSystem(NewInputEventsSystem())
 
 type InputEventsSystem struct {
 	connectedDevices    ds.Stack[InputDevice]

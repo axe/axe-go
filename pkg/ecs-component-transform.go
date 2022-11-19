@@ -2,8 +2,8 @@ package axe
 
 import "github.com/axe/axe-go/pkg/ds"
 
-var TRANSFORM2 = DefineComponent("transform2", Transform3f{dirty: transformDirtyLocal})
-var TRANSFORM3 = DefineComponent("transform3", Transform4f{dirty: transformDirtyLocal})
+var TRANSFORM2 = DefineComponent("transform2", Transform3f{dirty: transformDirtyLocal}).SetSystem(NewTransformSystem3f())
+var TRANSFORM3 = DefineComponent("transform3", Transform4f{dirty: transformDirtyLocal}).SetSystem(NewTransformSystem4f())
 
 type Transform2f = Transform[Vec2f]
 type Transform3f = Transform[Vec3f]

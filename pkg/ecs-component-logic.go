@@ -4,7 +4,7 @@ import "github.com/axe/axe-go/pkg/ds"
 
 type Logic func(e *Entity, ctx EntityContext)
 
-var LOGIC = DefineComponent("Logic", Logic(nil))
+var LOGIC = DefineComponent("Logic", Logic(nil)).SetSystem(NewLogicSystem())
 
 type LogicSystem struct{}
 
