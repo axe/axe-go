@@ -46,3 +46,7 @@ func (s *Stack[T]) Peek() T {
 	}
 	return value
 }
+
+func (s *Stack[T]) Clear() {
+	s.Count = 0
+}

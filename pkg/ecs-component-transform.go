@@ -149,6 +149,12 @@ var _ EntityDataSystem[Transform2f] = &TransformSystem[Vec2f]{}
 func NewTransformSystem[A Attr[A]]() EntityDataSystem[Transform[A]] {
 	return &TransformSystem[A]{}
 }
+func NewTransformSystem3f() EntityDataSystem[Transform3f] {
+	return &TransformSystem[Vec3f]{}
+}
+func NewTransformSystem4f() EntityDataSystem[Transform4f] {
+	return &TransformSystem[Vec4f]{}
+}
 
 func (sys *TransformSystem[A]) OnStage(data *Transform[A], e *Entity, ctx EntityContext) {
 	if data.local.columns == nil {

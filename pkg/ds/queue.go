@@ -73,16 +73,16 @@ func (q CircularQueue[V]) IsEmpty() bool {
 func (q CircularQueue[V]) wrap(i int) int {
 	return i % len(q.values)
 }
-func (q CircularQueue[V]) Clear() {
+func (q *CircularQueue[V]) Clear() {
 	q.head = 0
 	q.tail = 0
 }
-func (q CircularQueue[V]) Iterator() Iterator[V] {
+func (q *CircularQueue[V]) Iterator() Iterator[V] {
 	return &circularQueueIterable[V]{q, q.head - 1}
 }
 
 type circularQueueIterable[V any] struct {
-	queue CircularQueue[V]
+	queue *CircularQueue[V]
 	index int
 }
 
@@ -99,6 +99,7 @@ func (i *circularQueueIterable[V]) Next() *V {
 	if next == i.queue.tail {
 		return nil
 	}
+	i.index = next
 	return &i.queue.values[next]
 }
 func (i *circularQueueIterable[V]) nextIndex() int {

@@ -26,20 +26,20 @@ func (tex *texture) Asset() *axe.Asset { return tex.asset }
 func (tex *texture) Width() int        { return tex.image.Rect.Size().X }
 func (tex *texture) Height() int       { return tex.image.Rect.Size().Y }
 
-type TextureLoader struct{}
+type TextureFormat struct{}
 
-var _ axe.AssetFormat = &TextureLoader{}
+var _ axe.AssetFormat = &TextureFormat{}
 var textureLoaderRegex, _ = regexp.Compile(`\.(png|jpg|jpeg)$`)
 
-func (loader *TextureLoader) Handles(ref axe.AssetRef) bool {
+func (loader *TextureFormat) Handles(ref axe.AssetRef) bool {
 	return textureLoaderRegex.MatchString(strings.ToLower(ref.URI))
 }
 
-func (loader *TextureLoader) Types() []axe.AssetType {
+func (loader *TextureFormat) Types() []axe.AssetType {
 	return []axe.AssetType{axe.AssetTypeTexture}
 }
 
-func (loader *TextureLoader) Load(asset *axe.Asset) error {
+func (loader *TextureFormat) Load(asset *axe.Asset) error {
 	tex := &texture{}
 
 	asset.LoadStatus.Start()
@@ -66,13 +66,13 @@ func (loader *TextureLoader) Load(asset *axe.Asset) error {
 	return nil
 }
 
-func (loader *TextureLoader) Unload(asset *axe.Asset) error {
+func (loader *TextureFormat) Unload(asset *axe.Asset) error {
 	asset.LoadStatus.Reset()
 	asset.Data = nil
 	return nil
 }
 
-func (loader *TextureLoader) Activate(asset *axe.Asset) error {
+func (loader *TextureFormat) Activate(asset *axe.Asset) error {
 	asset.ActivateStatus.Start()
 
 	tex, isTexture := asset.Data.(*texture)
@@ -115,7 +115,7 @@ func (loader *TextureLoader) Activate(asset *axe.Asset) error {
 	return nil
 }
 
-func (loader *TextureLoader) Deactivate(asset *axe.Asset) error {
+func (loader *TextureFormat) Deactivate(asset *axe.Asset) error {
 	asset.ActivateStatus.Reset()
 	if tex, ok := asset.Data.(*texture); ok {
 		gl.DeleteTextures(1, &tex.id)

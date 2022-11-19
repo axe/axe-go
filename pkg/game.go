@@ -160,6 +160,9 @@ func (game *Game) Tick() error {
 	if doUpdate {
 		game.Stages.Update(game)
 	}
+	if !game.Running {
+		return nil
+	}
 	game.Audio.Update(game)
 	game.Debug.Update(game)
 

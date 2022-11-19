@@ -31,6 +31,14 @@ func MapKeys[K comparable, V any](m map[K]V) []K {
 	return keys
 }
 
+func MapValues[K comparable, V any](m map[K]V) []V {
+	values := make([]V, 0, len(m))
+	for k := range m {
+		values = append(values, m[k])
+	}
+	return values
+}
+
 func Copy(dst any, src any) {
 	d := reflect.ValueOf(dst)
 	s := reflect.ValueOf(src)

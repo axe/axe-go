@@ -9,19 +9,21 @@ import (
 	"github.com/axe/axe-go/pkg/ui"
 )
 
-func NewWindowSystem() *windowSystem {
+func NewWindowSystem(settings Settings) *windowSystem {
 	return &windowSystem{
-		screens: make([]axe.Screen, 0),
-		events:  axe.NewListeners[axe.WindowSystemEvents](),
-		windows: make([]axe.Window, 0),
+		settings: settings,
+		screens:  make([]axe.Screen, 0),
+		events:   axe.NewListeners[axe.WindowSystemEvents](),
+		windows:  make([]axe.Window, 0),
 	}
 }
 
 type windowSystem struct {
-	main    *window
-	windows []axe.Window
-	events  *axe.Listeners[axe.WindowSystemEvents]
-	screens []axe.Screen
+	settings Settings
+	main     *window
+	windows  []axe.Window
+	events   *axe.Listeners[axe.WindowSystemEvents]
+	screens  []axe.Screen
 }
 
 var _ axe.WindowSystem = &windowSystem{}
@@ -45,8 +47,6 @@ func (ws *windowSystem) Init(game *axe.Game) error {
 		})
 	}
 
-	// TODO build windows based on current stage
-
 	primary := glfw.GetPrimaryMonitor()
 	_, _, primaryWidth, primaryHeight := primary.GetWorkarea()
 
@@ -58,8 +58,7 @@ func (ws *windowSystem) Init(game *axe.Game) error {
 	win.size.Y = winHeight
 
 	// glfw.WindowHint(glfw.Resizable, glfw.False)
-	glfw.WindowHint(glfw.ContextVersionMajor, 2)
-	glfw.WindowHint(glfw.ContextVersionMinor, 1)
+	ws.settings.apply()
 
 	gwin, err := glfw.CreateWindow(winWidth, winHeight, game.Settings.Name, nil, nil)
 	if err != nil {
@@ -96,7 +95,9 @@ func (ws *windowSystem) Init(game *axe.Game) error {
 	return nil
 }
 func (ws *windowSystem) Update(game *axe.Game) {
-	game.Running = !ws.main.window.ShouldClose()
+	if ws.main.window.ShouldClose() {
+		game.Running = false
+	}
 }
 func (ws *windowSystem) Destroy() {
 	glfw.Terminate()

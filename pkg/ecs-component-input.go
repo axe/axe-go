@@ -1,12 +1,14 @@
 package axe
 
-import "github.com/axe/axe-go/pkg/ds"
+import (
+	"github.com/axe/axe-go/pkg/ds"
+)
 
 type InputActionListener struct {
 	Handler func(action *InputAction) bool
 }
 
-var INPUTACTION = DefineComponent("input-action", InputActionListener{})
+var ACTION = DefineComponent("input-action", InputActionListener{})
 
 type InputActionSystem struct {
 	unhandled InputActionHandler
@@ -30,27 +32,28 @@ func (sys InputActionSystem) OnLive(data *InputActionListener, e *Entity, ctx En
 }
 func (sys InputActionSystem) OnRemove(data *InputActionListener, e *Entity, ctx EntityContext) {
 }
-func (sys InputActionSystem) Init(ctx EntityContext) error {
-	ctx.Game.Actions.Handler = func(action *InputAction) {
-		sys.queue.Push(action)
-	}
+func (sys *InputActionSystem) Init(ctx EntityContext) error {
 	return nil
 }
-func (sys InputActionSystem) Update(iter ds.Iterable[EntityValue[*InputActionListener]], ctx EntityContext) {
-	if sys.queue.IsEmpty() {
+func (sys *InputActionSystem) Update(iter ds.Iterable[EntityValue[*InputActionListener]], ctx EntityContext) {
+	current := ctx.Game.Stages.Current
+	if current == nil {
+		return
+	}
+
+	triggeredIterator := current.Actions.Iterable().Iterator()
+	if !triggeredIterator.HasNext() {
 		return
 	}
 
 	listenerIterator := iter.Iterator()
-	currentListener := listenerIterator.Next()
-
-	if currentListener == nil {
-		sys.queue.Clear()
+	if !listenerIterator.HasNext() {
 		return
 	}
 
-	for !sys.queue.IsEmpty() {
-		action := sys.queue.Pop()
+	currentListener := listenerIterator.Next()
+	for triggeredIterator.HasNext() {
+		action := *triggeredIterator.Next()
 		startListener := currentListener
 		handled := false
 
@@ -74,6 +77,141 @@ func (sys InputActionSystem) Update(iter ds.Iterable[EntityValue[*InputActionLis
 		}
 	}
 }
-func (sys InputActionSystem) Destroy(ctx EntityContext) {
-	ctx.Game.Actions.Handler = nil
+func (sys *InputActionSystem) Destroy(ctx EntityContext) {
+
+}
+
+type InputEvents = InputSystemEvents
+
+var INPUT = DefineComponent("input", InputEvents{})
+
+type InputEventsSystem struct {
+	connectedDevices    ds.Stack[InputDevice]
+	disconnectedDevices ds.Stack[InputDevice]
+	connectedInput      ds.Stack[Input]
+	disconnectedInput   ds.Stack[Input]
+	changedInput        ds.Stack[Input]
+	connectedPoint      ds.Stack[InputPoint]
+	disconnectedPoint   ds.Stack[InputPoint]
+	changedPoint        ds.Stack[InputPoint]
+
+	off ListenerOff
+}
+
+var _ EntityDataSystem[InputEvents] = &InputEventsSystem{}
+
+func NewInputEventsSystem() EntityDataSystem[InputEvents] {
+	return &InputEventsSystem{
+		connectedDevices:    ds.NewStack[InputDevice](4),
+		disconnectedDevices: ds.NewStack[InputDevice](4),
+		connectedInput:      ds.NewStack[Input](64),
+		disconnectedInput:   ds.NewStack[Input](64),
+		changedInput:        ds.NewStack[Input](64),
+		connectedPoint:      ds.NewStack[InputPoint](8),
+		disconnectedPoint:   ds.NewStack[InputPoint](8),
+		changedPoint:        ds.NewStack[InputPoint](8),
+	}
+}
+
+func (sys InputEventsSystem) OnStage(data *InputEvents, e *Entity, ctx EntityContext) {
+}
+func (sys InputEventsSystem) OnLive(data *InputEvents, e *Entity, ctx EntityContext) {
+}
+func (sys InputEventsSystem) OnRemove(data *InputEvents, e *Entity, ctx EntityContext) {
+}
+func (sys *InputEventsSystem) Init(ctx EntityContext) error {
+	sys.off = ctx.Game.Input.Events().On(InputSystemEvents{
+		DeviceConnected: func(newDevice InputDevice) {
+			sys.connectedDevices.Push(newDevice)
+		},
+		DeviceDisconnected: func(oldDevice InputDevice) {
+			sys.disconnectedDevices.Push(oldDevice)
+		},
+		InputConnected: func(newInput Input) {
+			sys.connectedInput.Push(newInput)
+		},
+		InputDisconnected: func(oldInput Input) {
+			sys.disconnectedInput.Push(oldInput)
+		},
+		InputChange: func(input Input) {
+			sys.changedInput.Push(input)
+		},
+		PointConnected: func(newPoint InputPoint) {
+			sys.connectedPoint.Push(newPoint)
+		},
+		PointDisconnected: func(oldPoint InputPoint) {
+			sys.disconnectedPoint.Push(oldPoint)
+		},
+		PointChange: func(point InputPoint) {
+			sys.changedPoint.Push(point)
+		},
+	})
+	return nil
+}
+func (sys *InputEventsSystem) Update(iter ds.Iterable[EntityValue[*InputEvents]], ctx EntityContext) {
+	i := iter.Iterator()
+	for i.HasNext() {
+		evts := i.Next().Data
+
+		if evts.DeviceConnected != nil {
+			for i := 0; i < sys.connectedDevices.Count; i++ {
+				evts.DeviceConnected(sys.connectedDevices.Items[i])
+			}
+		}
+		if evts.DeviceDisconnected != nil {
+			for i := 0; i < sys.disconnectedDevices.Count; i++ {
+				evts.DeviceDisconnected(sys.disconnectedDevices.Items[i])
+			}
+		}
+		if evts.InputConnected != nil {
+			for i := 0; i < sys.connectedInput.Count; i++ {
+				evts.InputConnected(sys.connectedInput.Items[i])
+			}
+		}
+		if evts.InputDisconnected != nil {
+			for i := 0; i < sys.disconnectedInput.Count; i++ {
+				evts.InputDisconnected(sys.disconnectedInput.Items[i])
+			}
+		}
+		if evts.InputChange != nil {
+			for i := 0; i < sys.changedInput.Count; i++ {
+				evts.InputChange(sys.changedInput.Items[i])
+			}
+		}
+		if evts.PointConnected != nil {
+			for i := 0; i < sys.connectedPoint.Count; i++ {
+				evts.PointConnected(sys.connectedPoint.Items[i])
+			}
+		}
+		if evts.PointDisconnected != nil {
+			for i := 0; i < sys.disconnectedPoint.Count; i++ {
+				evts.PointDisconnected(sys.disconnectedPoint.Items[i])
+			}
+		}
+		if evts.PointChange != nil {
+			for i := 0; i < sys.changedPoint.Count; i++ {
+				evts.PointChange(sys.changedPoint.Items[i])
+			}
+		}
+		if evts.InputChangeMap != nil {
+			for i := 0; i < sys.changedInput.Count; i++ {
+				input := sys.changedInput.Items[i]
+				if handler, ok := evts.InputChangeMap[input.Name]; ok {
+					handler(input)
+				}
+			}
+		}
+	}
+
+	sys.connectedDevices.Clear()
+	sys.disconnectedDevices.Clear()
+	sys.connectedInput.Clear()
+	sys.disconnectedInput.Clear()
+	sys.changedInput.Clear()
+	sys.connectedPoint.Clear()
+	sys.disconnectedPoint.Clear()
+	sys.changedPoint.Clear()
+}
+func (sys *InputEventsSystem) Destroy(ctx EntityContext) {
+	sys.off()
 }

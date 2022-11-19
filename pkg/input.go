@@ -1,11 +1,14 @@
 package axe
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"time"
 
+	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/react"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type Input struct {
@@ -85,6 +88,10 @@ func NewInputAction(name string, trigger InputTrigger) *InputAction {
 	}
 }
 
+func (action *InputAction) String() string {
+	return fmt.Sprintf("%s: %.1f", action.Name, action.Data.Value)
+}
+
 func (action *InputAction) Init(inputs InputSystem) {
 	if action.Trigger != nil {
 		action.Trigger.Init(inputs)
@@ -141,7 +148,7 @@ type InputActionSet struct {
 	Name      string
 	Enabled   react.Value[bool]
 	Actions   InputActions
-	Triggered []*InputAction
+	Triggered ds.CircularQueue[*InputAction]
 }
 
 func NewInputActionSet(name string) *InputActionSet {
@@ -149,7 +156,7 @@ func NewInputActionSet(name string) *InputActionSet {
 		Name:      name,
 		Enabled:   react.Val(true),
 		Actions:   make(InputActions, 0, 64),
-		Triggered: make([]*InputAction, 0, 64),
+		Triggered: ds.NewCircularQueue[*InputAction](64),
 	}
 }
 
@@ -169,7 +176,7 @@ func (set *InputActionSet) Init(inputs InputSystem) {
 	set.Actions.Sort()
 }
 func (set *InputActionSet) Update(inputs InputSystem) {
-	set.Triggered = set.Triggered[:0]
+	set.Triggered.Clear()
 
 	if !set.Enabled.Get() {
 		return
@@ -180,7 +187,7 @@ func (set *InputActionSet) Update(inputs InputSystem) {
 			action.Update(inputs)
 
 			if action.Triggered {
-				set.Triggered = append(set.Triggered, action)
+				set.Triggered.Push(action)
 			}
 		}
 	}
@@ -188,6 +195,10 @@ func (set *InputActionSet) Update(inputs InputSystem) {
 
 func (set *InputActionSet) Add(action *InputAction) {
 	set.Actions = append(set.Actions, action)
+}
+
+func (set *InputActionSet) Iterator() ds.Iterator[*InputAction] {
+	return set.Triggered.Iterator()
 }
 
 type InputActionHandler func(action *InputAction)
@@ -230,14 +241,24 @@ func (sets *InputActionSets) Update(inputs InputSystem) {
 	for _, set := range sets.Sets {
 		set.Update(inputs)
 		if sets.Handler != nil {
-			for _, triggered := range set.Triggered {
-				sets.Handler(triggered)
+			triggeredIterator := set.Triggered.Iterator()
+			for triggeredIterator.HasNext() {
+				triggered := triggeredIterator.Next()
+				sets.Handler(*triggered)
 			}
 		}
 	}
 }
 func (sets *InputActionSets) Add(set *InputActionSet) {
 	sets.Sets[set.Name] = set
+}
+
+func (sets *InputActionSets) Iterable() ds.Iterable[*InputAction] {
+	return ds.NewMultiIterable(
+		util.SliceMap(util.MapValues(sets.Sets), func(s *InputActionSet) ds.Iterable[*InputAction] {
+			return s
+		}),
+	)
 }
 
 type InputTrigger interface {

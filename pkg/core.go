@@ -73,6 +73,7 @@ func (scene *Scene[A]) Destroy() {
 
 type Camera[A Attr[A]] interface {
 	GameSystem
+
 	Planes() []Plane[A]
 	Intersects(shape Shape[A], position A) bool
 }
@@ -99,7 +100,6 @@ type View[A Attr[A]] interface {
 	UnprojectIgnore(point A) A
 	Placement() ui.Placement
 	Target() RenderTarget
-	Draw()
 }
 
 type View2f = View[Vec2f]

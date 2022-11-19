@@ -97,14 +97,14 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 	 *      render
 	 */
 
-	gl.MatrixMode(gl.MODELVIEW) // view dependent
-	gl.LoadIdentity()           // view dependent
-
 	if !axe.HasActiveWorld() {
 		// fmt.Printf("no active world: %v\n", time.Now().Sub(game.State.StartTime))
 		gr.window.window.SwapBuffers()
 		return
 	}
+
+	gl.MatrixMode(gl.MODELVIEW) // view dependent
+	gl.LoadIdentity()           // view dependent
 
 	lights := axe.LIGHT.Iterable().Iterator()
 	lightIndex := uint32(0)
@@ -192,4 +192,12 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 
 func (gr *graphicsSystem) Destroy() {
 	gr.offs.Off()
+}
+
+func (gr *graphicsSystem) renderView2(view axe.View2f, game *axe.Game) {
+
+}
+
+func (gr *graphicsSystem) renderView3(view axe.View2f, game *axe.Game) {
+
 }

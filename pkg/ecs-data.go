@@ -93,6 +93,9 @@ func (d *EntityData[V]) Set(e *Entity, value V) {
 
 func (d *EntityData[V]) Iterable() ds.Iterable[EntityValue[*V]] {
 	w := ActiveWorld()
+	if w.values[d.id] == nil {
+		return ds.NewEmptyIterable[EntityValue[*V]]()
+	}
 	values := w.values[d.id].(*worldValues[V])
 	return values.iterable
 }

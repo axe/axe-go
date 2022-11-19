@@ -2,6 +2,7 @@ package glfw
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 )
 
 func TestGame(t *testing.T) {
+	runtime.LockOSThread()
 
 	logInput := false
 	itb := axe.InputTriggerBuilder{}
@@ -48,18 +50,18 @@ func TestGame(t *testing.T) {
 			Views3: []axe.View3f{},
 			Scenes3: []axe.Scene3f{{
 				Load: func(scene *axe.Scene3f, game *axe.Game) {
-
 					scene.World.Enable(
 						// Component data settings
 						axe.EntityDataSettings{Capacity: 2048, StageCapacity: 128},
 						// Components
-						axe.TAG, axe.MESH, axe.TRANSFORM3, axe.AUDIO, axe.INPUTACTION, axe.LIGHT, axe.LOGIC,
+						axe.TAG, axe.MESH, axe.TRANSFORM3, axe.AUDIO, axe.ACTION, axe.LIGHT, axe.LOGIC, axe.INPUT,
 					)
 
 					// Systems
-					axe.TRANSFORM3.AddSystem(axe.NewTransformSystem[axe.Vec4f]())
-					axe.INPUTACTION.AddSystem(axe.NewInputActionSystem(nil))
+					axe.TRANSFORM3.AddSystem(axe.NewTransformSystem4f())
+					axe.ACTION.AddSystem(axe.NewInputActionSystem(nil))
 					axe.LOGIC.AddSystem(axe.NewLogicSystem())
+					axe.INPUT.AddSystem(axe.NewInputEventsSystem())
 
 					// Entities
 					e := axe.NewEntity()
@@ -83,7 +85,7 @@ func TestGame(t *testing.T) {
 						Ambient:  axe.Colorf{R: 0.5, G: 0.5, B: 0.5, A: 1},
 						Position: axe.Vec4f{X: -5, Y: 5, Z: 10},
 					})
-					axe.INPUTACTION.Set(e, axe.InputActionListener{
+					axe.ACTION.Set(e, axe.InputActionListener{
 						Handler: func(action *axe.InputAction) bool {
 							switch action.Name {
 							case "close":
@@ -102,21 +104,18 @@ func TestGame(t *testing.T) {
 							return true
 						},
 					})
+					axe.INPUT.Set(e, axe.InputSystemEvents{
+						InputChange: func(input axe.Input) {
+							if logInput {
+								fmt.Printf("%s changed to %v\n", input.Name, input.Value)
+							}
+						},
+					})
 				},
 			}},
 		}},
 	})
-	Setup(game)
-
-	// WIP below
-
-	game.Input.Events().On(axe.InputSystemEvents{
-		InputChange: func(input axe.Input) {
-			if logInput {
-				fmt.Printf("%s changed to %v\n", input.Name, input.Value)
-			}
-		},
-	})
+	Setup(game, Settings{})
 
 	err := game.Run()
 	if err != nil {
