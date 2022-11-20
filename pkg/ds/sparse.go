@@ -206,3 +206,8 @@ func (i *sparseIterator[T]) nextOn() int32 {
 func (i *sparseIterator[T]) size() int32 {
 	return int32(len(i.list.items))
 }
+func (i *sparseIterator[T]) Remove() {
+	if i.index >= 0 && i.index < i.size() {
+		i.list.free.Set(uint32(i.index), true)
+	}
+}

@@ -76,24 +76,34 @@ func (l *List[T]) RemoveAt(index int) {
 }
 
 func (l *List[T]) Iterator() Iterator[T] {
-	return &listIterator[T]{l, -1}
+	return &listIterator[T]{l, -1, false}
 }
 
 type listIterator[T any] struct {
-	list  *List[T]
-	index int
+	list    *List[T]
+	index   int
+	removed bool
 }
 
 func (i *listIterator[T]) Reset() {
 	i.index = -1
+	i.removed = false
 }
 func (i *listIterator[T]) HasNext() bool {
 	return i.index+1 < i.list.Size
 }
 func (i *listIterator[T]) Next() *T {
 	i.index++
+	i.removed = false
 	if i.index < i.list.Size {
 		return &i.list.Items[i.index]
 	}
 	return nil
+}
+func (i *listIterator[T]) Remove() {
+	if !i.removed && i.index >= 0 && i.index < i.list.Size {
+		i.removed = true
+		i.list.RemoveAt(i.index)
+		i.index--
+	}
 }

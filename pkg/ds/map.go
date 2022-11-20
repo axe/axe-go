@@ -39,6 +39,12 @@ func (iter *mapValueIterator[K, V]) Next() *V {
 	return &value
 }
 
+func (iter *mapValueIterator[K, V]) Remove() {
+	if iter.index >= 0 && iter.index < len(iter.keys) {
+		delete(iter.m, iter.keys[iter.index])
+	}
+}
+
 type mapKeyIterator[K comparable, V any] struct {
 	m     map[K]V
 	keys  []K
@@ -73,6 +79,12 @@ func (iter *mapKeyIterator[K, V]) Next() *K {
 	}
 	key := iter.keys[iter.index]
 	return &key
+}
+
+func (iter *mapKeyIterator[K, V]) Remove() {
+	if iter.index >= 0 && iter.index < len(iter.keys) {
+		delete(iter.m, iter.keys[iter.index])
+	}
 }
 
 type MapKeyValue[K comparable, V any] struct {
@@ -144,4 +156,10 @@ func (iter *mapKeyValueIterator[K, V]) Next() *MapKeyValue[K, V] {
 	key := iter.keys[iter.index]
 	value := iter.m[key]
 	return &MapKeyValue[K, V]{iter.m, key, value}
+}
+
+func (iter *mapKeyValueIterator[K, V]) Remove() {
+	if iter.index >= 0 && iter.index < len(iter.keys) {
+		delete(iter.m, iter.keys[iter.index])
+	}
 }

@@ -244,6 +244,11 @@ func (i *bitsIterator[I]) Next() *I {
 func (i *bitsIterator[I]) nextOn() int32 {
 	return i.bits.OnAfter(i.index)
 }
+func (i *bitsIterator[I]) Remove() {
+	if i.index != -1 {
+		i.bits.Set(I(i.index), false)
+	}
+}
 
 type Bits64 = Bits64Indexed[uint32]
 

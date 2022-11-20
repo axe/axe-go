@@ -6,6 +6,7 @@ type Iterator[T any] interface {
 	Reset()
 	HasNext() bool
 	Next() *T
+	Remove()
 }
 
 type Iterable[T any] interface {
@@ -25,17 +26,18 @@ func (iter factoryIterable[T]) Iterator() Iterator[T] {
 }
 
 type sliceIterator[T any] struct {
-	data  []T
-	index int
+	data    *[]T
+	index   int
+	removed bool
 }
 
 var _ Iterator[int] = &sliceIterator[int]{}
 
-func NewSliceIterator[T any](data []T) Iterator[T] {
-	return &sliceIterator[T]{data, -1}
+func NewSliceIterator[T any](data *[]T) Iterator[T] {
+	return &sliceIterator[T]{data, -1, false}
 }
 
-func NewSliceIterable[T any](data []T) Iterable[T] {
+func NewSliceIterable[T any](data *[]T) Iterable[T] {
 	return NewIterable(func() Iterator[T] {
 		return NewSliceIterator(data)
 	})
@@ -43,18 +45,28 @@ func NewSliceIterable[T any](data []T) Iterable[T] {
 
 func (iter *sliceIterator[T]) Reset() {
 	iter.index = -1
+	iter.removed = false
 }
 
 func (iter *sliceIterator[T]) HasNext() bool {
-	return iter.index+1 < len(iter.data)
+	return iter.index+1 < len(*iter.data)
 }
 
 func (iter *sliceIterator[T]) Next() *T {
 	iter.index++
-	if iter.index >= len(iter.data) {
+	iter.removed = false
+	if iter.index >= len(*iter.data) {
 		return nil
 	}
-	return &iter.data[iter.index]
+	return &(*iter.data)[iter.index]
+}
+
+func (iter *sliceIterator[T]) Remove() {
+	if !iter.removed && iter.index >= 0 && iter.index < len(*iter.data) {
+		*iter.data = util.SliceRemoveAt(*iter.data, iter.index)
+		iter.index--
+		iter.removed = true
+	}
 }
 
 type multiIterator[T any] struct {
@@ -101,6 +113,10 @@ func (iter *multiIterator[T]) Next() *T {
 		}
 	}
 	return nil
+}
+
+func (iter *multiIterator[T]) Remove() {
+	iter.iterators[iter.index].Remove()
 }
 
 type filterIterator[T any] struct {
@@ -151,6 +167,10 @@ func (iter *filterIterator[T]) updateNext() {
 	iter.next = nil
 }
 
+func (iter *filterIterator[T]) Remove() {
+	iter.inner.Remove()
+}
+
 type translateIterator[T any, S any] struct {
 	inner     Iterator[S]
 	translate func(value *S) *T
@@ -184,6 +204,10 @@ func (iter *translateIterator[T, S]) Next() *T {
 	return nil
 }
 
+func (iter *translateIterator[T, S]) Remove() {
+	iter.inner.Remove()
+}
+
 type emptyIterator[T any] struct{}
 
 var _ Iterator[int] = &emptyIterator[int]{}
@@ -201,3 +225,4 @@ func NewEmptyIterable[T any]() Iterable[T] {
 func (iter *emptyIterator[T]) Reset()        {}
 func (iter *emptyIterator[T]) HasNext() bool { return false }
 func (iter *emptyIterator[T]) Next() *T      { return nil }
+func (iter *emptyIterator[T]) Remove()       {}
