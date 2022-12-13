@@ -136,15 +136,3 @@ func TestWorld(t *testing.T) {
 	w.Delete(e1)
 	w.Destroy()
 }
-
-func statusOf(e *Entity) string {
-	if e.Deleted() {
-		return "destroyed"
-	} else if e.Staging() {
-		return "staging"
-	} else if e.Live() {
-		return "live"
-	} else {
-		return "unknown"
-	}
-}

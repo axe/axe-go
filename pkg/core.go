@@ -15,11 +15,12 @@ const (
 )
 
 type Scene[A Attr[A]] struct {
-	Name  string
-	Jobs  *job.JobRunner
-	World *World
-	Space Space[A, SpaceComponent[A]]
-	Load  func(scene *Scene[A], game *Game)
+	Name   string
+	Jobs   *job.JobRunner
+	World  *World
+	Space  Space[A, SpaceComponent[A]]
+	Enable func(scene *Scene[A], game *Game)
+	Load   func(scene *Scene[A], game *Game)
 }
 
 type Scene2f = Scene[Vec2f]
@@ -33,6 +34,9 @@ func (scene *Scene[A]) Init(game *Game) error {
 	}
 	if scene.World == nil {
 		scene.World = NewWorld(game.Settings.WorldName, game.Settings.WorldSettings)
+	}
+	if scene.Enable != nil {
+		scene.Enable(scene, game)
 	}
 	if scene.Load != nil {
 		scene.Load(scene, game)
@@ -69,13 +73,6 @@ func (scene *Scene[A]) Destroy() {
 	if scene.Space != nil {
 		scene.Space.Destroy()
 	}
-}
-
-type Camera[A Attr[A]] interface {
-	GameSystem
-
-	Planes() []Plane[A]
-	Intersects(shape Shape[A], position A) bool
 }
 
 type RenderTarget interface { // window or texture
@@ -123,5 +120,22 @@ type SpaceCoord interface {
 	To3d() (x, y, z float32)
 }
 
-type Plane[A Attr[A]] struct {
+type Watched[V any] struct {
+	value V
+
+	Changed bool
+}
+
+func (w *Watched[V]) Get() V {
+	return w.value
+}
+
+func (w *Watched[V]) Ptr() *V {
+	w.Changed = true
+	return &w.value
+}
+
+func (w *Watched[V]) Set(value V) {
+	w.value = value
+	w.Changed = true
 }

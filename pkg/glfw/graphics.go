@@ -94,7 +94,11 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 	 *    transform world
 	 *    get all renderables
 	 *      if in space, skip if not in camera view
-	 *      render
+	 *      is renderable not in vertex buffer yet?
+	 * 			  add to vertex buffer
+	 *      else if dirty
+	 *        update vertex buffer
+	 * for each renderable in a vertex buffer that hasn't been used in X frames, offload it
 	 */
 
 	if !axe.HasActiveWorld() {

@@ -14,9 +14,9 @@ func (q *Quat) Set(X, Y, Z, W float32) {
 }
 
 func (q *Quat) SetAngle(dir Vec3f, angle float32) {
-	half := float64(angle) * 0.5
-	sin := float32(math.Sin(half) / float64(dir.Length()))
-	cos := float32(math.Cos(half))
+	half := angle * 0.5
+	sin := Sin(half) / dir.Length()
+	cos := Cos(half)
 	q.X = dir.X * sin
 	q.Y = dir.Y * sin
 	q.Z = dir.Z * sin
@@ -24,24 +24,24 @@ func (q *Quat) SetAngle(dir Vec3f, angle float32) {
 }
 
 func (q *Quat) SetEuler(yaw float32, pitch float32, roll float32) {
-	hr := float64(roll) * 0.5
-	shr := math.Sin(hr)
-	chr := math.Cos(hr)
-	hp := float64(pitch) * 0.5
-	shp := math.Sin(hp)
-	chp := math.Cos(hp)
-	hy := float64(yaw) * 0.5
-	shy := math.Sin(hy)
-	chy := math.Cos(hy)
+	hr := roll * 0.5
+	shr := Sin(hr)
+	chr := Cos(hr)
+	hp := pitch * 0.5
+	shp := Sin(hp)
+	chp := Cos(hp)
+	hy := yaw * 0.5
+	shy := Sin(hy)
+	chy := Cos(hy)
 	chy_shp := chy * shp
 	shy_chp := shy * chp
 	chy_chp := chy * chp
 	shy_shp := shy * shp
 
-	q.X = float32((chy_shp * chr) + (shy_chp * shr))
-	q.Y = float32((shy_chp * chr) - (chy_shp * shr))
-	q.Z = float32((chy_chp * shr) - (shy_shp * chr))
-	q.W = float32((chy_chp * chr) + (shy_shp * shr))
+	q.X = ((chy_shp * chr) + (shy_chp * shr))
+	q.Y = ((shy_chp * chr) - (chy_shp * shr))
+	q.Z = ((chy_chp * shr) - (shy_shp * chr))
+	q.W = ((chy_chp * chr) + (shy_shp * shr))
 }
 
 func (q Quat) LengthSq() float32 {
@@ -49,7 +49,7 @@ func (q Quat) LengthSq() float32 {
 }
 
 func (q Quat) Length() float32 {
-	return float32(math.Sqrt(float64(q.LengthSq())))
+	return Sqrt(q.LengthSq())
 }
 
 func (q *Quat) Normal() float32 {

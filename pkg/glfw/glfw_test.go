@@ -50,22 +50,28 @@ func TestGame(t *testing.T) {
 			}),
 			Views3: []axe.View3f{},
 			Scenes3: []axe.Scene3f{{
-				Load: func(scene *axe.Scene3f, game *axe.Game) {
+				Enable: func(scene *axe.Scene3f, game *axe.Game) {
+					// Add components & systems
 					scene.World.Enable(
 						// Component data settings
 						axe.EntityDataSettings{Capacity: 2048, StageCapacity: 128},
 						// Components
 						axe.TAG, axe.MESH, axe.TRANSFORM3, axe.AUDIO, axe.ACTION, axe.LIGHT, axe.LOGIC, axe.INPUT,
 					)
-
+				},
+				Load: func(scene *axe.Scene3f, game *axe.Game) {
 					// Entities
 					e := axe.NewEntity()
+
 					axe.TAG.Set(e, axe.Tag("cube"))
+
 					axe.MESH.Set(e, axe.Mesh{Ref: axe.AssetRef{Name: "cube model"}})
+
 					axe.TRANSFORM3.Set(e, axe.NewTransform4(axe.TransformCreate4f{
 						Position: axe.Vec4f{X: 0, Y: 0, Z: -3, W: 0},
 						Scale:    axe.Vec4f{X: 1, Y: 1, Z: 1, W: 0},
 					}))
+
 					axe.LOGIC.Set(e, func(e *axe.Entity, ctx axe.EntityContext) {
 						dt := game.State.UpdateTimer.Elapsed.Seconds()
 						transform := axe.TRANSFORM3.Get(e)
@@ -75,11 +81,13 @@ func TestGame(t *testing.T) {
 						rot.Y += float32(dt * 4)
 						transform.SetRotation(rot)
 					})
+
 					axe.LIGHT.Set(e, axe.Light{
 						Diffuse:  axe.Colorf{R: 1, G: 1, B: 1, A: 1},
 						Ambient:  axe.Colorf{R: 0.5, G: 0.5, B: 0.5, A: 1},
 						Position: axe.Vec4f{X: -5, Y: 5, Z: 10},
 					})
+
 					axe.ACTION.Set(e, axe.InputActionListener{
 						Handler: func(action *axe.InputAction) bool {
 							switch action.Name {
@@ -101,6 +109,7 @@ func TestGame(t *testing.T) {
 							return true
 						},
 					})
+
 					axe.INPUT.Set(e, axe.InputSystemEvents{
 						InputChange: func(input axe.Input) {
 							if logInput {

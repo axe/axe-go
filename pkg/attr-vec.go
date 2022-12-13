@@ -7,6 +7,7 @@ type Vec2[D Numeric] struct {
 	Y D
 }
 
+type Vec2d = Vec2[float32]
 type Vec2f = Vec2[float32]
 type Vec2i = Vec2[int]
 
@@ -86,12 +87,19 @@ func (v Vec2[D]) Mul(factor Vec2[D], out *Vec2[D]) {
 	out.Y = v.Y * factor.Y
 }
 func (v Vec2[D]) Div(factor Vec2[D], out *Vec2[D]) {
-	out.X = div(v.X, factor.X)
-	out.Y = div(v.Y, factor.Y)
+	out.X = Div(v.X, factor.X)
+	out.Y = Div(v.Y, factor.Y)
 }
 func (v Vec2[D]) Interpolate(start Vec2[D], end Vec2[D], delta float32, out *Vec2[D]) {
 	out.X = D(float32(end.X-start.X)*delta) + start.X
 	out.Y = D(float32(end.Y-start.Y)*delta) + start.Y
+}
+func (v *Vec2[D]) SetRadians(rad float32, len float32) {
+	v.X = D(math.Cos(float64(rad)) * float64(len))
+	v.Y = D(math.Sin(float64(rad)) * float64(len))
+}
+func (v *Vec2[D]) SetDegrees(deg float32, len float32) {
+	v.SetRadians(deg/180*math.Pi, len)
 }
 
 type Vec3[D Numeric] struct {
@@ -201,14 +209,19 @@ func (v Vec3[D]) Mul(value Vec3[D], out *Vec3[D]) {
 	out.Z = v.Z * value.Z
 }
 func (v Vec3[D]) Div(value Vec3[D], out *Vec3[D]) {
-	out.X = div(v.X, value.X)
-	out.Y = div(v.Y, value.Y)
-	out.Z = div(v.Z, value.Z)
+	out.X = Div(v.X, value.X)
+	out.Y = Div(v.Y, value.Y)
+	out.Z = Div(v.Z, value.Z)
 }
 func (v Vec3[D]) Interpolate(start Vec3[D], end Vec3[D], delta float32, out *Vec3[D]) {
 	out.X = D(float32(end.X-start.X)*delta) + start.X
 	out.Y = D(float32(end.Y-start.Y)*delta) + start.Y
 	out.Z = D(float32(end.Z-start.Z)*delta) + start.Z
+}
+func (v Vec3[D]) Cross(other Vec3[D], out *Vec3[D]) {
+	out.X = (v.Y*other.Z - v.Z*other.Y)
+	out.Y = (v.Z*other.X - v.X*other.Z)
+	out.Z = (v.X*other.Y - v.Y*other.X)
 }
 
 type Vec4[D Numeric] struct {
@@ -218,6 +231,7 @@ type Vec4[D Numeric] struct {
 	W D
 }
 
+type Vec3d = Vec4[float32]
 type Vec4f = Vec4[float32]
 type Vec4i = Vec4[int]
 
@@ -236,7 +250,7 @@ func (v Vec4[D]) DistanceSq(value Vec4[D]) float32 {
 	dx := v.X - value.X
 	dy := v.Y - value.Y
 	dz := v.Z - value.Z
-	dw := v.Z - value.Z
+	dw := v.W - value.W
 	return float32(dx*dx + dy*dy + dz*dz + dw*dw)
 }
 func (v Vec4[D]) Dot(a Vec4[D]) float32 {
@@ -316,14 +330,19 @@ func (v Vec4[D]) Mul(value Vec4[D], out *Vec4[D]) {
 	out.W = v.W * value.W
 }
 func (v Vec4[D]) Div(value Vec4[D], out *Vec4[D]) {
-	out.X = div(v.X, value.X)
-	out.Y = div(v.Y, value.Y)
-	out.Z = div(v.Z, value.Z)
-	out.W = div(v.W, value.W)
+	out.X = Div(v.X, value.X)
+	out.Y = Div(v.Y, value.Y)
+	out.Z = Div(v.Z, value.Z)
+	out.W = Div(v.W, value.W)
 }
 func (v Vec4[D]) Interpolate(start Vec4[D], end Vec4[D], delta float32, out *Vec4[D]) {
 	out.X = D(float32(end.X-start.X)*delta) + start.X
 	out.Y = D(float32(end.Y-start.Y)*delta) + start.Y
 	out.Z = D(float32(end.Z-start.Z)*delta) + start.Z
 	out.W = D(float32(end.W-start.W)*delta) + start.W
+}
+func (v Vec4[D]) Cross(other Vec4[D], out *Vec4[D]) {
+	out.X = (v.Y*other.Z - v.Z*other.Y)
+	out.Y = (v.Z*other.X - v.X*other.Z)
+	out.Z = (v.X*other.Y - v.Y*other.X)
 }

@@ -13,8 +13,8 @@ type Matrix2f = Matrix[Vec2f]
 type Matrix3f = Matrix[Vec3f]
 type Matrix4f = Matrix[Vec4f]
 
-type Mat2d = Matrix[Vec3f]
-type Mat3d = Matrix[Vec4f]
+// type Mat2d = Matrix[Vec3f]
+// type Mat3d = Matrix[Vec4f]
 
 // type Matrix4f = Matrix[Vec4f, *Vec4f]
 

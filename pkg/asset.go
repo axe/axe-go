@@ -283,8 +283,9 @@ func (assets *AssetSystem) AddManyMap(refs []AssetRef) map[string]*Asset {
 
 func (assets *AssetSystem) Init(game *Game) error {
 	assets.DefaultSource = &LocalAssetSource{}
-	assets.AddSource(&LocalAssetSource{})
-	assets.AddSource(&WebAssetSource{})
+	assets.AddSource(LocalAssetSource{})
+	assets.AddSource(WebAssetSource{})
+	assets.AddSource(EmbedAssetSource{})
 
 	assets.AddFormat(&XmlGenericAssetFormat{})
 	assets.AddFormat(&JsonGenericAssetFormat{})
