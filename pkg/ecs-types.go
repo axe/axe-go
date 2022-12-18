@@ -38,8 +38,8 @@ type EntitySystem interface {
 }
 
 type EntityValue[D any] struct {
-	Data   D
-	Entity *Entity
+	Data D
+	ID   EntityID
 }
 
 type entityValueStaging struct {

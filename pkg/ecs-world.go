@@ -50,10 +50,10 @@ type World struct {
 	values            [ENTITY_DATA_MAX]worldValueStore // []worldValues[V]
 	valuesSorted      []worldValueStore
 	arrangements      []arrangement
-	arrangementMap    map[EntityDataIDs]*arrangement
+	arrangementMap    map[EntityDataIDs]int
 	entity            ds.SparseList[Entity]
-	staging           ds.Stack[*Entity]
-	stagingComponents ds.Stack[*Entity]
+	staging           ds.Stack[EntityID]
+	stagingComponents ds.Stack[EntityID]
 	typeMap           map[reflect.Type]EntityDataID
 	systems           []EntitySystem
 }
@@ -68,10 +68,10 @@ func NewWorld(name string, settings WorldSettings) *World {
 		datasSorted:       make([]EntityDataID, 0),
 		valuesSorted:      make([]worldValueStore, 0),
 		arrangements:      make([]arrangement, 0),
-		arrangementMap:    make(map[EntityDataIDs]*arrangement),
+		arrangementMap:    make(map[EntityDataIDs]int),
 		entity:            ds.NewSparseList[Entity](settings.EntityCapacity),
-		staging:           ds.NewStack[*Entity](settings.EntityStageCapacity),
-		stagingComponents: ds.NewStack[*Entity](settings.EntityStageCapacity),
+		staging:           ds.NewStack[EntityID](settings.EntityStageCapacity),
+		stagingComponents: ds.NewStack[EntityID](settings.EntityStageCapacity),
 		typeMap:           make(map[reflect.Type]EntityDataID),
 		systems:           make([]EntitySystem, 0),
 	}
@@ -102,7 +102,7 @@ func (w *World) Activate() {
 
 func (w *World) getArrangement(values EntityDataIDs) *arrangement {
 	if arrangement, ok := w.arrangementMap[values]; ok {
-		return arrangement
+		return &w.arrangements[arrangement]
 	}
 	id := EntityArrangementID(len(w.arrangements))
 	pairs := make([]entityDataValuePair, values.LastOn()+1)
@@ -136,6 +136,7 @@ func (w *World) getArrangement(values EntityDataIDs) *arrangement {
 			}
 		}
 	}
+	arrangementIndex := len(w.arrangements)
 	w.arrangements = append(w.arrangements, arrangement{
 		id:           id,
 		pairs:        pairs,
@@ -144,7 +145,7 @@ func (w *World) getArrangement(values EntityDataIDs) *arrangement {
 		values:       values,
 	})
 	arrangement := &w.arrangements[id]
-	w.arrangementMap[values] = arrangement
+	w.arrangementMap[values] = arrangementIndex
 	return arrangement
 }
 
@@ -174,10 +175,10 @@ func (w *World) New() *Entity {
 	w.Activate()
 
 	e, id := w.entity.Take()
-	e.id = id
+	e.id = EntityID(id)
 	e.offsets = nil
 	e.staging = make([]entityValueStaging, 0, w.Settings.AverageComponentPerEntity)
-	w.staging.Push(e)
+	w.staging.Push(e.id)
 	for _, sys := range w.systems {
 		sys.OnStage(e, w.ctx)
 	}
@@ -215,7 +216,7 @@ func (w *World) Delete(e *Entity) {
 
 	e.offsets = nil
 	e.staging = nil
-	w.entity.Free(e.id)
+	w.entity.Free(uint32(e.id))
 }
 
 func (w *World) Stage() {
@@ -227,7 +228,7 @@ func (w *World) Stage() {
 
 func (w *World) stageEntity() {
 	for !w.staging.IsEmpty() {
-		e := w.staging.Pop()
+		e := w.staging.Pop().Entity()
 
 		stagingValues := e.StagingValues()
 
@@ -249,7 +250,7 @@ func (w *World) stageEntity() {
 
 func (w *World) stageValuesRestructure() {
 	for !w.stagingComponents.IsEmpty() {
-		e := w.stagingComponents.Pop()
+		e := w.stagingComponents.Pop().Entity()
 
 		stagingValues := e.StagingValues()
 		existingArrangement := e.getArrangement(w)
@@ -506,7 +507,7 @@ func (datas worldDatas[D]) getDataSize() uintptr {
 
 func (datas *worldDatas[D]) add(e *Entity) EntityDataOffset {
 	data, offset := datas.data.Take()
-	data.Entity = e
+	data.ID = e.id
 	data.Data = datas.initial
 	return EntityDataOffset(offset)
 }
@@ -514,7 +515,7 @@ func (datas *worldDatas[D]) add(e *Entity) EntityDataOffset {
 func (datas *worldDatas[D]) remove(e *Entity, offset EntityDataOffset) {
 	dataOffset := uint32(offset)
 	data := datas.data.At(dataOffset)
-	data.Entity = nil
+	data.ID = 0
 	datas.data.Free(dataOffset)
 }
 

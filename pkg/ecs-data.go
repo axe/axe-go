@@ -68,7 +68,7 @@ func (d *EntityData[V]) get(e *Entity, create bool) *V {
 			return nil
 		}
 		if len(e.staging) == 0 && e.Live() {
-			w.stagingComponents.Push(e)
+			w.stagingComponents.Push(e.id)
 		}
 		values := w.values[d.id].(*worldValues[V])
 		value := values.stage(e, d.id, w.ctx)
@@ -167,8 +167,8 @@ func (dv *entityDataValue[D, V]) addTo(w *World, data *worldDatas[D]) {
 	values.iterables = append(values.iterables, ds.NewTranslateIterable[EntityValue[*V], EntityValue[D]](&data.data, func(source *EntityValue[D]) *EntityValue[*V] {
 		value := dv.get(&source.Data)
 		return &EntityValue[*V]{
-			Entity: source.Entity,
-			Data:   value,
+			ID:   source.ID,
+			Data: value,
 		}
 	}))
 	values.iterable = ds.NewMultiIterable(values.iterables)

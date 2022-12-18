@@ -26,7 +26,7 @@ type Input struct {
 func NewInput(name string) *Input {
 	return &Input{Name: name}
 }
-func (i *Input) Set(value float32, now time.Time) {
+func (i *Input) Set(value float32, now time.Time) bool {
 	if i.Value != value {
 		i.PreviousValue = i.Value
 		i.PreviousChanged = i.ValueChanged
@@ -34,7 +34,9 @@ func (i *Input) Set(value float32, now time.Time) {
 		i.Value = value
 		i.ValueChanged = now
 		i.ValueDuration = 0
+		return true
 	}
+	return false
 }
 func (i *Input) UpdateDuration(now time.Time) {
 	i.ValueDuration = now.Sub(i.ValueChanged)
@@ -713,6 +715,7 @@ type InputSystem interface { // & GameSystem
 	Get(inputName string) *Input
 	InputTime() time.Time
 }
+
 type InputSystemEvents struct {
 	DeviceConnected    func(newDevice InputDevice)
 	DeviceDisconnected func(oldDevice InputDevice)

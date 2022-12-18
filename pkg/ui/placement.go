@@ -123,3 +123,39 @@ func (p Placement) GetHeight(parentHeight float32) float32 {
 func (p Placement) GetMinHeight(parentHeight float32, minHeight float32) float32 {
 	return float32(math.Max(float64(minHeight), float64(p.Top.Get(parentHeight)-p.Bottom.Get(parentHeight))))
 }
+
+func (p Placement) PreferredWidth() float32 {
+	if p.Left.Delta == p.Right.Delta {
+		return p.Right.Base - p.Left.Base
+	}
+	return 0
+}
+
+func (p Placement) MinParentWidth() float32 {
+	w := p.PreferredWidth()
+	if p.Left.Delta == 0 {
+		w += p.Left.Base
+	}
+	if p.Right.Delta == 1 {
+		w += p.Right.Base
+	}
+	return w
+}
+
+func (p Placement) PreferredHeight() float32 {
+	if p.Top.Delta == p.Bottom.Delta {
+		return p.Bottom.Base - p.Top.Base
+	}
+	return 0
+}
+
+func (p Placement) MinParentHeight() float32 {
+	h := p.PreferredHeight()
+	if p.Top.Delta == 0 {
+		h += p.Top.Base
+	}
+	if p.Bottom.Delta == 1 {
+		h += p.Bottom.Base
+	}
+	return h
+}

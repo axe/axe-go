@@ -28,7 +28,7 @@ func (sys LogicSystem) Update(iter ds.Iterable[EntityValue[*Logic]], ctx EntityC
 	for i.HasNext() {
 		logic := i.Next()
 		if logic.Data != nil {
-			(*logic.Data)(logic.Entity, ctx)
+			(*logic.Data)(logic.ID.Entity(), ctx)
 		}
 	}
 }

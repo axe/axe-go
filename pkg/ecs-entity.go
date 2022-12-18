@@ -4,14 +4,22 @@ func NewEntity() *Entity {
 	return ActiveWorld().New()
 }
 
+type EntityID uint32
+
+func (id EntityID) Entity() *Entity {
+	index := uint32(id)
+	world := ActiveWorld()
+	return world.entity.At(index)
+}
+
 type Entity struct {
-	id          uint32
+	id          EntityID
 	arrangement EntityArrangementID
 	offsets     []EntityDataOffset
 	staging     []entityValueStaging
 }
 
-func (e Entity) ID() uint32 {
+func (e Entity) ID() EntityID {
 	return e.id
 }
 
