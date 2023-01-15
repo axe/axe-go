@@ -14,13 +14,23 @@ type Font struct {
 	Kerning map[rune]map[rune]float32
 }
 
+func (f Font) GetKerning(prev rune, next rune) float32 {
+	kerningMap := f.Kerning[prev]
+	if kerningMap != nil {
+		if kerning, ok := kerningMap[next]; ok {
+			return kerning
+		}
+	}
+	return 0
+}
+
 type TextFormat struct {
 	Font     string
 	FontSize float32
 }
 
 type Glyph interface {
-	GetState(theme *Theme, wrap TextWrap) GlyphState
+	GetState(theme *Theme, wrap TextWrap, prev Glyph) GlyphState
 	Render(theme *Theme, start Coord) RenderedGlyph
 }
 
@@ -54,8 +64,10 @@ func (blocks GlyphBlocks) Wrap(lineWidth float32) bool {
 
 func (block GlyphBlock) Render(theme *Theme, blocks GlyphBlocks) []RenderedGlyph {
 	states := make([]GlyphState, len(block.Glyphs))
+	var prev Glyph
 	for i, g := range block.Glyphs {
-		states[i] = g.GetState(theme, block.Wrap)
+		states[i] = g.GetState(theme, block.Wrap, prev)
+		prev = block.Glyphs[i]
 	}
 
 	type line struct {
@@ -165,10 +177,17 @@ func (g TextGlyph) getData(theme *Theme) (*TextFormat, *Font, *FontRune) {
 	}
 	return format, font, &fontRune
 }
-func (g TextGlyph) GetState(theme *Theme, wrap TextWrap) GlyphState {
-	format, _, fontRune := g.getData(theme)
+func (g TextGlyph) GetState(theme *Theme, wrap TextWrap, prev Glyph) GlyphState {
+	format, font, fontRune := g.getData(theme)
 	if format == nil {
 		return GlyphState{Empty: true}
+	}
+
+	offset := float32(0)
+	if prev != nil {
+		if prevGlyph, ok := prev.(TextGlyph); ok {
+			offset = font.GetKerning(prevGlyph.Text, g.Text)
+		}
 	}
 
 	space := unicode.IsSpace(g.Text)
@@ -178,7 +197,7 @@ func (g TextGlyph) GetState(theme *Theme, wrap TextWrap) GlyphState {
 		ShouldBreak: g.Text == '\r' || g.Text == '\n',
 		Empty:       space,
 		Size: Coord{
-			X: format.FontSize * fontRune.Width,
+			X: format.FontSize*fontRune.Width + offset,
 			Y: format.FontSize,
 		},
 	}
