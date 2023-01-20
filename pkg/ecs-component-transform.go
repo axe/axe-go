@@ -1,9 +1,12 @@
 package axe
 
-import "github.com/axe/axe-go/pkg/ds"
+import (
+	"github.com/axe/axe-go/pkg/ds"
+	"github.com/axe/axe-go/pkg/ecs"
+)
 
-var TRANSFORM2 = DefineComponent("transform2", Transform3f{dirty: transformDirtyLocal}).SetSystem(NewTransformSystem3f())
-var TRANSFORM3 = DefineComponent("transform3", Transform4f{dirty: transformDirtyLocal}).SetSystem(NewTransformSystem4f())
+var TRANSFORM2 = ecs.DefineComponent("transform2", Transform3f{dirty: transformDirtyLocal}).SetSystem(NewTransformSystem3f())
+var TRANSFORM3 = ecs.DefineComponent("transform3", Transform4f{dirty: transformDirtyLocal}).SetSystem(NewTransformSystem4f())
 
 type Transform2f = Transform[Vec2f]
 type Transform3f = Transform[Vec3f]
@@ -53,7 +56,7 @@ type TransformCreate[A Attr[A]] struct {
 }
 
 type Transform[A Attr[A]] struct {
-	Tree EntityTree
+	Tree ecs.Tree
 
 	local    Matrix[A]
 	world    Matrix[A]
@@ -114,22 +117,22 @@ func (t *Transform[A]) Update(updateWorld bool) {
 	t.dirty = transformDirtyNone
 
 	if updateWorld {
-		if t.Tree.parent != nil {
-			parentTransform := Get[Transform[A]](t.Tree.parent)
+		if t.Tree.Parent() != nil {
+			parentTransform := ecs.Get[Transform[A]](t.Tree.Parent())
 			t.world.Mul(parentTransform.world, t.local)
 		} else {
 			t.world.Set(t.local)
 		}
 	}
-	if len(t.Tree.children) > 0 {
-		for _, child := range t.Tree.children {
-			childTransform := Get[Transform[A]](child)
+	if len(t.Tree.Children()) > 0 {
+		for _, child := range t.Tree.Children() {
+			childTransform := ecs.Get[Transform[A]](child)
 			childTransform.Update(updateWorld)
 		}
 	}
 }
 
-func (t *Transform[A]) SetParent(parent *Entity) {
+func (t *Transform[A]) SetParent(parent *ecs.Entity) {
 	t.Tree.SetParent(parent)
 }
 
@@ -144,19 +147,19 @@ func (t *Transform[A]) updateLocal() {
 
 type TransformSystem[A Attr[A]] struct{}
 
-var _ EntityDataSystem[Transform2f] = &TransformSystem[Vec2f]{}
+var _ ecs.DataSystem[Transform2f] = &TransformSystem[Vec2f]{}
 
-func NewTransformSystem[A Attr[A]]() EntityDataSystem[Transform[A]] {
+func NewTransformSystem[A Attr[A]]() ecs.DataSystem[Transform[A]] {
 	return &TransformSystem[A]{}
 }
-func NewTransformSystem3f() EntityDataSystem[Transform3f] {
+func NewTransformSystem3f() ecs.DataSystem[Transform3f] {
 	return &TransformSystem[Vec3f]{}
 }
-func NewTransformSystem4f() EntityDataSystem[Transform4f] {
+func NewTransformSystem4f() ecs.DataSystem[Transform4f] {
 	return &TransformSystem[Vec4f]{}
 }
 
-func (sys *TransformSystem[A]) OnStage(data *Transform[A], e *Entity, ctx EntityContext) {
+func (sys *TransformSystem[A]) OnStage(data *Transform[A], e *ecs.Entity, ctx ecs.Context) {
 	if data.local.columns == nil {
 		InitMatrix(data.local)
 	}
@@ -164,25 +167,25 @@ func (sys *TransformSystem[A]) OnStage(data *Transform[A], e *Entity, ctx Entity
 		InitMatrix(data.world)
 	}
 }
-func (sys *TransformSystem[A]) OnLive(data *Transform[A], e *Entity, ctx EntityContext) {
+func (sys *TransformSystem[A]) OnLive(data *Transform[A], e *ecs.Entity, ctx ecs.Context) {
 
 }
-func (sys *TransformSystem[A]) OnRemove(data *Transform[A], e *Entity, ctx EntityContext) {
+func (sys *TransformSystem[A]) OnRemove(data *Transform[A], e *ecs.Entity, ctx ecs.Context) {
 
 }
-func (sys *TransformSystem[A]) Init(ctx EntityContext) error {
+func (sys *TransformSystem[A]) Init(ctx ecs.Context) error {
 	return nil
 }
-func (sys *TransformSystem[A]) Update(iter ds.Iterable[EntityValue[*Transform[A]]], ctx EntityContext) {
+func (sys *TransformSystem[A]) Update(iter ds.Iterable[ecs.Value[*Transform[A]]], ctx ecs.Context) {
 	i := iter.Iterator()
 	for i.HasNext() {
 		ev := i.Next()
 
-		if ev.Data.Tree.parent == nil {
+		if ev.Data.Tree.Parent() == nil {
 			ev.Data.Update(false)
 		}
 	}
 }
-func (sys *TransformSystem[A]) Destroy(ctx EntityContext) {
+func (sys *TransformSystem[A]) Destroy(ctx ecs.Context) {
 
 }

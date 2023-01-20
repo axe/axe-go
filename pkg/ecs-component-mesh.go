@@ -1,9 +1,14 @@
 package axe
 
-var MESH = DefineComponent("mesh", Mesh{})
+import (
+	"github.com/axe/axe-go/pkg/asset"
+	"github.com/axe/axe-go/pkg/ecs"
+)
+
+var MESH = ecs.DefineComponent("mesh", Mesh{})
 
 type Mesh struct {
-	Ref AssetRef
+	Ref asset.Ref
 
 	data *MeshData
 }

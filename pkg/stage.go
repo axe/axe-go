@@ -3,6 +3,7 @@ package axe
 import (
 	"strings"
 
+	"github.com/axe/axe-go/pkg/asset"
 	"github.com/axe/axe-go/pkg/ui"
 )
 
@@ -148,7 +149,7 @@ type StageManagerEvents struct {
 
 type Stage struct {
 	Name    string
-	Assets  []AssetRef
+	Assets  []asset.Ref
 	Windows []StageWindow
 	Scenes2 []Scene2f
 	Scenes3 []Scene3f
@@ -156,8 +157,8 @@ type Stage struct {
 	Views3  []View3f
 	Actions InputActionSets
 
-	pendingAssets map[string]*Asset
-	loadedAssets  map[string]*Asset
+	pendingAssets map[string]*asset.Asset
+	loadedAssets  map[string]*asset.Asset
 }
 
 func (stage Stage) HasStartedLoading() bool {
@@ -166,8 +167,8 @@ func (stage Stage) HasStartedLoading() bool {
 
 func (stage *Stage) Load(game *Game) {
 	if stage.pendingAssets == nil {
-		stage.pendingAssets = game.Assets.AddManyMap(stage.Assets)
-		stage.loadedAssets = make(map[string]*Asset, len(stage.pendingAssets))
+		stage.pendingAssets = game.Assets.Assets.AddManyMap(stage.Assets)
+		stage.loadedAssets = make(map[string]*asset.Asset, len(stage.pendingAssets))
 	}
 	for key, asset := range stage.pendingAssets {
 		// If loading hasn't started, kick it off
@@ -186,7 +187,7 @@ func (stage *Stage) Load(game *Game) {
 		// The asset is loaded, if any need to follow add them
 		if len(asset.Next) > 0 {
 			for _, nextRef := range asset.Next {
-				nextAsset := game.Assets.Add(nextRef)
+				nextAsset := game.Assets.Assets.Add(nextRef)
 
 				if stage.loadedAssets[nextAsset.Ref.URI] == nil {
 					stage.pendingAssets[nextAsset.Ref.URI] = nextAsset
@@ -212,7 +213,7 @@ func (stage *Stage) IsLoaded() bool {
 
 func (stage *Stage) Unload(activeStage *Stage) {
 	if stage.loadedAssets != nil {
-		unusedAssets := make(map[string]*Asset)
+		unusedAssets := make(map[string]*asset.Asset)
 		for i := range stage.loadedAssets {
 			asset := stage.loadedAssets[i]
 			unusedAssets[asset.Ref.URI] = asset

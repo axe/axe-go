@@ -3,11 +3,12 @@ package axe
 import (
 	"fmt"
 
+	"github.com/axe/axe-go/pkg/asset"
 	"github.com/axe/axe-go/pkg/geom"
 )
 
 type Texture interface {
-	Asset() *Asset
+	Asset() *asset.Asset
 	Width() int
 	Height() int
 }
@@ -71,7 +72,7 @@ func (t *Tile) RectsGrid(x, y, w, h, columns, rows int) Tiles {
 type Tiles []Tile
 
 func (tiles Tiles) Textures() []Texture {
-	unique := make(map[*Asset]Texture)
+	unique := make(map[*asset.Asset]Texture)
 	for _, tile := range tiles {
 		unique[tile.Texture.Asset()] = tile.Texture
 	}

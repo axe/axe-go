@@ -2,22 +2,23 @@ package axe
 
 import (
 	"github.com/axe/axe-go/pkg/ds"
+	"github.com/axe/axe-go/pkg/ecs"
 )
 
 type InputActionListener struct {
 	Handler func(action *InputAction) bool
 }
 
-var ACTION = DefineComponent("input-action", InputActionListener{}).SetSystem(NewInputActionSystem(nil))
+var ACTION = ecs.DefineComponent("input-action", InputActionListener{}).SetSystem(NewInputActionSystem(nil))
 
 type InputActionSystem struct {
 	unhandled InputActionHandler
 	queue     ds.Queue[*InputAction]
 }
 
-var _ EntityDataSystem[InputActionListener] = &InputActionSystem{}
+var _ ecs.DataSystem[InputActionListener] = &InputActionSystem{}
 
-func NewInputActionSystem(unhandled InputActionHandler) EntityDataSystem[InputActionListener] {
+func NewInputActionSystem(unhandled InputActionHandler) ecs.DataSystem[InputActionListener] {
 	queue := ds.NewCircularQueue[*InputAction](32)
 
 	return &InputActionSystem{
@@ -26,17 +27,17 @@ func NewInputActionSystem(unhandled InputActionHandler) EntityDataSystem[InputAc
 	}
 }
 
-func (sys InputActionSystem) OnStage(data *InputActionListener, e *Entity, ctx EntityContext) {
+func (sys InputActionSystem) OnStage(data *InputActionListener, e *ecs.Entity, ctx ecs.Context) {
 }
-func (sys InputActionSystem) OnLive(data *InputActionListener, e *Entity, ctx EntityContext) {
+func (sys InputActionSystem) OnLive(data *InputActionListener, e *ecs.Entity, ctx ecs.Context) {
 }
-func (sys InputActionSystem) OnRemove(data *InputActionListener, e *Entity, ctx EntityContext) {
+func (sys InputActionSystem) OnRemove(data *InputActionListener, e *ecs.Entity, ctx ecs.Context) {
 }
-func (sys *InputActionSystem) Init(ctx EntityContext) error {
+func (sys *InputActionSystem) Init(ctx ecs.Context) error {
 	return nil
 }
-func (sys *InputActionSystem) Update(iter ds.Iterable[EntityValue[*InputActionListener]], ctx EntityContext) {
-	current := ctx.Game.Stages.Current
+func (sys *InputActionSystem) Update(iter ds.Iterable[ecs.Value[*InputActionListener]], ctx ecs.Context) {
+	current := ActiveGame().Stages.Current
 	if current == nil {
 		return
 	}
@@ -77,13 +78,13 @@ func (sys *InputActionSystem) Update(iter ds.Iterable[EntityValue[*InputActionLi
 		}
 	}
 }
-func (sys *InputActionSystem) Destroy(ctx EntityContext) {
+func (sys *InputActionSystem) Destroy(ctx ecs.Context) {
 
 }
 
 type InputEvents = InputSystemEvents
 
-var INPUT = DefineComponent("input", InputEvents{}).SetSystem(NewInputEventsSystem())
+var INPUT = ecs.DefineComponent("input", InputEvents{}).SetSystem(NewInputEventsSystem())
 
 type InputEventsSystem struct {
 	connectedDevices    ds.Stack[InputDevice]
@@ -98,9 +99,9 @@ type InputEventsSystem struct {
 	off ListenerOff
 }
 
-var _ EntityDataSystem[InputEvents] = &InputEventsSystem{}
+var _ ecs.DataSystem[InputEvents] = &InputEventsSystem{}
 
-func NewInputEventsSystem() EntityDataSystem[InputEvents] {
+func NewInputEventsSystem() ecs.DataSystem[InputEvents] {
 	return &InputEventsSystem{
 		connectedDevices:    ds.NewStack[InputDevice](4),
 		disconnectedDevices: ds.NewStack[InputDevice](4),
@@ -113,14 +114,14 @@ func NewInputEventsSystem() EntityDataSystem[InputEvents] {
 	}
 }
 
-func (sys InputEventsSystem) OnStage(data *InputEvents, e *Entity, ctx EntityContext) {
+func (sys InputEventsSystem) OnStage(data *InputEvents, e *ecs.Entity, ctx ecs.Context) {
 }
-func (sys InputEventsSystem) OnLive(data *InputEvents, e *Entity, ctx EntityContext) {
+func (sys InputEventsSystem) OnLive(data *InputEvents, e *ecs.Entity, ctx ecs.Context) {
 }
-func (sys InputEventsSystem) OnRemove(data *InputEvents, e *Entity, ctx EntityContext) {
+func (sys InputEventsSystem) OnRemove(data *InputEvents, e *ecs.Entity, ctx ecs.Context) {
 }
-func (sys *InputEventsSystem) Init(ctx EntityContext) error {
-	sys.off = ctx.Game.Input.Events().On(InputSystemEvents{
+func (sys *InputEventsSystem) Init(ctx ecs.Context) error {
+	sys.off = ActiveGame().Input.Events().On(InputSystemEvents{
 		DeviceConnected: func(newDevice InputDevice) {
 			sys.connectedDevices.Push(newDevice)
 		},
@@ -148,7 +149,7 @@ func (sys *InputEventsSystem) Init(ctx EntityContext) error {
 	})
 	return nil
 }
-func (sys *InputEventsSystem) Update(iter ds.Iterable[EntityValue[*InputEvents]], ctx EntityContext) {
+func (sys *InputEventsSystem) Update(iter ds.Iterable[ecs.Value[*InputEvents]], ctx ecs.Context) {
 	i := iter.Iterator()
 	for i.HasNext() {
 		evts := i.Next().Data
@@ -212,6 +213,6 @@ func (sys *InputEventsSystem) Update(iter ds.Iterable[EntityValue[*InputEvents]]
 	sys.disconnectedPoint.Clear()
 	sys.changedPoint.Clear()
 }
-func (sys *InputEventsSystem) Destroy(ctx EntityContext) {
+func (sys *InputEventsSystem) Destroy(ctx ecs.Context) {
 	sys.off()
 }

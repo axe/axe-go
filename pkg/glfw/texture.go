@@ -11,35 +11,36 @@ import (
 	"strings"
 
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/asset"
 	"github.com/go-gl/gl/v2.1/gl"
 )
 
 type texture struct {
-	asset *axe.Asset
+	asset *asset.Asset
 	image *image.RGBA
 	id    uint32
 }
 
 var _ axe.Texture = &texture{}
 
-func (tex *texture) Asset() *axe.Asset { return tex.asset }
-func (tex *texture) Width() int        { return tex.image.Rect.Size().X }
-func (tex *texture) Height() int       { return tex.image.Rect.Size().Y }
+func (tex *texture) Asset() *asset.Asset { return tex.asset }
+func (tex *texture) Width() int          { return tex.image.Rect.Size().X }
+func (tex *texture) Height() int         { return tex.image.Rect.Size().Y }
 
 type TextureFormat struct{}
 
-var _ axe.AssetFormat = &TextureFormat{}
+var _ asset.Format = &TextureFormat{}
 var textureLoaderRegex, _ = regexp.Compile(`\.(png|jpg|jpeg)$`)
 
-func (loader *TextureFormat) Handles(ref axe.AssetRef) bool {
+func (loader *TextureFormat) Handles(ref asset.Ref) bool {
 	return textureLoaderRegex.MatchString(strings.ToLower(ref.URI))
 }
 
-func (loader *TextureFormat) Types() []axe.AssetType {
-	return []axe.AssetType{axe.AssetTypeTexture}
+func (loader *TextureFormat) Types() []asset.Type {
+	return []asset.Type{asset.TypeTexture}
 }
 
-func (loader *TextureFormat) Load(asset *axe.Asset) error {
+func (loader *TextureFormat) Load(asset *asset.Asset) error {
 	tex := &texture{}
 
 	asset.LoadStatus.Start()
@@ -66,13 +67,13 @@ func (loader *TextureFormat) Load(asset *axe.Asset) error {
 	return nil
 }
 
-func (loader *TextureFormat) Unload(asset *axe.Asset) error {
+func (loader *TextureFormat) Unload(asset *asset.Asset) error {
 	asset.LoadStatus.Reset()
 	asset.Data = nil
 	return nil
 }
 
-func (loader *TextureFormat) Activate(asset *axe.Asset) error {
+func (loader *TextureFormat) Activate(asset *asset.Asset) error {
 	asset.ActivateStatus.Start()
 
 	tex, isTexture := asset.Data.(*texture)
@@ -115,7 +116,7 @@ func (loader *TextureFormat) Activate(asset *axe.Asset) error {
 	return nil
 }
 
-func (loader *TextureFormat) Deactivate(asset *axe.Asset) error {
+func (loader *TextureFormat) Deactivate(asset *asset.Asset) error {
 	asset.ActivateStatus.Reset()
 	if tex, ok := asset.Data.(*texture); ok {
 		gl.DeleteTextures(1, &tex.id)

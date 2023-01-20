@@ -1,4 +1,4 @@
-package axe
+package asset
 
 import (
 	"encoding/json"
@@ -28,15 +28,15 @@ type JsonValue struct {
 	Parent *JsonValue
 }
 
-var _ AssetFormat = &JsonGenericAssetFormat{}
+var _ Format = &JsonGenericAssetFormat{}
 var jsonGenericAssetFormatRegex, _ = regexp.Compile(`\.json$`)
 
-func (format *JsonGenericAssetFormat) Handles(ref AssetRef) bool {
+func (format *JsonGenericAssetFormat) Handles(ref Ref) bool {
 	return jsonGenericAssetFormatRegex.MatchString(ref.URI)
 }
 
-func (format *JsonGenericAssetFormat) Types() []AssetType {
-	return []AssetType{AssetTypeJson}
+func (format *JsonGenericAssetFormat) Types() []Type {
+	return []Type{TypeJson}
 }
 
 func (format *JsonGenericAssetFormat) Load(asset *Asset) error {

@@ -12,5 +12,5 @@ func Setup(game *axe.Game, settings Settings) {
 	game.Windows = NewWindowSystem(settings)
 	game.Graphics = NewGraphicsSystem()
 
-	game.Assets.AddFormat(&TextureFormat{})
+	game.Assets.Assets.AddFormat(&TextureFormat{})
 }

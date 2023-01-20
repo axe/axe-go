@@ -8,6 +8,8 @@ import (
 	"time"
 
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/asset"
+	"github.com/axe/axe-go/pkg/ecs"
 	"github.com/axe/axe-go/pkg/ui"
 )
 
@@ -22,7 +24,7 @@ func TestGame(t *testing.T) {
 		Name:               "Test GLFW",
 		FixedDrawFrequency: time.Second / 60,
 		FirstStage:         "cube",
-		WorldSettings: axe.WorldSettings{
+		WorldSettings: ecs.WorldSettings{
 			EntityCapacity:            2048,
 			EntityStageCapacity:       128,
 			AverageComponentPerEntity: 4,
@@ -34,7 +36,7 @@ func TestGame(t *testing.T) {
 		}},
 		Stages: []axe.Stage{{
 			Name: "cube",
-			Assets: []axe.AssetRef{
+			Assets: []asset.Ref{
 				{Name: "cube model", URI: "cube.obj"},
 			},
 			Actions: axe.CreateInputActionSets(map[string]map[string]axe.InputTrigger{
@@ -52,27 +54,27 @@ func TestGame(t *testing.T) {
 			Scenes3: []axe.Scene3f{{
 				Enable: func(scene *axe.Scene3f, game *axe.Game) {
 					// Add components & systems
-					scene.World.Enable(
+					scene.World.Impl.Enable(
 						// Component data settings
-						axe.EntityDataSettings{Capacity: 2048, StageCapacity: 128},
+						ecs.DataSettings{Capacity: 2048, StageCapacity: 128},
 						// Components
 						axe.TAG, axe.MESH, axe.TRANSFORM3, axe.AUDIO, axe.ACTION, axe.LIGHT, axe.LOGIC, axe.INPUT,
 					)
 				},
 				Load: func(scene *axe.Scene3f, game *axe.Game) {
 					// Entities
-					e := axe.NewEntity()
+					e := ecs.New()
 
 					axe.TAG.Set(e, axe.Tag("cube"))
 
-					axe.MESH.Set(e, axe.Mesh{Ref: axe.AssetRef{Name: "cube model"}})
+					axe.MESH.Set(e, axe.Mesh{Ref: asset.Ref{Name: "cube model"}})
 
 					axe.TRANSFORM3.Set(e, axe.NewTransform4(axe.TransformCreate4f{
 						Position: axe.Vec4f{X: 0, Y: 0, Z: -3, W: 0},
 						Scale:    axe.Vec4f{X: 1, Y: 1, Z: 1, W: 0},
 					}))
 
-					axe.LOGIC.Set(e, func(e *axe.Entity, ctx axe.EntityContext) {
+					axe.LOGIC.Set(e, func(e *ecs.Entity, ctx ecs.Context) {
 						dt := game.State.UpdateTimer.Elapsed.Seconds()
 						transform := axe.TRANSFORM3.Get(e)
 						rot := transform.GetRotation()

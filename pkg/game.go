@@ -1,6 +1,12 @@
 package axe
 
-import "time"
+import (
+	"time"
+
+	"github.com/axe/axe-go/pkg/asset"
+	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type GameSystem interface {
 	Init(game *Game) error
@@ -32,10 +38,10 @@ type GameSettings struct {
 	JobGroups            int
 	JobBudget            int
 	Stages               []Stage
-	Assets               []AssetRef
+	Assets               []asset.Ref
 	Windows              []StageWindow
 	WorldName            string
-	WorldSettings        WorldSettings
+	WorldSettings        ecs.WorldSettings
 }
 
 type Game struct {
@@ -51,6 +57,13 @@ type Game struct {
 	State    GameState
 	Settings GameSettings
 	Running  bool
+}
+
+var activeGame *Game
+
+func ActiveGame() *Game {
+	util.Assert(activeGame != nil, "There is no active game, you must create one or activate one")
+	return activeGame
 }
 
 func NewGame(settings GameSettings) *Game {
@@ -76,7 +89,17 @@ func NewGame(settings GameSettings) *Game {
 		}
 	}
 
+	activeGame = game
+
 	return game
+}
+
+func (game *Game) Activate() {
+	activeGame = game
+}
+
+func (game *Game) IsActive() bool {
+	return activeGame == game
 }
 
 func (game *Game) Run() error {
@@ -190,14 +213,14 @@ type NoAudioSystem struct{}
 
 var _ AudioSystem = &NoAudioSystem{}
 
-func (audio *NoAudioSystem) Init(game *Game) error                        { return nil }
-func (audio *NoAudioSystem) Update(game *Game)                            {}
-func (audio *NoAudioSystem) Destroy()                                     {}
-func (audio *NoAudioSystem) Listeners() []AudioListener                   { return nil }
-func (audio *NoAudioSystem) Instances() []AudioInstance                   { return nil }
-func (audio *NoAudioSystem) Settings() map[string]AudioSettings           { return nil }
-func (audio *NoAudioSystem) Sources() []AudioSource                       { return nil }
-func (audio *NoAudioSystem) EntitySystem() EntityDataSystem[AudioEmitter] { return nil }
+func (audio *NoAudioSystem) Init(game *Game) error                      { return nil }
+func (audio *NoAudioSystem) Update(game *Game)                          {}
+func (audio *NoAudioSystem) Destroy()                                   {}
+func (audio *NoAudioSystem) Listeners() []AudioListener                 { return nil }
+func (audio *NoAudioSystem) Instances() []AudioInstance                 { return nil }
+func (audio *NoAudioSystem) Settings() map[string]AudioSettings         { return nil }
+func (audio *NoAudioSystem) Sources() []AudioSource                     { return nil }
+func (audio *NoAudioSystem) EntitySystem() ecs.DataSystem[AudioEmitter] { return nil }
 
 type NoWindowSystem struct{}
 

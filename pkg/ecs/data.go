@@ -1,4 +1,4 @@
-package axe
+package ecs
 
 import (
 	"reflect"
@@ -7,41 +7,41 @@ import (
 	"github.com/axe/axe-go/pkg/util"
 )
 
-type EntityDataSettings struct {
+type DataSettings struct {
 	Capacity             uint32
 	StageCapacity        uint32
 	ExcludeDefaultSystem bool
 }
 
-type EntityDataBase interface {
-	ID() EntityDataID
+type DataBase interface {
+	ID() DataID
 	Name() string
-	Enable(settings EntityDataSettings)
+	Enable(settings DataSettings)
 }
 
-type EntityData[D any] struct {
-	id            EntityDataID
+type Data[D any] struct {
+	id            DataID
 	name          string
 	initial       D
-	values        [ENTITY_DATA_MAX]entityDataValueData[D]
-	defaultSystem EntityDataSystem[D]
+	values        [DATA_MAX]dataValueData[D]
+	defaultSystem DataSystem[D]
 }
 
-var _ EntityDataBase = &EntityData[int]{}
+var _ DataBase = &Data[int]{}
 
-var nextDataID EntityDataID
+var nextDataID DataID
 
-func newEntityData[D any](name string, initial D) *EntityData[D] {
+func newEntityData[D any](name string, initial D) *Data[D] {
 	id := nextDataID
 	nextDataID++
 
-	data := &EntityData[D]{
+	data := &Data[D]{
 		id:      id,
 		name:    name,
 		initial: initial,
 	}
 
-	data.values[id] = &entityDataValue[D, D]{
+	data.values[id] = &dataValue[D, D]{
 		dataId:  id,
 		valueID: id,
 		get: func(data *D) *D {
@@ -52,15 +52,15 @@ func newEntityData[D any](name string, initial D) *EntityData[D] {
 	return data
 }
 
-func (d EntityData[V]) ID() EntityDataID {
+func (d Data[V]) ID() DataID {
 	return d.id
 }
 
-func (d EntityData[V]) Name() string {
+func (d Data[V]) Name() string {
 	return d.name
 }
 
-func (d *EntityData[V]) get(e *Entity, create bool) *V {
+func (d *Data[V]) get(e *Entity, create bool) *V {
 	w := ActiveWorld()
 	location := e.locationFor(w, d.id)
 	if location.valueID != d.id {
@@ -80,55 +80,55 @@ func (d *EntityData[V]) get(e *Entity, create bool) *V {
 	return value
 }
 
-func (d *EntityData[V]) SetSystem(sys EntityDataSystem[V]) *EntityData[V] {
+func (d *Data[V]) SetSystem(sys DataSystem[V]) *Data[V] {
 	d.defaultSystem = sys
 	return d
 }
 
-func (d *EntityData[V]) Get(e *Entity) *V {
+func (d *Data[V]) Get(e *Entity) *V {
 	return d.get(e, false)
 }
 
-func (d *EntityData[V]) Add(e *Entity) *V {
+func (d *Data[V]) Add(e *Entity) *V {
 	return d.get(e, true)
 }
 
-func (d *EntityData[V]) Set(e *Entity, value V) {
+func (d *Data[V]) Set(e *Entity, value V) {
 	ptr := d.get(e, true)
 	*ptr = value
 }
 
-func (d *EntityData[V]) Iterable() ds.Iterable[EntityValue[*V]] {
+func (d *Data[V]) Iterable() ds.Iterable[Value[*V]] {
 	w := ActiveWorld()
 	if w.values[d.id] == nil {
-		return ds.NewEmptyIterable[EntityValue[*V]]()
+		return ds.NewEmptyIterable[Value[*V]]()
 	}
 	values := w.values[d.id].(*worldValues[V])
 	return values.iterable
 }
 
-func (d *EntityData[V]) AddSystem(sys EntityDataSystem[V]) {
+func (d *Data[V]) AddSystem(sys DataSystem[V]) {
 	w := ActiveWorld()
 	util.Assert(w.values[d.id] != nil, "a component must be enabled before adding a system")
 	values := w.values[d.id].(*worldValues[V])
 	values.systems = append(values.systems, sys)
 }
 
-func (d *EntityData[D]) Enable(settings EntityDataSettings) {
+func (d *Data[D]) Enable(settings DataSettings) {
 	w := ActiveWorld()
 	dataType := reflect.TypeOf(d.initial)
 
 	data := &worldDatas[D]{
-		data:     ds.NewSparseList[EntityValue[D]](settings.Capacity),
+		data:     ds.NewSparseList[Value[D]](settings.Capacity),
 		dataSize: dataType.Size(),
 		initial:  d.initial,
 		valueIDs: 0,
 	}
 
 	value := &worldValues[D]{
-		iterables: make([]ds.Iterable[EntityValue[*D]], 0),
-		iterable:  ds.NewEmptyIterable[EntityValue[*D]](),
-		systems:   make([]EntityDataSystem[D], 0),
+		iterables: make([]ds.Iterable[Value[*D]], 0),
+		iterable:  ds.NewEmptyIterable[Value[*D]](),
+		systems:   make([]DataSystem[D], 0),
 		staging:   ds.NewSparseList[D](settings.StageCapacity),
 		dataIDs:   0,
 	}
@@ -153,20 +153,20 @@ func (d *EntityData[D]) Enable(settings EntityDataSettings) {
 	}
 }
 
-var _ entityDataValueData[int] = &entityDataValue[int, int]{}
+var _ dataValueData[int] = &dataValue[int, int]{}
 
-func (dv *entityDataValue[D, V]) addTo(w *World, data *worldDatas[D]) {
+func (dv *dataValue[D, V]) addTo(w *World, data *worldDatas[D]) {
 	values := w.values[dv.valueID].(*worldValues[V])
 	dataValues := w.values[dv.dataId].(*worldValues[D])
 
-	values.datas[dv.dataId] = &entityValueData[D, V]{dv, data, dataValues}
+	values.datas[dv.dataId] = &valueData[D, V]{dv, data, dataValues}
 	values.dataIDs.Set(dv.dataId, true)
 
 	data.valueIDs.Set(dv.valueID, true)
 
-	values.iterables = append(values.iterables, ds.NewTranslateIterable[EntityValue[*V], EntityValue[D]](&data.data, func(source *EntityValue[D]) *EntityValue[*V] {
+	values.iterables = append(values.iterables, ds.NewTranslateIterable[Value[*V], Value[D]](&data.data, func(source *Value[D]) *Value[*V] {
 		value := dv.get(&source.Data)
-		return &EntityValue[*V]{
+		return &Value[*V]{
 			ID:   source.ID,
 			Data: value,
 		}

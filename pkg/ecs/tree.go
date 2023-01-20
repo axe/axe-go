@@ -1,62 +1,62 @@
-package axe
+package ecs
 
 import "github.com/axe/axe-go/pkg/util"
 
-type EntityTree struct {
+type Tree struct {
 	entity   *Entity
 	parent   *Entity
 	children []*Entity
-	getTree  func(e *Entity) *EntityTree
+	getTree  func(e *Entity) *Tree
 }
 
-func NewEntityTree(e *Entity, getTree func(e *Entity) *EntityTree) EntityTree {
-	return EntityTree{
+func NewTree(e *Entity, getTree func(e *Entity) *Tree) Tree {
+	return Tree{
 		entity:  e,
 		getTree: getTree,
 	}
 }
 
-func (t *EntityTree) Entity() *Entity {
+func (t *Tree) Entity() *Entity {
 	return t.entity
 }
 
-func (t *EntityTree) Parent() *Entity {
+func (t *Tree) Parent() *Entity {
 	return t.parent
 }
 
-func (t *EntityTree) Children() []*Entity {
+func (t *Tree) Children() []*Entity {
 	return t.children
 }
 
-func (t *EntityTree) SetParent(parent *Entity) {
+func (t *Tree) SetParent(parent *Entity) {
 	parentTree := t.getTree(t.parent)
 	setParent(t, parentTree)
 }
 
-func (t *EntityTree) SetParentTree(parent *EntityTree) {
+func (t *Tree) SetParentTree(parent *Tree) {
 	setParent(t, parent)
 }
 
-func (t *EntityTree) AddChildTree(child *EntityTree) {
+func (t *Tree) AddChildTree(child *Tree) {
 	setParent(child, t)
 }
 
-func (t *EntityTree) AddChild(child *Entity) {
+func (t *Tree) AddChild(child *Entity) {
 	childTree := t.getTree(child)
 	setParent(childTree, t)
 }
 
-func (t *EntityTree) RemoveChild(child *Entity) {
+func (t *Tree) RemoveChild(child *Entity) {
 	childTree := t.getTree(child)
 	setParent(childTree, nil)
 }
 
-func (t *EntityTree) Delete() {
+func (t *Tree) Delete() {
 	t.entity.Delete()
 	t.DeleteChildren()
 }
 
-func (t *EntityTree) DeleteChildren() {
+func (t *Tree) DeleteChildren() {
 	if t.children != nil {
 		for _, child := range t.children {
 			childTree := t.getTree(child)
@@ -65,7 +65,7 @@ func (t *EntityTree) DeleteChildren() {
 	}
 }
 
-func setParent(tree *EntityTree, parent *EntityTree) {
+func setParent(tree *Tree, parent *Tree) {
 	if tree.parent != nil {
 		parent.children = util.SliceRemove(parent.children, tree.entity)
 	}

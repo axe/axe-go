@@ -3,6 +3,8 @@ package axe
 import (
 	"io"
 	"time"
+
+	"github.com/axe/axe-go/pkg/ecs"
 )
 
 type AudioSystem interface { // & GameSystem
@@ -12,7 +14,7 @@ type AudioSystem interface { // & GameSystem
 	Instances() []AudioInstance
 	Settings() map[string]AudioSettings
 	Sources() []AudioSource
-	EntitySystem() EntityDataSystem[AudioEmitter]
+	EntitySystem() ecs.DataSystem[AudioEmitter]
 }
 
 type AudioAttenuation func(distance float32, volume float32) float32

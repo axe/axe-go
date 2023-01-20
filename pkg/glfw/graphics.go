@@ -2,6 +2,7 @@ package glfw
 
 import (
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/ecs"
 	"github.com/axe/axe-go/pkg/geom"
 	"github.com/go-gl/gl/v2.1/gl"
 )
@@ -101,7 +102,7 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 	 * for each renderable in a vertex buffer that hasn't been used in X frames, offload it
 	 */
 
-	if !axe.HasActiveWorld() {
+	if !ecs.HasActiveWorld() {
 		// fmt.Printf("no active world: %v\n", time.Now().Sub(game.State.StartTime))
 		gr.window.window.SwapBuffers()
 		return
@@ -134,20 +135,20 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 	for meshes.HasNext() {
 		entityMesh := meshes.Next()
 
-		meshAsset := game.Assets.GetRef(entityMesh.Data.Ref)
+		meshAsset := game.Assets.Assets.GetRef(entityMesh.Data.Ref)
 		if meshAsset == nil {
 			// fmt.Println("no mesh asset")
 			continue
 		}
 		meshData := meshAsset.Data.(axe.MeshData)
-		meshMaterialsAsset := game.Assets.GetEither(meshData.Materials)
+		meshMaterialsAsset := game.Assets.Assets.GetEither(meshData.Materials)
 		if meshMaterialsAsset == nil {
 			// fmt.Printf("no mesh materials asset %s\n", meshData.Materials)
 			continue
 		}
 		meshMaterials := meshMaterialsAsset.Data.(axe.Materials)
 
-		transform := axe.TRANSFORM3.Get(entityMesh.Entity)
+		transform := axe.TRANSFORM3.Get(entityMesh.ID.Entity())
 		if transform != nil {
 			pos := transform.GetPosition()
 			rot := transform.GetRotation()
@@ -163,7 +164,7 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 
 		for _, group := range meshData.Groups {
 			if material, ok := meshMaterials[group.Material]; ok {
-				textureAsset := game.Assets.GetEither(material.Diffuse.Texture)
+				textureAsset := game.Assets.Assets.GetEither(material.Diffuse.Texture)
 				if textureAsset == nil {
 					// fmt.Println("no texture asset")
 					continue

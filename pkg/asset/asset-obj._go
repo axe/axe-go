@@ -1,27 +1,26 @@
-package axe
+package asset
 
 import (
 	"regexp"
 
-	"github.com/axe/axe-go/pkg/asset"
 	"github.com/udhos/gwob"
 )
 
-var _ asset.Format = &ObjFormat{}
+var _ Format = &ObjFormat{}
 var objFormatRegex, _ = regexp.Compile(`\.obj$`)
 
 type ObjFormat struct {
 }
 
-func (format *ObjFormat) Handles(ref asset.Ref) bool {
+func (format *ObjFormat) Handles(ref AssetRef) bool {
 	return objFormatRegex.MatchString(ref.URI)
 }
 
-func (format *ObjFormat) Types() []asset.Type {
-	return []asset.Type{asset.TypeModel}
+func (format *ObjFormat) Types() []Type {
+	return []Type{TypeModel}
 }
 
-func (format *ObjFormat) Load(asset *asset.Asset) error {
+func (format *ObjFormat) Load(asset *Asset) error {
 	obj, err := gwob.NewObjFromReader(asset.Ref.Name, asset.SourceReader, nil)
 	if err != nil {
 		asset.LoadStatus.Fail(err)
@@ -117,15 +116,15 @@ func (format *ObjFormat) Load(asset *asset.Asset) error {
 	return nil
 }
 
-func (format *ObjFormat) Unload(asset *asset.Asset) error {
+func (format *ObjFormat) Unload(asset *Asset) error {
 	asset.LoadStatus.Reset()
 	return nil
 }
-func (format *ObjFormat) Activate(asset *asset.Asset) error {
+func (format *ObjFormat) Activate(asset *Asset) error {
 	asset.ActivateStatus.Success()
 	return nil
 }
-func (format *ObjFormat) Deactivate(asset *asset.Asset) error {
+func (format *ObjFormat) Deactivate(asset *Asset) error {
 	asset.ActivateStatus.Reset()
 	return nil
 }

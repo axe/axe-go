@@ -1,36 +1,35 @@
-package axe
+package asset
 
 import (
 	"regexp"
 
-	"github.com/axe/axe-go/pkg/asset"
 	"github.com/udhos/gwob"
 )
 
-var _ asset.Format = &MtlFormat{}
+var _ Format = &MtlFormat{}
 var mtlFormatRegex, _ = regexp.Compile(`\.mtl$`)
 
 type MtlFormat struct {
 }
 
-func (format *MtlFormat) Handles(ref asset.Ref) bool {
+func (format *MtlFormat) Handles(ref AssetRef) bool {
 	return mtlFormatRegex.MatchString(ref.URI)
 }
 
-func (format *MtlFormat) Types() []asset.Type {
-	return []asset.Type{asset.TypeModel}
+func (format *MtlFormat) Types() []Type {
+	return []Type{TypeModel}
 }
 
-func (format *MtlFormat) Load(a *asset.Asset) error {
-	lib, err := gwob.ReadMaterialLibFromReader(a.SourceReader, &gwob.ObjParserOptions{})
+func (format *MtlFormat) Load(asset *Asset) error {
+	lib, err := gwob.ReadMaterialLibFromReader(asset.SourceReader, &gwob.ObjParserOptions{})
 
 	if err != nil {
-		a.LoadStatus.Fail(err)
+		asset.LoadStatus.Fail(err)
 		return err
 	}
 
 	materials := Materials{}
-	a.Dependent = make([]asset.Ref, 0)
+	asset.Dependent = make([]AssetRef, 0)
 
 	for materialName, material := range lib.Lib {
 		mat := Material{
@@ -58,39 +57,39 @@ func (format *MtlFormat) Load(a *asset.Asset) error {
 		}
 
 		if mat.Ambient.Texture != "" {
-			a.AddNext(mat.Ambient.Texture, true)
+			asset.AddNext(mat.Ambient.Texture, true)
 		}
 		if mat.Specular.Texture != "" {
-			a.AddNext(mat.Specular.Texture, true)
+			asset.AddNext(mat.Specular.Texture, true)
 		}
 		if mat.Diffuse.Texture != "" {
-			a.AddNext(mat.Diffuse.Texture, true)
+			asset.AddNext(mat.Diffuse.Texture, true)
 		}
 		if mat.Emissive.Texture != "" {
-			a.AddNext(mat.Emissive.Texture, true)
+			asset.AddNext(mat.Emissive.Texture, true)
 		}
 		if mat.TextureBump != "" {
-			a.AddNext(mat.TextureBump, true)
+			asset.AddNext(mat.TextureBump, true)
 		}
 
 		materials[materialName] = mat
 	}
 
-	a.Data = materials
-	a.LoadStatus.Success()
+	asset.Data = materials
+	asset.LoadStatus.Success()
 
 	return nil
 }
 
-func (format *MtlFormat) Unload(asset *asset.Asset) error {
+func (format *MtlFormat) Unload(asset *Asset) error {
 	asset.LoadStatus.Reset()
 	return nil
 }
-func (format *MtlFormat) Activate(asset *asset.Asset) error {
+func (format *MtlFormat) Activate(asset *Asset) error {
 	asset.ActivateStatus.Success()
 	return nil
 }
-func (format *MtlFormat) Deactivate(asset *asset.Asset) error {
+func (format *MtlFormat) Deactivate(asset *Asset) error {
 	asset.ActivateStatus.Reset()
 	return nil
 }

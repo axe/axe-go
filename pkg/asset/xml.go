@@ -1,4 +1,4 @@
-package axe
+package asset
 
 import (
 	"encoding/xml"
@@ -14,15 +14,15 @@ type XmlNode struct {
 	Children []*XmlNode
 }
 
-var _ AssetFormat = &XmlGenericAssetFormat{}
+var _ Format = &XmlGenericAssetFormat{}
 var xmlGenericAssetLoaderRegex, _ = regexp.Compile(`\.xml$`)
 
-func (format *XmlGenericAssetFormat) Handles(ref AssetRef) bool {
+func (format *XmlGenericAssetFormat) Handles(ref Ref) bool {
 	return xmlGenericAssetLoaderRegex.MatchString(ref.URI)
 }
 
-func (format *XmlGenericAssetFormat) Types() []AssetType {
-	return []AssetType{AssetTypeXml}
+func (format *XmlGenericAssetFormat) Types() []Type {
+	return []Type{TypeXml}
 }
 
 func (format *XmlGenericAssetFormat) Load(asset *Asset) error {
@@ -89,12 +89,12 @@ type XmlAssetFormat[T any] struct {
 	Suffix            string
 	SuffixInsensitive bool
 	Regex             *regexp.Regexp
-	CustomTypes       []AssetType
+	CustomTypes       []Type
 }
 
-var _ AssetFormat = &XmlAssetFormat[any]{}
+var _ Format = &XmlAssetFormat[any]{}
 
-func (format *XmlAssetFormat[T]) Handles(ref AssetRef) bool {
+func (format *XmlAssetFormat[T]) Handles(ref Ref) bool {
 	if format.Suffix != "" {
 		suffix := format.Suffix
 		uri := ref.URI
@@ -110,7 +110,7 @@ func (format *XmlAssetFormat[T]) Handles(ref AssetRef) bool {
 	return false
 }
 
-func (format *XmlAssetFormat[T]) Types() []AssetType {
+func (format *XmlAssetFormat[T]) Types() []Type {
 	return format.CustomTypes
 }
 

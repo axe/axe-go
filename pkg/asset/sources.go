@@ -1,4 +1,4 @@
-package axe
+package asset
 
 import (
 	"errors"
@@ -14,13 +14,13 @@ var previousRegex = regexp.MustCompile(`[^/]+/\.\./`)
 
 type LocalAssetSource struct{}
 
-var _ AssetSource = LocalAssetSource{}
+var _ Source = LocalAssetSource{}
 var localAssetSourceRegex = regexp.MustCompile(`^(/|\./|[a-zA-Z]:)`)
 
-func (local LocalAssetSource) Handles(ref AssetRef) bool {
+func (local LocalAssetSource) Handles(ref Ref) bool {
 	return localAssetSourceRegex.MatchString(ref.URI)
 }
-func (local LocalAssetSource) Read(ref AssetRef) (io.Reader, error) {
+func (local LocalAssetSource) Read(ref Ref) (io.Reader, error) {
 	return os.Open(ref.URI)
 }
 func (local LocalAssetSource) Relative(uri string, relative string) string {
@@ -31,13 +31,13 @@ func (local LocalAssetSource) Relative(uri string, relative string) string {
 
 type WebAssetSource struct{}
 
-var _ AssetSource = WebAssetSource{}
+var _ Source = WebAssetSource{}
 var webAssetSourceRegex = regexp.MustCompile("^https?:")
 
-func (local WebAssetSource) Handles(ref AssetRef) bool {
+func (local WebAssetSource) Handles(ref Ref) bool {
 	return webAssetSourceRegex.MatchString(ref.URI)
 }
-func (local WebAssetSource) Read(ref AssetRef) (io.Reader, error) {
+func (local WebAssetSource) Read(ref Ref) (io.Reader, error) {
 	client := http.Client{
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
 			r.URL.Opaque = r.URL.Path
@@ -61,15 +61,15 @@ func SetEmbedAssetRoot(root fs.FS) {
 	embedFiles = root
 }
 
-var _ AssetSource = EmbedAssetSource{}
+var _ Source = EmbedAssetSource{}
 var embedAssetSourceRegex = regexp.MustCompile("^embed:")
 
 var ErrNoEmbeddedFileSystem = errors.New("no embedded files set via axe.SetEmbedAssetRoot")
 
-func (local EmbedAssetSource) Handles(ref AssetRef) bool {
+func (local EmbedAssetSource) Handles(ref Ref) bool {
 	return embedAssetSourceRegex.MatchString(ref.URI)
 }
-func (local EmbedAssetSource) Read(ref AssetRef) (io.Reader, error) {
+func (local EmbedAssetSource) Read(ref Ref) (io.Reader, error) {
 	if embedFiles == nil {
 		return nil, ErrNoEmbeddedFileSystem
 	}
@@ -87,12 +87,12 @@ type FileSystemAssetSource struct {
 	CustomRelative func(uri string, relative string) string
 }
 
-var _ AssetSource = FileSystemAssetSource{}
+var _ Source = FileSystemAssetSource{}
 
-func (src FileSystemAssetSource) Handles(ref AssetRef) bool {
+func (src FileSystemAssetSource) Handles(ref Ref) bool {
 	return src.HandlesPattern.MatchString(ref.URI)
 }
-func (src FileSystemAssetSource) Read(ref AssetRef) (io.Reader, error) {
+func (src FileSystemAssetSource) Read(ref Ref) (io.Reader, error) {
 	return src.Files.Open(ref.URI)
 }
 func (src FileSystemAssetSource) Relative(uri string, relative string) string {

@@ -1,3 +1,5 @@
 package axe
 
-var LIGHT = DefineComponent("light", Light{})
+import "github.com/axe/axe-go/pkg/ecs"
+
+var LIGHT = ecs.DefineComponent("light", Light{})
