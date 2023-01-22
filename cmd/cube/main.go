@@ -1,23 +1,24 @@
-package glfw
+package main
 
 import (
 	"fmt"
 	"runtime"
 	"strings"
-	"testing"
 	"time"
 
 	axe "github.com/axe/axe-go/pkg"
 	"github.com/axe/axe-go/pkg/asset"
 	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/impl/opengl"
+	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/ui"
 )
 
-func TestGame(t *testing.T) {
+func main() {
 	runtime.LockOSThread()
 
 	logInput := false
-	itb := axe.InputTriggerBuilder{}
+	itb := input.TriggerBuilder{}
 
 	game := axe.NewGame(axe.GameSettings{
 		EnableDebug:        true,
@@ -39,22 +40,22 @@ func TestGame(t *testing.T) {
 			Assets: []asset.Ref{
 				{Name: "cube model", URI: "cube.obj"},
 			},
-			Actions: axe.CreateInputActionSets(map[string]map[string]axe.InputTrigger{
+			Actions: input.CreateActionSets(input.ActionSetsInput{
 				"main": {
-					"close":    itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyEscape}),
-					"down":     itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyZ}),
-					"undo":     itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyZ, CmdCtrl: true}),
-					"pasteUp":  itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyV, Ctrl: true, UpOnly: true}),
-					"pressA":   itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyA, PressInterval: time.Second / 4, FirstPressDelay: time.Second}),
-					"logInput": itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyC}),
-					"delete":   itb.Key(axe.InputKeyTrigger{Key: axe.InputKeyBackspace}),
+					"close":    itb.Key(input.KeyTrigger{Key: input.KeyEscape}),
+					"down":     itb.Key(input.KeyTrigger{Key: input.KeyZ}),
+					"undo":     itb.Key(input.KeyTrigger{Key: input.KeyZ, CmdCtrl: true}),
+					"pasteUp":  itb.Key(input.KeyTrigger{Key: input.KeyV, Ctrl: true, UpOnly: true}),
+					"pressA":   itb.Key(input.KeyTrigger{Key: input.KeyA, PressInterval: time.Second / 4, FirstPressDelay: time.Second}),
+					"logInput": itb.Key(input.KeyTrigger{Key: input.KeyC}),
+					"delete":   itb.Key(input.KeyTrigger{Key: input.KeyBackspace}),
 				},
 			}),
 			Views3: []axe.View3f{},
 			Scenes3: []axe.Scene3f{{
 				Enable: func(scene *axe.Scene3f, game *axe.Game) {
 					// Add components & systems
-					scene.World.Impl.Enable(
+					scene.World.Enable(
 						// Component data settings
 						ecs.DataSettings{Capacity: 2048, StageCapacity: 128},
 						// Components
@@ -91,7 +92,7 @@ func TestGame(t *testing.T) {
 					})
 
 					axe.ACTION.Set(e, axe.InputActionListener{
-						Handler: func(action *axe.InputAction) bool {
+						Handler: func(action *input.Action) bool {
 							switch action.Name {
 							case "close":
 								game.Running = false
@@ -112,8 +113,8 @@ func TestGame(t *testing.T) {
 						},
 					})
 
-					axe.INPUT.Set(e, axe.InputSystemEvents{
-						InputChange: func(input axe.Input) {
+					axe.INPUT.Set(e, input.SystemEvents{
+						InputChange: func(input input.Input) {
 							if logInput {
 								fmt.Printf("%s changed to %v\n", input.Name, input.Value)
 							}
@@ -123,7 +124,8 @@ func TestGame(t *testing.T) {
 			}},
 		}},
 	})
-	Setup(game, Settings{})
+
+	opengl.Setup(game, opengl.Settings{})
 
 	err := game.Run()
 	if err != nil {

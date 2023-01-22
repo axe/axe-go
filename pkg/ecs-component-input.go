@@ -1,25 +1,27 @@
 package axe
 
 import (
+	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/input"
 )
 
 type InputActionListener struct {
-	Handler func(action *InputAction) bool
+	Handler func(action *input.Action) bool
 }
 
 var ACTION = ecs.DefineComponent("input-action", InputActionListener{}).SetSystem(NewInputActionSystem(nil))
 
 type InputActionSystem struct {
-	unhandled InputActionHandler
-	queue     ds.Queue[*InputAction]
+	unhandled input.ActionHandler
+	queue     ds.Queue[*input.Action]
 }
 
 var _ ecs.DataSystem[InputActionListener] = &InputActionSystem{}
 
-func NewInputActionSystem(unhandled InputActionHandler) ecs.DataSystem[InputActionListener] {
-	queue := ds.NewCircularQueue[*InputAction](32)
+func NewInputActionSystem(unhandled input.ActionHandler) ecs.DataSystem[InputActionListener] {
+	queue := ds.NewCircularQueue[*input.Action](32)
 
 	return &InputActionSystem{
 		unhandled: unhandled,
@@ -82,35 +84,35 @@ func (sys *InputActionSystem) Destroy(ctx ecs.Context) {
 
 }
 
-type InputEvents = InputSystemEvents
+type InputEvents = input.SystemEvents
 
 var INPUT = ecs.DefineComponent("input", InputEvents{}).SetSystem(NewInputEventsSystem())
 
 type InputEventsSystem struct {
-	connectedDevices    ds.Stack[InputDevice]
-	disconnectedDevices ds.Stack[InputDevice]
-	connectedInput      ds.Stack[Input]
-	disconnectedInput   ds.Stack[Input]
-	changedInput        ds.Stack[Input]
-	connectedPoint      ds.Stack[InputPoint]
-	disconnectedPoint   ds.Stack[InputPoint]
-	changedPoint        ds.Stack[InputPoint]
+	connectedDevices    ds.Stack[input.Device]
+	disconnectedDevices ds.Stack[input.Device]
+	connectedInput      ds.Stack[input.Input]
+	disconnectedInput   ds.Stack[input.Input]
+	changedInput        ds.Stack[input.Input]
+	connectedPoint      ds.Stack[input.Point]
+	disconnectedPoint   ds.Stack[input.Point]
+	changedPoint        ds.Stack[input.Point]
 
-	off ListenerOff
+	off core.ListenerOff
 }
 
 var _ ecs.DataSystem[InputEvents] = &InputEventsSystem{}
 
 func NewInputEventsSystem() ecs.DataSystem[InputEvents] {
 	return &InputEventsSystem{
-		connectedDevices:    ds.NewStack[InputDevice](4),
-		disconnectedDevices: ds.NewStack[InputDevice](4),
-		connectedInput:      ds.NewStack[Input](64),
-		disconnectedInput:   ds.NewStack[Input](64),
-		changedInput:        ds.NewStack[Input](64),
-		connectedPoint:      ds.NewStack[InputPoint](8),
-		disconnectedPoint:   ds.NewStack[InputPoint](8),
-		changedPoint:        ds.NewStack[InputPoint](8),
+		connectedDevices:    ds.NewStack[input.Device](4),
+		disconnectedDevices: ds.NewStack[input.Device](4),
+		connectedInput:      ds.NewStack[input.Input](64),
+		disconnectedInput:   ds.NewStack[input.Input](64),
+		changedInput:        ds.NewStack[input.Input](64),
+		connectedPoint:      ds.NewStack[input.Point](8),
+		disconnectedPoint:   ds.NewStack[input.Point](8),
+		changedPoint:        ds.NewStack[input.Point](8),
 	}
 }
 
@@ -121,29 +123,29 @@ func (sys InputEventsSystem) OnLive(data *InputEvents, e *ecs.Entity, ctx ecs.Co
 func (sys InputEventsSystem) OnRemove(data *InputEvents, e *ecs.Entity, ctx ecs.Context) {
 }
 func (sys *InputEventsSystem) Init(ctx ecs.Context) error {
-	sys.off = ActiveGame().Input.Events().On(InputSystemEvents{
-		DeviceConnected: func(newDevice InputDevice) {
+	sys.off = ActiveGame().Input.Events().On(input.SystemEvents{
+		DeviceConnected: func(newDevice input.Device) {
 			sys.connectedDevices.Push(newDevice)
 		},
-		DeviceDisconnected: func(oldDevice InputDevice) {
+		DeviceDisconnected: func(oldDevice input.Device) {
 			sys.disconnectedDevices.Push(oldDevice)
 		},
-		InputConnected: func(newInput Input) {
+		InputConnected: func(newInput input.Input) {
 			sys.connectedInput.Push(newInput)
 		},
-		InputDisconnected: func(oldInput Input) {
+		InputDisconnected: func(oldInput input.Input) {
 			sys.disconnectedInput.Push(oldInput)
 		},
-		InputChange: func(input Input) {
+		InputChange: func(input input.Input) {
 			sys.changedInput.Push(input)
 		},
-		PointConnected: func(newPoint InputPoint) {
+		PointConnected: func(newPoint input.Point) {
 			sys.connectedPoint.Push(newPoint)
 		},
-		PointDisconnected: func(oldPoint InputPoint) {
+		PointDisconnected: func(oldPoint input.Point) {
 			sys.disconnectedPoint.Push(oldPoint)
 		},
-		PointChange: func(point InputPoint) {
+		PointChange: func(point input.Point) {
 			sys.changedPoint.Push(point)
 		},
 	})

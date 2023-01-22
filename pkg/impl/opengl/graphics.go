@@ -1,7 +1,8 @@
-package glfw
+package opengl
 
 import (
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/ecs"
 	"github.com/axe/axe-go/pkg/geom"
 	"github.com/go-gl/gl/v2.1/gl"
@@ -9,7 +10,7 @@ import (
 
 func NewGraphicsSystem() axe.GraphicsSystem {
 	return &graphicsSystem{
-		offs: make(axe.ListenerOffs, 0),
+		offs: make(core.ListenerOffs, 0),
 	}
 }
 
@@ -18,7 +19,7 @@ type graphicsSystem struct {
 	// rotationX float32
 	// rotationY float32
 	window *window
-	offs   axe.ListenerOffs
+	offs   core.ListenerOffs
 }
 
 var _ axe.GraphicsSystem = &graphicsSystem{}
@@ -135,13 +136,13 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 	for meshes.HasNext() {
 		entityMesh := meshes.Next()
 
-		meshAsset := game.Assets.Assets.GetRef(entityMesh.Data.Ref)
+		meshAsset := game.Assets.GetRef(entityMesh.Data.Ref)
 		if meshAsset == nil {
 			// fmt.Println("no mesh asset")
 			continue
 		}
 		meshData := meshAsset.Data.(axe.MeshData)
-		meshMaterialsAsset := game.Assets.Assets.GetEither(meshData.Materials)
+		meshMaterialsAsset := game.Assets.GetEither(meshData.Materials)
 		if meshMaterialsAsset == nil {
 			// fmt.Printf("no mesh materials asset %s\n", meshData.Materials)
 			continue
@@ -164,7 +165,7 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 
 		for _, group := range meshData.Groups {
 			if material, ok := meshMaterials[group.Material]; ok {
-				textureAsset := game.Assets.Assets.GetEither(material.Diffuse.Texture)
+				textureAsset := game.Assets.GetEither(material.Diffuse.Texture)
 				if textureAsset == nil {
 					// fmt.Println("no texture asset")
 					continue

@@ -1,9 +1,10 @@
-package glfw
+package opengl
 
 import (
 	"github.com/go-gl/glfw/v3.3/glfw"
 
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/geom"
 	"github.com/axe/axe-go/pkg/react"
 	"github.com/axe/axe-go/pkg/ui"
@@ -13,7 +14,7 @@ func NewWindowSystem(settings Settings) *windowSystem {
 	return &windowSystem{
 		settings: settings,
 		screens:  make([]axe.Screen, 0),
-		events:   axe.NewListeners[axe.WindowSystemEvents](),
+		events:   core.NewListeners[axe.WindowSystemEvents](),
 		windows:  make([]axe.Window, 0),
 	}
 }
@@ -22,16 +23,16 @@ type windowSystem struct {
 	settings Settings
 	main     *window
 	windows  []axe.Window
-	events   *axe.Listeners[axe.WindowSystemEvents]
+	events   *core.Listeners[axe.WindowSystemEvents]
 	screens  []axe.Screen
 }
 
 var _ axe.WindowSystem = &windowSystem{}
 
-func (ws *windowSystem) MainWindow() axe.Window                         { return ws.main }
-func (ws *windowSystem) Windows() []axe.Window                          { return ws.windows }
-func (ws *windowSystem) Screens() []axe.Screen                          { return ws.screens }
-func (ws *windowSystem) Events() *axe.Listeners[axe.WindowSystemEvents] { return ws.events }
+func (ws *windowSystem) MainWindow() axe.Window                          { return ws.main }
+func (ws *windowSystem) Windows() []axe.Window                           { return ws.windows }
+func (ws *windowSystem) Screens() []axe.Screen                           { return ws.screens }
+func (ws *windowSystem) Events() *core.Listeners[axe.WindowSystemEvents] { return ws.events }
 
 func (ws *windowSystem) Init(game *axe.Game) error {
 	err := glfw.Init()

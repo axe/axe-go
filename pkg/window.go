@@ -1,6 +1,7 @@
 package axe
 
 import (
+	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/geom"
 	"github.com/axe/axe-go/pkg/react"
 	"github.com/axe/axe-go/pkg/ui"
@@ -11,7 +12,7 @@ type WindowSystem interface {
 	MainWindow() Window
 	Windows() []Window
 	Screens() []Screen
-	Events() *Listeners[WindowSystemEvents]
+	Events() *core.Listeners[WindowSystemEvents]
 }
 
 type WindowSystemEvents struct {

@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/axe/axe-go/pkg/asset"
+	"github.com/axe/axe-go/pkg/core"
+	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/ui"
 )
 
@@ -19,7 +21,7 @@ type StageManager struct {
 	Current *Stage
 	Next    *Stage
 
-	events *Listeners[StageManagerEvents]
+	events *core.Listeners[StageManagerEvents]
 }
 
 var _ GameSystem = &StageManager{}
@@ -29,7 +31,7 @@ func NewStageManager() StageManager {
 		Stages:  make(map[string]*Stage),
 		Current: nil,
 		Next:    nil,
-		events:  NewListeners[StageManagerEvents](),
+		events:  core.NewListeners[StageManagerEvents](),
 	}
 }
 
@@ -37,7 +39,7 @@ func (sm *StageManager) Add(stage *Stage) {
 	sm.Stages[strings.ToLower(stage.Name)] = stage
 }
 
-func (sm *StageManager) Events() *Listeners[StageManagerEvents] {
+func (sm *StageManager) Events() *core.Listeners[StageManagerEvents] {
 	return sm.events
 }
 
@@ -155,7 +157,7 @@ type Stage struct {
 	Scenes3 []Scene3f
 	Views2  []View2f
 	Views3  []View3f
-	Actions InputActionSets
+	Actions input.ActionSets
 
 	pendingAssets map[string]*asset.Asset
 	loadedAssets  map[string]*asset.Asset
@@ -167,7 +169,7 @@ func (stage Stage) HasStartedLoading() bool {
 
 func (stage *Stage) Load(game *Game) {
 	if stage.pendingAssets == nil {
-		stage.pendingAssets = game.Assets.Assets.AddManyMap(stage.Assets)
+		stage.pendingAssets = game.Assets.AddManyMap(stage.Assets)
 		stage.loadedAssets = make(map[string]*asset.Asset, len(stage.pendingAssets))
 	}
 	for key, asset := range stage.pendingAssets {
@@ -187,7 +189,7 @@ func (stage *Stage) Load(game *Game) {
 		// The asset is loaded, if any need to follow add them
 		if len(asset.Next) > 0 {
 			for _, nextRef := range asset.Next {
-				nextAsset := game.Assets.Assets.Add(nextRef)
+				nextAsset := game.Assets.Add(nextRef)
 
 				if stage.loadedAssets[nextAsset.Ref.URI] == nil {
 					stage.pendingAssets[nextAsset.Ref.URI] = nextAsset

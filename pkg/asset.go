@@ -5,7 +5,7 @@ import (
 )
 
 type AssetSystem struct {
-	Assets asset.Assets
+	asset.Assets
 }
 
 var _ GameSystem = &AssetSystem{}
@@ -17,12 +17,12 @@ func NewAssetSystem() AssetSystem {
 }
 
 func (assets *AssetSystem) Init(game *Game) error {
-	assets.Assets.AddDefaults()
-	assets.Assets.AddFormat(&ObjFormat{})
-	assets.Assets.AddFormat(&MtlFormat{})
+	assets.AddDefaults()
+	assets.AddFormat(&ObjFormat{})
+	assets.AddFormat(&MtlFormat{})
 
 	if len(game.Settings.Assets) > 0 {
-		assets.Assets.AddMany(game.Settings.Assets)
+		assets.AddMany(game.Settings.Assets)
 	}
 
 	return nil
@@ -30,8 +30,4 @@ func (assets *AssetSystem) Init(game *Game) error {
 
 func (assets *AssetSystem) Update(game *Game) {
 
-}
-
-func (assets *AssetSystem) Destroy() {
-	assets.Assets.Destroy()
 }

@@ -1,4 +1,4 @@
-package glfw
+package opengl
 
 import axe "github.com/axe/axe-go/pkg"
 
@@ -12,5 +12,5 @@ func Setup(game *axe.Game, settings Settings) {
 	game.Windows = NewWindowSystem(settings)
 	game.Graphics = NewGraphicsSystem()
 
-	game.Assets.Assets.AddFormat(&TextureFormat{})
+	game.Assets.AddFormat(&TextureFormat{})
 }

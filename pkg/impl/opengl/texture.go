@@ -1,4 +1,4 @@
-package glfw
+package opengl
 
 import (
 	"errors"

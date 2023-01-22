@@ -4,7 +4,9 @@ import (
 	"time"
 
 	"github.com/axe/axe-go/pkg/asset"
+	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/util"
 )
 
@@ -50,7 +52,7 @@ type Game struct {
 	Windows  WindowSystem
 	Graphics GraphicsSystem
 	Input    InputSystem
-	Actions  InputActionSets
+	Actions  input.ActionSets
 	Audio    AudioSystem
 	Events   EventSystem
 	Stages   StageManager
@@ -70,7 +72,7 @@ func NewGame(settings GameSettings) *Game {
 	game := &Game{
 		Settings: settings,
 		Assets:   NewAssetSystem(),
-		Actions:  NewInputActionSets(),
+		Actions:  input.NewActionSets(),
 		Stages:   NewStageManager(),
 		Audio:    &NoAudioSystem{},
 		Windows:  &NoWindowSystem{},
@@ -226,13 +228,13 @@ type NoWindowSystem struct{}
 
 var _ WindowSystem = &NoWindowSystem{}
 
-func (windows *NoWindowSystem) MainWindow() Window                     { return nil }
-func (windows *NoWindowSystem) Windows() []Window                      { return nil }
-func (windows *NoWindowSystem) Screens() []Screen                      { return nil }
-func (windows *NoWindowSystem) Events() *Listeners[WindowSystemEvents] { return nil }
-func (windows *NoWindowSystem) Init(game *Game) error                  { return nil }
-func (windows *NoWindowSystem) Update(game *Game)                      {}
-func (windows *NoWindowSystem) Destroy()                               {}
+func (windows *NoWindowSystem) MainWindow() Window                          { return nil }
+func (windows *NoWindowSystem) Windows() []Window                           { return nil }
+func (windows *NoWindowSystem) Screens() []Screen                           { return nil }
+func (windows *NoWindowSystem) Events() *core.Listeners[WindowSystemEvents] { return nil }
+func (windows *NoWindowSystem) Init(game *Game) error                       { return nil }
+func (windows *NoWindowSystem) Update(game *Game)                           {}
+func (windows *NoWindowSystem) Destroy()                                    {}
 
 type NoGraphicsSystem struct{}
 
@@ -242,16 +244,12 @@ func (gr *NoGraphicsSystem) Init(game *Game) error { return nil }
 func (gr *NoGraphicsSystem) Update(game *Game)     {}
 func (gr *NoGraphicsSystem) Destroy()              {}
 
-type NoInputSystem struct{}
+type NoInputSystem struct {
+	input.EmptySystem
+}
 
 var _ InputSystem = &NoInputSystem{}
 
-func (in *NoInputSystem) Devices() []*InputDevice               { return nil }
-func (in *NoInputSystem) Inputs() []*Input                      { return nil }
-func (in *NoInputSystem) InputTime() time.Time                  { return time.Time{} }
-func (in *NoInputSystem) Get(name string) *Input                { return nil }
-func (in *NoInputSystem) Points() []*InputPoint                 { return nil }
-func (in *NoInputSystem) Events() *Listeners[InputSystemEvents] { return nil }
-func (in *NoInputSystem) Init(game *Game) error                 { return nil }
-func (in *NoInputSystem) Update(game *Game)                     {}
-func (in *NoInputSystem) Destroy()                              {}
+func (in *NoInputSystem) Init(game *Game) error { return nil }
+func (in *NoInputSystem) Update(game *Game)     {}
+func (in *NoInputSystem) Destroy()              {}

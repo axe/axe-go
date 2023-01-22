@@ -5,23 +5,19 @@ import (
 )
 
 type World struct {
-	Impl *ecs.World
+	ecs.World
 }
 
 var _ GameSystem = &World{}
 
 func NewWorld(name string, settings ecs.WorldSettings) *World {
-	return &World{Impl: ecs.NewWorld(name, settings)}
+	return &World{World: *ecs.NewWorld(name, settings)}
 }
 
 func (w *World) Init(game *Game) error {
-	return w.Impl.Init()
+	return w.World.Init()
 }
 
 func (w *World) Update(game *Game) {
-	w.Impl.Update()
-}
-
-func (w *World) Destroy() {
-	w.Impl.Destroy()
+	w.World.Update()
 }

@@ -1,4 +1,4 @@
-package axe
+package core
 
 type ListenerEntry[L any] struct {
 	listener  L
