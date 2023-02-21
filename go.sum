@@ -6,5 +6,7 @@ github.com/sparkkoori/go-vulkan v0.0.0-20190815142752-7cafa944f8f2 h1:X/+cw8BWv9
 github.com/sparkkoori/go-vulkan v0.0.0-20190815142752-7cafa944f8f2/go.mod h1:dFKNCFrbk5+XCiRYZAPBFRmV++R/OJ93a8Jdg0gzErw=
 github.com/udhos/gwob v0.0.0-20200524213453-619810f75817 h1:4M105Yb9NHJ/sI3xAS3WbXt4d09q940504X5zE5JM7s=
 github.com/udhos/gwob v0.0.0-20200524213453-619810f75817/go.mod h1:kOhibXY50yGPKNcoFg+KDoC4hGzyJ6YX0wfKHhThntk=
+github.com/vulkan-go/vulkan v0.0.0-20221209234627-c0a353ae26c8 h1:qPHDyQTLtn40kezY6y4UL7bH7Z0Im9wSu1tQtM2wbUU=
+github.com/vulkan-go/vulkan v0.0.0-20221209234627-c0a353ae26c8/go.mod h1:Y5Ti1uUBdKDsb0W8aPtIo9krs+29Y7p6Bc9yyy4AM6g=
 golang.org/x/exp v0.0.0-20221031165847-c99f073a8326 h1:QfTh0HpN6hlw6D3vu8DAwC8pBIwikq0AI1evdm+FksE=
 golang.org/x/exp v0.0.0-20221031165847-c99f073a8326/go.mod h1:CxIveKay+FTh1D0yPZemJVgC/95VzuuOLq5Qi4xnoYc=

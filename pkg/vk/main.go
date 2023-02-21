@@ -7,14 +7,10 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
-	"github.com/sparkkoori/go-vulkan/v1.1/vk"
+	vk "github.com/vulkan-go/vulkan"
 )
-
-// #cgo LDFLAGS: -L/Users/phil/VulkanSDK/1.2.182.0/macOS/lib/
-import "C"
 
 func init() {
 	runtime.LockOSThread()
@@ -54,9 +50,9 @@ func main() {
 }
 
 type SwapChainSupportDetails struct {
-	capabilities vk.SurfaceCapabilitiesKHR
-	formats      []vk.SurfaceFormatKHR
-	presentModes []vk.PresentModeKHR
+	capabilities vk.SurfaceCapabilities
+	formats      []vk.SurfaceFormat
+	presentModes []vk.PresentMode
 }
 
 type QueueFamilyIndices struct {
@@ -75,19 +71,19 @@ type AxeDevice struct {
 	instance                    vk.Instance
 	instanceAvailableExtensions instanceExtensions
 	instanceEnabledExtensions   instanceExtensions
-	debugMessenger              vk.DebugUtilsMessengerEXT
-	physicalDevice              vk.PhysicalDevice
-	window                      *AxeWindow
-	commandPool                 vk.CommandPool
-	device                      vk.Device
-	deviceActualExtensions      deviceExtensions
-	surface                     vk.SurfaceKHR
-	graphicsQueue               vk.Queue
-	presentQueue                vk.Queue
-	validationLayers            layerExtensions
-	deviceEnabledExtensions     deviceExtensions
-	deviceRequiredExtensions    deviceExtensions
-	enableValidationLayers      bool
+	// debugMessenger              vk.DebugUtilsMessenger
+	physicalDevice           vk.PhysicalDevice
+	window                   *AxeWindow
+	commandPool              *vk.CommandPool
+	device                   vk.Device
+	deviceActualExtensions   deviceExtensions
+	surface                  *vk.Surface
+	graphicsQueue            vk.Queue
+	presentQueue             vk.Queue
+	validationLayers         layerExtensions
+	deviceEnabledExtensions  deviceExtensions
+	deviceRequiredExtensions deviceExtensions
+	enableValidationLayers   bool
 }
 
 type instanceExtensions struct {
@@ -277,20 +273,21 @@ func (this *AxeDevice) destroy() {
 	if this == nil {
 		return
 	}
-	if this.commandPool != 0 {
-		vk.DestroyCommandPool(this.device, this.commandPool, nil)
+	if this.commandPool != nil {
+		vk.DestroyCommandPool(this.device, *this.commandPool, nil)
 	}
 	vk.DestroyDevice(this.device, nil)
 	if this.enableValidationLayers {
-		vk.ToDestroyDebugUtilsMessengerEXT(
-			vk.GetInstanceProcAddr(this.instance, "DestroyDebugUtilsMessengerEXT"),
-		)(this.instance, this.debugMessenger, nil)
+		// vk.ToDestroyDebugUtilsMessengerKHR(
+		// 	vk.GetInstanceProcAddr(this.instance, "DestroyDebugUtilsMessengerEXT"),
+		// )(this.instance, this.debugMessenger, nil)
 	}
 
-	if this.surface != 0 {
-		vk.ToDestroySurfaceKHR(
-			vk.GetInstanceProcAddr(this.instance, "vkDestroySurfaceKHR"),
-		)(this.instance, this.surface, nil)
+	if this.surface != nil {
+		vk.DestroySurface(this.instance, *this.surface, nil)
+		// vk.ToDestroySurfaceKHR(
+		// 	vk.GetInstanceProcAddr(this.instance, "vkDestroySurfaceKHR"),
+		// )(this.instance, this.surface, nil)
 	}
 
 	vk.DestroyInstance(this.instance, nil)
@@ -313,28 +310,28 @@ func (this *AxeDevice) createInstance() error {
 	}
 
 	appInfo := vk.ApplicationInfo{}
-	appInfo.ApplicationName = "Axe App"
-	appInfo.ApplicationVersion = vk.MAKE_VERSION(1, 0, 0)
-	appInfo.EngineName = "Axe Game Engine"
-	appInfo.EngineVersion = vk.MAKE_VERSION(1, 0, 0)
-	appInfo.ApiVersion = vk.MAKE_VERSION(1, 1, 0)
+	appInfo.PApplicationName = "Axe App"
+	appInfo.ApplicationVersion = vk.MakeVersion(1, 0, 0)
+	appInfo.PEngineName = "Axe Game Engine"
+	appInfo.EngineVersion = vk.MakeVersion(1, 0, 0)
+	appInfo.ApiVersion = vk.MakeVersion(1, 1, 0)
 
 	createInfo := vk.InstanceCreateInfo{}
-	createInfo.ApplicationInfo = &appInfo
+	createInfo.PApplicationInfo = &appInfo
 
 	extensions := this.getRequiredExtensions()
-	createInfo.EnabledExtensionNames = extensions.getExtensions()
+	createInfo.PpEnabledExtensionNames = extensions.getExtensions()
 	// createInfo.Flags = vk.InstanceCreateFlags(vk.ACCESS_COLOR_ATTACHMENT_READ_NONCOHERENT_BIT_EXT)
 
 	if this.enableValidationLayers {
-		debugCreateInfo := vk.DebugUtilsMessengerCreateInfoEXT{}
-		createInfo.EnabledLayerNames = this.validationLayers.getExtensions()
+		// debugCreateInfo := vk.DebugUtilsMessengerCreateInfo{}
+		// createInfo.PpEnabledLayerNames = this.validationLayers.getExtensions()
 
-		this.populateDebugMessengerCreateInfo(&debugCreateInfo)
-		createInfo.Next = &debugCreateInfo
+		// this.populateDebugMessengerCreateInfo(&debugCreateInfo)
+		// createInfo.PNext = &debugCreateInfo
 	}
 
-	if vk.CreateInstance(&createInfo, nil, &this.instance) != vk.SUCCESS {
+	if vk.CreateInstance(&createInfo, nil, &this.instance) != vk.Success {
 		return errors.New("failed to create instance!")
 	}
 
@@ -349,21 +346,24 @@ func (this *AxeDevice) setupDebugMessenger() error {
 	if !this.enableValidationLayers {
 		return nil
 	}
-	createInfo := vk.DebugUtilsMessengerCreateInfoEXT{}
-	this.populateDebugMessengerCreateInfo(&createInfo)
+	// createInfo := vk.DebugUtilsMessengerCreateInfoEXT{}
+	// this.populateDebugMessengerCreateInfo(&createInfo)
 
-	CreateDebugUtilsMessengerEXT := vk.GetInstanceProcAddr(this.instance, "CreateDebugUtilsMessengerEXT")
-	if CreateDebugUtilsMessengerEXT != nil {
-		if vk.ToCreateDebugUtilsMessengerEXT(CreateDebugUtilsMessengerEXT)(this.instance, &createInfo, nil, &this.debugMessenger) != vk.SUCCESS {
-			return errors.New("failed to set up debug messenger!")
-		}
-	}
+	// CreateDebugUtilsMessengerEXT := vk.GetInstanceProcAddr(this.instance, "CreateDebugUtilsMessengerEXT")
+	// if CreateDebugUtilsMessengerEXT != nil {
+	// 	if vk.ToCreateDebugUtilsMessengerEXT(CreateDebugUtilsMessengerEXT)(this.instance, &createInfo, nil, &this.debugMessenger) != vk.Success {
+	// 		return errors.New("failed to set up debug messenger!")
+	// 	}
+	// }
 	return nil
 }
 func (this *AxeDevice) createSurface() error {
 	surface, err := this.window.createWindowSurface(this.instance)
-	this.surface = surface
-	return err
+	if err != nil {
+		return err
+	}
+	this.surface = &surface
+	return nil
 }
 func (this *AxeDevice) pickPhysicalDevice() error {
 	devices, err := getPhysicalDevices(this.instance)
@@ -421,25 +421,25 @@ func (this *AxeDevice) createLogicalDevice() error {
 	for _, queueFamily := range uniqueQueueFamilies {
 		queueCreateInfo := vk.DeviceQueueCreateInfo{}
 		queueCreateInfo.QueueFamilyIndex = queueFamily
-		queueCreateInfo.QueuePriorities = []float32{1.0}
+		queueCreateInfo.PQueuePriorities = []float32{1.0}
 		queueCreateInfos = append(queueCreateInfos, queueCreateInfo)
 	}
 
 	deviceFeatures := vk.PhysicalDeviceFeatures{}
-	deviceFeatures.SamplerAnisotropy = true
+	deviceFeatures.SamplerAnisotropy = 1
 
 	createInfo := vk.DeviceCreateInfo{}
-	createInfo.QueueCreateInfos = queueCreateInfos
-	createInfo.EnabledFeatures = &deviceFeatures
-	createInfo.EnabledExtensionNames = this.deviceEnabledExtensions.getExtensions()
+	createInfo.PQueueCreateInfos = queueCreateInfos
+	createInfo.PEnabledFeatures = []vk.PhysicalDeviceFeatures{deviceFeatures}
+	createInfo.PpEnabledExtensionNames = this.deviceEnabledExtensions.getExtensions()
 
 	// might not really be necessary anymore because device specific validation layers
 	// have been deprecated
 	if this.enableValidationLayers {
-		createInfo.EnabledLayerNames = this.validationLayers.getExtensions()
+		createInfo.PpEnabledLayerNames = this.validationLayers.getExtensions()
 	}
 
-	if vk.CreateDevice(this.physicalDevice, &createInfo, nil, &this.device) != vk.SUCCESS {
+	if vk.CreateDevice(this.physicalDevice, &createInfo, nil, &this.device) != vk.Success {
 		return errors.New("failed to create logical device!")
 	}
 
@@ -456,9 +456,9 @@ func (this *AxeDevice) createCommandPool() error {
 
 	poolInfo := vk.CommandPoolCreateInfo{}
 	poolInfo.QueueFamilyIndex = queueFamilyIndices.graphicsFamily
-	poolInfo.Flags = vk.CommandPoolCreateFlags(vk.COMMAND_POOL_CREATE_TRANSIENT_BIT | vk.COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT)
+	poolInfo.Flags = vk.CommandPoolCreateFlags(vk.CommandPoolCreateTransientBit | vk.CommandPoolCreateResetCommandBufferBit)
 
-	if result := vk.CreateCommandPool(this.device, &poolInfo, nil, &this.commandPool); result != vk.SUCCESS {
+	if result := vk.CreateCommandPool(this.device, &poolInfo, nil, this.commandPool); result != vk.Success {
 		return VkError{result, "vkCreateCommandPool"}
 	}
 	return nil
@@ -492,7 +492,7 @@ func (this *AxeDevice) isDeviceSuitable(device vk.PhysicalDevice) (bool, error) 
 
 	fmt.Printf("Supported features: %+v\n", supportedFeatures)
 
-	return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.SamplerAnisotropy, nil
+	return indices.isComplete() && extensionsSupported && swapChainAdequate && (supportedFeatures.SamplerAnisotropy == 1), nil
 }
 func (this *AxeDevice) getRequiredExtensions() instanceExtensions {
 	extensions := this.instanceEnabledExtensions
@@ -518,20 +518,18 @@ func (this *AxeDevice) findQueueFamilies(device vk.PhysicalDevice) (QueueFamilyI
 
 	var i uint32 = 0
 	for _, queueFamily := range queueFamilies {
-		if queueFamily.QueueCount > 0 && (uint32(queueFamily.QueueFlags)&uint32(vk.QUEUE_GRAPHICS_BIT)) != 0 {
+		if queueFamily.QueueCount > 0 && (uint32(queueFamily.QueueFlags)&uint32(vk.QueueGraphicsBit)) != 0 {
 			indices.graphicsFamily = i
 			indices.graphicsFamilyHasValue = true
 		}
-		presentSupport := false
+		presentSupport := vk.Bool32(0)
 
-		result := vk.ToGetPhysicalDeviceSurfaceSupportKHR(
-			vk.GetInstanceProcAddr(this.instance, "vkGetPhysicalDeviceSurfaceSupportKHR"),
-		)(device, i, this.surface, &presentSupport)
-		if result != vk.SUCCESS {
-			return indices, VkError{result, "vkGetPhysicalDeviceSurfaceSupportKHR"}
+		result := vk.GetPhysicalDeviceSurfaceSupport(device, i, *this.surface, &presentSupport)
+		if result != vk.Success {
+			return indices, VkError{result, "vkGetPhysicalDeviceSurfaceSupport"}
 		}
 
-		if queueFamily.QueueCount > 0 && presentSupport {
+		if queueFamily.QueueCount > 0 && presentSupport == 1 {
 			indices.presentFamily = i
 			indices.presentFamilyHasValue = true
 		}
@@ -544,22 +542,22 @@ func (this *AxeDevice) findQueueFamilies(device vk.PhysicalDevice) (QueueFamilyI
 	return indices, nil
 }
 
-var debugCallback vk.FuncDebugUtilsMessengerCallbackEXT = func(messageSeverity vk.DebugUtilsMessageSeverityFlagBitsEXT, messageType vk.DebugUtilsMessageTypeFlagsEXT, callbackData *vk.DebugUtilsMessengerCallbackDataEXT, userData unsafe.Pointer) bool {
-	fmt.Printf("Debug Message %s\n", callbackData.Message)
-	return false
-}
+// var debugCallback vk.FuncDebugUtilsMessengerCallback = func(messageSeverity vk.DebugUtilsMessageSeverityFlagBitsEXT, messageType vk.DebugUtilsMessageTypeFlagsEXT, callbackData *vk.DebugUtilsMessengerCallbackDataEXT, userData unsafe.Pointer) bool {
+// 	fmt.Printf("Debug Message %s\n", callbackData.Message)
+// 	return false
+// }
 
 //export printDebugMessage
 func printDebugMessage(msg string) {
 	fmt.Printf("Debug Message %s\n", msg)
 }
 
-func (this *AxeDevice) populateDebugMessengerCreateInfo(createInfo *vk.DebugUtilsMessengerCreateInfoEXT) {
-	createInfo.MessageSeverity = vk.DebugUtilsMessageSeverityFlagsEXT(int(vk.DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) | int(vk.DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT))
-	createInfo.MessageType = vk.DebugUtilsMessageTypeFlagsEXT(int(vk.DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) | int(vk.DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) | int(vk.DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
-	createInfo.UserData = nil // Optional
-	createInfo.UserCallback = vk.PFNDebugUtilsMessengerCallbackEXT(unsafe.Pointer(&debugCallback))
-}
+// func (this *AxeDevice) populateDebugMessengerCreateInfo(createInfo *vk.DebugUtilsMessengerCreateInfoEXT) {
+// 	createInfo.MessageSeverity = vk.DebugUtilsMessageSeverityFlagsEXT(int(vk.DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) | int(vk.DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT))
+// 	createInfo.MessageType = vk.DebugUtilsMessageTypeFlagsEXT(int(vk.DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) | int(vk.DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) | int(vk.DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT))
+// 	createInfo.UserData = nil // Optional
+// 	createInfo.UserCallback = vk.PFNDebugUtilsMessengerCallbackEXT(unsafe.Pointer(&debugCallback))
+// }
 
 func (this *AxeDevice) hasGflwRequiredInstanceExtensions() error {
 	requiredExtensions := this.getRequiredExtensions()
@@ -586,21 +584,20 @@ func (this *AxeDevice) querySwapChainSupport(device vk.PhysicalDevice) (SwapChai
 	details := SwapChainSupportDetails{}
 
 	if this.instanceAvailableExtensions.PhysicalDeviceProperties && this.instanceAvailableExtensions.Surface {
-		result := vk.ToGetPhysicalDeviceSurfaceCapabilitiesKHR(
-			vk.GetInstanceProcAddr(this.instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"),
-		)(device, this.surface, &details.capabilities)
+		result := vk.GetPhysicalDeviceSurfaceCapabilities(device, *this.surface, &details.capabilities)
+		// result := vk.ToGetPhysicalDeviceSurfaceCapabilitiesKHR(
+		// 	vk.GetInstanceProcAddr(this.instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"),
+		// )(device, this.surface, &details.capabilities)
 
-		if result != vk.SUCCESS {
+		if result != vk.Success {
 			return details, VkError{result, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"}
 		}
 
 		var err error
 
-		details.formats, err = GetSliceError(func(count *uint32, out []vk.SurfaceFormatKHR) error {
+		details.formats, err = GetSliceError(func(count *uint32, out []vk.SurfaceFormat) error {
 			return checkResult(
-				vk.ToGetPhysicalDeviceSurfaceFormatsKHR(
-					vk.GetInstanceProcAddr(this.instance, "vkGetPhysicalDeviceSurfaceFormatsKHR"),
-				)(device, this.surface, count, out),
+				vk.GetPhysicalDeviceSurfaceFormats(device, *this.surface, count, out),
 				"vkGetPhysicalDeviceSurfaceFormatsKHR",
 			)
 		})
@@ -608,11 +605,9 @@ func (this *AxeDevice) querySwapChainSupport(device vk.PhysicalDevice) (SwapChai
 			return details, err
 		}
 
-		details.presentModes, err = GetSliceError(func(count *uint32, out []vk.PresentModeKHR) error {
+		details.presentModes, err = GetSliceError(func(count *uint32, out []vk.PresentMode) error {
 			return checkResult(
-				vk.ToGetPhysicalDeviceSurfacePresentModesKHR(
-					vk.GetInstanceProcAddr(this.instance, "vkGetPhysicalDeviceSurfacePresentModesKHR"),
-				)(device, this.surface, count, out),
+				vk.GetPhysicalDeviceSurfacePresentModes(device, *this.surface, count, out),
 				"vkGetPhysicalDeviceSurfacePresentModesKHR",
 			)
 		})
@@ -646,9 +641,9 @@ func (this *AxeDevice) findSupportedFormat(candidates []vk.Format, tiling vk.Ima
 		props := vk.FormatProperties{}
 		vk.GetPhysicalDeviceFormatProperties(this.physicalDevice, format, &props)
 
-		if tiling == vk.IMAGE_TILING_LINEAR && (props.LinearTilingFeatures&features) == features {
+		if tiling == vk.ImageTilingLinear && (props.LinearTilingFeatures&features) == features {
 			return format, nil
-		} else if tiling == vk.IMAGE_TILING_OPTIMAL && (props.OptimalTilingFeatures&features) == features {
+		} else if tiling == vk.ImageTilingOptimal && (props.OptimalTilingFeatures&features) == features {
 			return format, nil
 		}
 	}
@@ -660,9 +655,9 @@ func (this *AxeDevice) createBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 	bufferInfo := vk.BufferCreateInfo{}
 	bufferInfo.Size = size
 	bufferInfo.Usage = usage
-	bufferInfo.SharingMode = vk.SHARING_MODE_EXCLUSIVE
+	bufferInfo.SharingMode = vk.SharingModeExclusive
 
-	if result := vk.CreateBuffer(this.device, &bufferInfo, nil, buffer); result != vk.SUCCESS {
+	if result := vk.CreateBuffer(this.device, &bufferInfo, nil, buffer); result != vk.Success {
 		return VkError{result, "vkCreateBuffer"}
 	}
 
@@ -673,52 +668,54 @@ func (this *AxeDevice) createBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 	allocInfo.AllocationSize = memRequirements.Size
 	allocInfo.MemoryTypeIndex, _ = this.findMemoryType(memRequirements.MemoryTypeBits, properties)
 
-	if result := vk.AllocateMemory(this.device, &allocInfo, nil, bufferMemory); result != vk.SUCCESS {
+	if result := vk.AllocateMemory(this.device, &allocInfo, nil, bufferMemory); result != vk.Success {
 		return VkError{result, "vkAllocateMemory"}
 	}
 
-	if result := vk.BindBufferMemory(this.device, *buffer, *bufferMemory, 0); result != vk.SUCCESS {
+	if result := vk.BindBufferMemory(this.device, *buffer, *bufferMemory, 0); result != vk.Success {
 		return VkError{result, "vkBindBufferMemory"}
 	}
 	return nil
 }
 func (this *AxeDevice) beginSingleTimeCommands() (vk.CommandBuffer, error) {
 	allocInfo := vk.CommandBufferAllocateInfo{}
-	allocInfo.Level = vk.COMMAND_BUFFER_LEVEL_PRIMARY
-	allocInfo.CommandPool = this.commandPool
+	allocInfo.Level = vk.CommandBufferLevelPrimary
+	allocInfo.CommandPool = *this.commandPool
 	allocInfo.CommandBufferCount = 1
 
 	commandBuffer := make([]vk.CommandBuffer, 1)
-	if result := vk.AllocateCommandBuffers(this.device, &allocInfo, commandBuffer); result != vk.SUCCESS {
+	if result := vk.AllocateCommandBuffers(this.device, &allocInfo, commandBuffer); result != vk.Success {
 		return nil, VkError{result, "vkAllocateCommandBuffers"}
 	}
 
 	beginInfo := vk.CommandBufferBeginInfo{}
-	beginInfo.Flags = vk.CommandBufferUsageFlags(vk.COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)
+	beginInfo.Flags = vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit)
 
-	if result := vk.BeginCommandBuffer(commandBuffer[0], &beginInfo); result != vk.SUCCESS {
+	if result := vk.BeginCommandBuffer(commandBuffer[0], &beginInfo); result != vk.Success {
 		return nil, VkError{result, "vkBeginCommandBuffer"}
 	}
 
 	return commandBuffer[0], nil
 }
 func (this *AxeDevice) endSingleTimeCommands(commandBuffer vk.CommandBuffer) error {
-	if result := vk.EndCommandBuffer(commandBuffer); result != vk.SUCCESS {
+	if result := vk.EndCommandBuffer(commandBuffer); result != vk.Success {
 		return VkError{result, "vkEndCommandBuffer"}
 	}
 
 	commandBuffers := []vk.CommandBuffer{commandBuffer}
 	submitInfo := make([]vk.SubmitInfo, 1)
-	submitInfo[0].CommandBuffers = commandBuffers
+	submitInfo[0].PCommandBuffers = commandBuffers
 
-	if result := vk.QueueSubmit(this.graphicsQueue, submitInfo, 0); result != vk.SUCCESS {
+	var fence vk.Fence
+
+	if result := vk.QueueSubmit(this.graphicsQueue, 1, submitInfo, fence); result != vk.Success {
 		return VkError{result, "vkQueueSubmit"}
 	}
-	if result := vk.QueueWaitIdle(this.graphicsQueue); result != vk.SUCCESS {
+	if result := vk.QueueWaitIdle(this.graphicsQueue); result != vk.Success {
 		return VkError{result, "vkQueueWaitIdle"}
 	}
 
-	vk.FreeCommandBuffers(this.device, this.commandPool, commandBuffers)
+	vk.FreeCommandBuffers(this.device, *this.commandPool, 1, commandBuffers)
 
 	return nil
 }
@@ -732,7 +729,7 @@ func (this *AxeDevice) copyBuffer(srcBuffer vk.Buffer, dstBuffer vk.Buffer, size
 	copyRegion[0].SrcOffset = 0 // Optional
 	copyRegion[0].DstOffset = 0 // Optional
 	copyRegion[0].Size = size
-	vk.CmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, copyRegion)
+	vk.CmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, copyRegion)
 
 	err = this.endSingleTimeCommands(commandBuffer)
 	if err != nil {
@@ -750,14 +747,14 @@ func (this *AxeDevice) copyBufferToImage(buffer vk.Buffer, image vk.Image, width
 	region[0].BufferOffset = 0
 	region[0].BufferRowLength = 0
 	region[0].BufferImageHeight = 0
-	region[0].ImageSubresource.AspectMask = vk.ImageAspectFlags(vk.IMAGE_ASPECT_COLOR_BIT)
+	region[0].ImageSubresource.AspectMask = vk.ImageAspectFlags(vk.ImageAspectColorBit)
 	region[0].ImageSubresource.MipLevel = 0
 	region[0].ImageSubresource.BaseArrayLayer = 0
 	region[0].ImageSubresource.LayerCount = layerCount
 	region[0].ImageOffset = vk.Offset3D{X: 0, Y: 0, Z: 0}
 	region[0].ImageExtent = vk.Extent3D{Width: width, Height: height, Depth: 1}
 
-	vk.CmdCopyBufferToImage(commandBuffer, buffer, image, vk.IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, region)
+	vk.CmdCopyBufferToImage(commandBuffer, buffer, image, vk.ImageLayoutTransferDstOptimal, 1, region)
 
 	err = this.endSingleTimeCommands(commandBuffer)
 	if err != nil {
@@ -766,7 +763,7 @@ func (this *AxeDevice) copyBufferToImage(buffer vk.Buffer, image vk.Image, width
 	return nil
 }
 func (this *AxeDevice) createImageWithInfo(imageInfo *vk.ImageCreateInfo, properties vk.MemoryPropertyFlags, image *vk.Image, imageMemory vk.DeviceMemory) error {
-	if vk.CreateImage(this.device, imageInfo, nil, image) != vk.SUCCESS {
+	if vk.CreateImage(this.device, imageInfo, nil, image) != vk.Success {
 		return errors.New("Failed to create image.")
 	}
 
@@ -777,11 +774,11 @@ func (this *AxeDevice) createImageWithInfo(imageInfo *vk.ImageCreateInfo, proper
 	allocInfo.AllocationSize = memRequirements.Size
 	allocInfo.MemoryTypeIndex, _ = this.findMemoryType(memRequirements.MemoryTypeBits, properties)
 
-	if vk.AllocateMemory(this.device, &allocInfo, nil, &imageMemory) != vk.SUCCESS {
+	if vk.AllocateMemory(this.device, &allocInfo, nil, &imageMemory) != vk.Success {
 		return errors.New("Failed to allocate image memory.")
 	}
 
-	if vk.BindImageMemory(this.device, *image, imageMemory, 0) != vk.SUCCESS {
+	if vk.BindImageMemory(this.device, *image, imageMemory, 0) != vk.Success {
 		return errors.New("Failed to bind image memory.")
 	}
 
@@ -855,11 +852,12 @@ func (this *AxeWindow) resetWindowResizedFlag() {
 func (this *AxeWindow) getGLFWwindow() *glfw.Window {
 	return this.window
 }
-func (this *AxeWindow) createWindowSurface(instance vk.Instance) (vk.SurfaceKHR, error) {
+func (this *AxeWindow) createWindowSurface(instance vk.Instance) (vk.Surface, error) {
 	surface, err := this.window.CreateWindowSurface(instance, nil)
-	// surfaceRef := *(*vk.SurfaceKHR)(unsafe.Pointer(surface))
-	// fmt.Printf("Surface: %v\n", surfaceRef)
-	return vk.SurfaceKHR(surface), err
+	if err != nil {
+		return nil, err
+	}
+	return vk.SurfaceFromPointer(surface), err
 }
 
 func getInstanceLayerProperties() ([]vk.LayerProperties, error) {
@@ -960,7 +958,7 @@ func MapSlice[S any, D any](source []S, mapper func(source S) D) []D {
 }
 
 func checkResult(result vk.Result, functionName string) error {
-	if result != vk.SUCCESS {
+	if result != vk.Success {
 		return VkError{result, functionName}
 	}
 	return nil
