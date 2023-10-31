@@ -1,5 +1,11 @@
 package ui
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
 type Unit int
 
 const (
@@ -17,6 +23,8 @@ func (a Unit) Get(value float32, relative float32) float32 {
 		return value
 	case UnitPercent:
 		return value / relative
+	case UnitFont:
+		return value * relative
 	}
 	return value
 }
@@ -27,6 +35,10 @@ type Amount struct {
 	Unit  Unit
 }
 
+func (a Amount) IsZero() bool {
+	return a.Value == 0 && a.Unit == UnitConstant
+}
+
 func (a Amount) Get(relative float32) float32 {
 	return a.Unit.Get(a.Value, relative)
 }
@@ -34,6 +46,33 @@ func (a Amount) Get(relative float32) float32 {
 func (a *Amount) Set(value float32, unit Unit) {
 	a.Value = value
 	a.Unit = unit
+}
+
+func (a Amount) MarshalText() ([]byte, error) {
+	switch a.Unit {
+	case UnitConstant:
+		return []byte(fmt.Sprintf("%f", a.Value)), nil
+	default:
+		return []byte(fmt.Sprintf("%f%%", a.Value*100)), nil
+	}
+}
+
+func (a *Amount) UnmarshalText(text []byte) error {
+	s := string(text)
+	*a = Amount{}
+	if strings.HasSuffix(s, "%") {
+		a.Unit = UnitFont
+		s = strings.TrimSuffix(s, "%")
+	}
+	parsed, err := strconv.ParseFloat(s, 32)
+	if err != nil {
+		return err
+	}
+	a.Value = float32(parsed)
+	if a.Unit == UnitFont {
+		a.Value *= 0.01
+	}
+	return nil
 }
 
 type AmountBounds struct {
@@ -50,6 +89,13 @@ func (a AmountBounds) GetBounds(w, h float32) Bounds {
 		Right:  a.Right.Get(w),
 		Bottom: a.Bottom.Get(h),
 	}
+}
+
+func (a *AmountBounds) SetAmount(amount Amount) {
+	a.Left = amount
+	a.Top = amount
+	a.Right = amount
+	a.Bottom = amount
 }
 
 func (a *AmountBounds) Set(value float32, unit Unit) {

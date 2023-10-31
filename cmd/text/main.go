@@ -2,6 +2,7 @@ package main
 
 import (
 	"runtime"
+	"strings"
 	"time"
 
 	axe "github.com/axe/axe-go/pkg"
@@ -27,8 +28,7 @@ func main() {
 		},
 		Windows: []axe.StageWindow{{
 			Title:     "Test Text",
-			Placement: ui.Centered(720, 480),
-			Mode:      axe.WindowModeFixed,
+			Placement: ui.Centered(720, 600),
 		}},
 		Stages: []axe.Stage{{
 			Name: "text",
@@ -50,12 +50,25 @@ func main() {
 				Load: func(scene *axe.Scene2f, game *axe.Game) {
 					e := ecs.New()
 
+					lines := []string{
+						"{c:white}{s:150%}{ls:100%}{ps:100%}Dear Reader,",
+						"{p}{h:0.5}This is centered.",
+						"{v:0.5}And {s:300%}{f:warrior}THIS{s:150%}{f} is big!",
+						"{v:1}This is bottom & center {s:300%}aligned?",
+						"{p}{h:0}{v:0}Top{s:150%} and left aligned.",
+						"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
+						"{p}{h:1}{c:white}Right aligned!",
+						"{p}{h:0.25}25% aligned?",
+						"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
+						"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
+					}
+
 					userInterface := axe.NewUserInterface()
+					userInterface.Theme.DefaultFont = "roboto"
 					userInterface.Root = &ui.Base{
 						Layers: []ui.Layer{{
-							Visual: &ui.VisualText{
-								Glyphs: simpleTextGlyphs("Hello world!", "roboto", 32, ui.ColorWhite),
-							},
+							Placement: ui.Maximized().Shrink(10),
+							Visual:    ui.MustTextToVisual(strings.Join(lines, "\n")),
 						}},
 					}
 
@@ -72,27 +85,4 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func simpleTextGlyphs(text string, font string, size float32, color ui.Color) ui.GlyphBlocks {
-	gs := make([]ui.Glyph, 0, len(text))
-	for _, c := range text {
-		gs = append(gs, &ui.TextGlyph{
-			Text:  c,
-			Font:  font,
-			Size:  ui.Amount{Value: size},
-			Color: color,
-		})
-	}
-	gbs := ui.GlyphBlocks{
-		ClampLeft:         true,
-		ClampTop:          true,
-		VerticalAlignment: 0.5,
-		Blocks: []ui.GlyphBlock{{
-			HorizontalAlignment: 0.5,
-			Wrap:                ui.TextWrapNone,
-			Glyphs:              gs,
-		}},
-	}
-	return gbs
 }

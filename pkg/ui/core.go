@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -141,6 +143,25 @@ const (
 	TextWrapWord TextWrap = "word"
 	TextWrapChar TextWrap = "char"
 )
+
+func (w TextWrap) MarshalText() ([]byte, error) {
+	return []byte(w), nil
+}
+
+func (w *TextWrap) UnmarshalText(text []byte) error {
+	s := strings.ToLower(string(text))
+	switch s {
+	case "none", "n", "":
+		*w = TextWrapNone
+	case "word", "w":
+		*w = TextWrapWord
+	case "char", "c", "letter":
+		*w = TextWrapChar
+	default:
+		return fmt.Errorf("invalid text wrap: " + s)
+	}
+	return nil
+}
 
 type Coord struct {
 	X float32

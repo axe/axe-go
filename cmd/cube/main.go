@@ -287,9 +287,7 @@ func main() {
 								}, {
 									// Text content
 									Placement: ui.Maximized().Shrink(10),
-									Visual: &ui.VisualText{
-										Glyphs: simpleTextGlyphs("Press me", "warrior", 24, ui.ColorBlack),
-									},
+									Visual:    ui.MustTextToVisual("{f:warror}{s:24}{h:0.5}{pv:0.5}Press me"),
 								}},
 							},
 						},
@@ -308,29 +306,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func simpleTextGlyphs(text string, font string, size float32, color ui.Color) ui.GlyphBlocks {
-	gs := make([]ui.Glyph, 0, len(text))
-	for _, c := range text {
-		gs = append(gs, &ui.TextGlyph{
-			Text:  c,
-			Font:  font,
-			Size:  ui.Amount{Value: size},
-			Color: color,
-		})
-	}
-	gbs := ui.GlyphBlocks{
-		ClampLeft:         true,
-		ClampTop:          true,
-		VerticalAlignment: 0.5,
-		Blocks: []ui.GlyphBlock{{
-			HorizontalAlignment: 0.5,
-			Wrap:                ui.TextWrapNone,
-			Glyphs:              gs,
-		}},
-	}
-	return gbs
 }
 
 func newDraggable() *ui.Base {
@@ -354,9 +329,7 @@ func newDraggable() *ui.Base {
 				Color: ui.ColorBlack,
 			},
 		}, {
-			Visual: &ui.VisualText{
-				Glyphs: simpleTextGlyphs("drag me", "roboto", 14, ui.ColorWhite),
-			},
+			Visual: ui.MustTextToVisual("{f:roboto}{s:14}{c:white}{h:0.5}{pv:0.5}drag me"),
 		}},
 	}
 

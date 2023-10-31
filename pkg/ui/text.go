@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"regexp"
+	"strconv"
 	"unicode"
+	"unicode/utf8"
 )
 
 type FontRune struct {
@@ -49,12 +52,13 @@ type GlyphState struct {
 }
 
 type GlyphBlock struct {
-	Spacing             float32 // extra space between glyphs
-	LineSpacing         float32 // extra space between lines
-	LineHeight          float32 // 0=calculated per line
+	Spacing             Amount  // extra space between glyphs
+	LineSpacing         Amount  // extra space between lines
+	LineHeight          Amount  // 0=calculated per line
 	VerticalAlignment   float32 // 0=top, 0.5=middle, 1=bottom
 	HorizontalAlignment float32 // 0=left, 0.5=middle, 1=right
 	Wrap                TextWrap
+	Padding             AmountBounds
 	Glyphs              []Glyph
 }
 
@@ -63,7 +67,7 @@ type GlyphBlocks struct {
 	MaxWidth          float32
 	MaxHeight         float32
 	VerticalAlignment float32
-	BlockSpacing      float32
+	BlockSpacing      Amount
 	ClampLeft         bool
 	ClampTop          bool
 }
@@ -79,11 +83,11 @@ type RenderedGlyph struct {
 	Color  Color
 }
 
-func (block GlyphBlock) GetLineHeight(actualLineHeight float32) float32 {
-	if block.LineHeight == 0 {
+func (block GlyphBlock) GetLineHeight(theme *Theme, actualLineHeight float32) float32 {
+	if block.LineHeight.IsZero() {
 		return actualLineHeight
 	} else {
-		return block.LineHeight
+		return block.LineHeight.Get(theme.DefaultFontSize)
 	}
 }
 
@@ -102,6 +106,7 @@ func (block GlyphBlock) UnwrappedSize(theme *Theme, scale Coord, blocks GlyphBlo
 	lineWidth := float32(0)
 	lineHeight := float32(0)
 	lineCount := 0
+	lineSpacing := block.LineSpacing.Get(theme.DefaultFontSize)
 	size := Coord{}
 
 	for glyphIndex := range block.Glyphs {
@@ -111,9 +116,9 @@ func (block GlyphBlock) UnwrappedSize(theme *Theme, scale Coord, blocks GlyphBlo
 				size.X = lineWidth
 			}
 			if lineCount > 0 {
-				size.Y += block.LineSpacing
+				size.Y += lineSpacing
 			}
-			size.Y += block.GetLineHeight(lineHeight) * scale.Y
+			size.Y += block.GetLineHeight(theme, lineHeight) * scale.Y
 			lineCount++
 			lineWidth = 0
 			lineHeight = 0
@@ -124,6 +129,13 @@ func (block GlyphBlock) UnwrappedSize(theme *Theme, scale Coord, blocks GlyphBlo
 			}
 		}
 	}
+
+	padding := block.Padding.GetBounds(theme.DefaultFontSize, theme.DefaultFontSize)
+
+	size.Y += padding.Top
+	size.Y += padding.Bottom
+	size.X += padding.Left
+	size.X += padding.Right
 
 	return size
 }
@@ -137,15 +149,18 @@ func (block GlyphBlock) Render(theme *Theme, blocks GlyphBlocks) RenderedGlyphBl
 		glyphs []int
 	}
 
-	lines := make([]line, 8)
-	currentLine := line{glyphs: []int{}}
+	padding := block.Padding.GetBounds(theme.DefaultFontSize, theme.DefaultFontSize)
+	paddingWidth := padding.Left + padding.Right
+
+	lines := make([]line, 0, 8)
+	currentLine := line{glyphs: []int{}, width: paddingWidth}
 
 	for glyphIndex := range block.Glyphs {
 		state := states[glyphIndex]
 		nextWidth := currentLine.width + state.Size.X
 
 		if state.ShouldBreak {
-			nextLine := line{glyphs: []int{}}
+			nextLine := line{glyphs: []int{}, width: paddingWidth}
 			lines = append(lines, currentLine)
 			currentLine = nextLine
 
@@ -163,38 +178,44 @@ func (block GlyphBlock) Render(theme *Theme, blocks GlyphBlocks) RenderedGlyphBl
 
 			nextLine := line{glyphs: currentLine.glyphs[wrap:]}
 			for _, k := range nextLine.glyphs {
-				ks := states[k]
-				nextLine.width += ks.Size.X
-				currentLine.width -= ks.Size.X
-				if ks.Size.Y > nextLine.height {
-					nextLine.height = ks.Size.Y
-				}
+				nextLine.width += states[k].Size.X
 			}
 
+			currentLine.width -= nextLine.width
 			currentLine.glyphs = currentLine.glyphs[:wrap]
 			lines = append(lines, currentLine)
 			currentLine = nextLine
+			currentLine.width += paddingWidth
 		}
 
 		currentLine.width += state.Size.X
-		if state.Size.Y > currentLine.height {
-			currentLine.height = state.Size.Y
-		}
 		currentLine.glyphs = append(currentLine.glyphs, glyphIndex)
 	}
 
-	lines = append(lines, currentLine)
+	if len(currentLine.glyphs) > 0 {
+		lines = append(lines, currentLine)
+	}
+	lineSpacing := block.LineSpacing.Get(theme.DefaultFontSize)
 
-	totalHeight := float32(0)
-	for lineIndex, line := range lines {
-		if lineIndex > 0 {
-			totalHeight += block.LineSpacing
+	totalHeight := padding.Top + padding.Bottom
+	for lineIndex := range lines {
+		line := &lines[lineIndex]
+		actualLineHeight := float32(0)
+		for _, glyphIndex := range line.glyphs {
+			state := states[glyphIndex]
+			if state.Size.Y > actualLineHeight {
+				actualLineHeight = state.Size.Y
+			}
 		}
-		totalHeight += block.GetLineHeight(line.height)
+		line.height = block.GetLineHeight(theme, actualLineHeight)
+		totalHeight += line.height
+		if lineIndex > 0 {
+			totalHeight += lineSpacing
+		}
 	}
 
 	rendered := make([]RenderedGlyph, 0, len(block.Glyphs))
-	offsetY := float32(0)
+	offsetY := padding.Top
 
 	for _, line := range lines {
 		start := Coord{
@@ -204,19 +225,20 @@ func (block GlyphBlock) Render(theme *Theme, blocks GlyphBlocks) RenderedGlyphBl
 		if blocks.ClampLeft && start.X < 0 {
 			start.X = 0
 		}
+		start.X += padding.Left
+
 		for _, glyphIndex := range line.glyphs {
 			g := block.Glyphs[glyphIndex]
 			s := states[glyphIndex]
-			currentY := start.Y
-			start.Y += block.VerticalAlignment * (line.height - s.Size.Y)
+			start.Y = offsetY + block.VerticalAlignment*(line.height-s.Size.Y)
 			render := g.Render(theme, start)
 			if render.Bounds.Width() > 0 {
 				rendered = append(rendered, render)
 			}
 			start.X += s.Size.X
-			start.Y = currentY
 		}
-		offsetY += block.GetLineHeight(line.height) + block.LineSpacing
+
+		offsetY += line.height + lineSpacing
 	}
 
 	return RenderedGlyphBlock{Height: totalHeight, Glyphs: rendered}
@@ -234,10 +256,11 @@ func (blocks GlyphBlocks) Wrap(lineWidth float32) bool {
 
 func (blocks GlyphBlocks) UnwrappedSize(theme *Theme, scale Coord) Coord {
 	size := Coord{}
+	blockSpacing := blocks.BlockSpacing.Get(theme.DefaultFontSize)
 	for i, block := range blocks.Blocks {
 		blockSize := block.UnwrappedSize(theme, scale, blocks)
 		if i > 0 {
-			size.Y += blocks.BlockSpacing
+			size.Y += blockSpacing
 		}
 		size.Y += blockSize.Y
 		if blockSize.X > size.X {
@@ -251,11 +274,12 @@ func (blocks GlyphBlocks) Render(theme *Theme) RenderedGlyphBlock {
 	rendered := make([]RenderedGlyphBlock, len(blocks.Blocks))
 	totalHeight := float32(0)
 	totalGlyphs := 0
+	blockSpacing := blocks.BlockSpacing.Get(theme.DefaultFontSize)
 	for i, block := range blocks.Blocks {
 		rendered[i] = block.Render(theme, blocks)
 		totalHeight += rendered[i].Height
 		if i > 0 {
-			totalHeight += blocks.BlockSpacing
+			totalHeight += blockSpacing
 		}
 		totalGlyphs += len(rendered[i].Glyphs)
 	}
@@ -264,7 +288,7 @@ func (blocks GlyphBlocks) Render(theme *Theme) RenderedGlyphBlock {
 		if offset != 0 {
 			rendered[i].Translate(0, offset)
 		}
-		offset += rendered[i].Height + blocks.BlockSpacing
+		offset += rendered[i].Height + blockSpacing
 	}
 	joined := RenderedGlyphBlock{
 		Height: totalHeight,
@@ -273,6 +297,7 @@ func (blocks GlyphBlocks) Render(theme *Theme) RenderedGlyphBlock {
 	for _, block := range rendered {
 		joined.Glyphs = append(joined.Glyphs, block.Glyphs...)
 	}
+
 	return joined
 }
 
@@ -372,6 +397,8 @@ func (g *TextGlyph) Render(theme *Theme, topLeft Coord) RenderedGlyph {
 	}
 }
 
+var TextFormatRegex = regexp.MustCompile(`\\{|\{([^:}]+):?([^}]*)\}|.|\s`)
+
 // Parses text and converts it to glyphs using a special format.
 // In the text you can set:
 // - font = {f:name} or {f:} to reset to default
@@ -379,21 +406,141 @@ func (g *TextGlyph) Render(theme *Theme, topLeft Coord) RenderedGlyph {
 // - size = {s:12} or {s:50%} or {s:} to reset to default
 // - new paragraph = {p}
 // - set kerning to paragraph = {k:5}
-// - set horizontal alignment in paragraph = {a:0.5}
-// - set vertical alignment within a line in paragraph = {va:0}
+// - set horizontal alignment in paragraph = {h:0.5}
+// - set vertical alignment within a line in paragraph = {v:0}
 // - set wrap in paragraph = {w:none} or {w:word} or {w:char}
 // - set line spacing in paragraph = {ls:10}
 // - set line height in paragraph = {lh:10} or {lh:120%}
+// - set padding in paragraph = {pa:10} or {pl:10%} or {pr:0} or {pb} or {pt:}
 // - set spacing between paragraphs = {ps:10}
 // - set vertical alignment of paragraphs in block = {pv:0.5}
 // - set max height in block = {mh:100}
 // - set max width in block = {mw:100}
+// - set clamp left in block = {cl:1}
+// - set clamp top in block = {ct:0}
 //
-// Ex: "Hello {f:roboto}World{f:} {s:20}HOW{s:} {c:#00F}blue {c:red}red {c:}"
-func TextToBlocks(text string) GlyphBlocks {
-	blocks := GlyphBlocks{}
-	// glyph := TextGlyph{}
-	// glyphs := make([]GlyphBlock, 0, len(text))
+// Ex: "Hello {f:roboto}World{f:} {s:20}HOW{s:} {c:#00F}blue {c:red}red {c:} \{"
+func TextToBlocks(text string) (blocks GlyphBlocks, err error) {
+	block := GlyphBlock{}
+	glyph := TextGlyph{}
 
+	readAmount := func(s string) Amount {
+		amt := Amount{}
+		if s != "" {
+			err = amt.UnmarshalText([]byte(s))
+		}
+		return amt
+	}
+	readFloat := func(s string) float32 {
+		f := float64(0)
+		if s != "" {
+			f, err = strconv.ParseFloat(s, 32)
+		}
+		return float32(f)
+	}
+	readWrap := func(s string) TextWrap {
+		wrap := TextWrap("")
+		err = wrap.UnmarshalText([]byte(s))
+		return wrap
+	}
+	readColor := func(s string) Color {
+		color := Color{}
+		if s != "" {
+			err = color.UnmarshalText([]byte(s))
+		}
+		return color
+	}
+	readBool := func(s string) bool {
+		b := false
+		if s != "" {
+			b, err = strconv.ParseBool(s)
+		}
+		return b
+	}
+
+	pieces := TextFormatRegex.FindAllStringSubmatch(text, -1)
+	for _, piece := range pieces {
+		runes := piece[0]
+		command := piece[1]
+		value := piece[2]
+
+		switch command {
+		case "": // Add glyph to block
+			copy := glyph
+			copy.Text, _ = utf8.DecodeRuneInString(runes)
+			block.Glyphs = append(block.Glyphs, &copy)
+		case "f": // Glyph commands
+			glyph.Font = value
+		case "s":
+			glyph.Size = readAmount(value)
+		case "c":
+			glyph.Color = readColor(value)
+		case "k": // Block commands
+			block.Spacing = readAmount(value)
+		case "h":
+			block.HorizontalAlignment = readFloat(value)
+		case "v":
+			block.VerticalAlignment = readFloat(value)
+		case "w":
+			block.Wrap = readWrap(value)
+		case "ls":
+			block.LineSpacing = readAmount(value)
+		case "lh":
+			block.LineHeight = readAmount(value)
+		case "pa":
+			block.Padding.SetAmount(readAmount(value))
+		case "pl":
+			block.Padding.Left = readAmount(value)
+		case "pt":
+			block.Padding.Top = readAmount(value)
+		case "pr":
+			block.Padding.Right = readAmount(value)
+		case "pb":
+			block.Padding.Bottom = readAmount(value)
+		case "p": // Blocks commands
+			blocks.Blocks = append(blocks.Blocks, block)
+			block.Glyphs = make([]Glyph, 0)
+		case "ps":
+			blocks.BlockSpacing = readAmount(value)
+		case "pv":
+			blocks.VerticalAlignment = readFloat(value)
+		case "mw":
+			blocks.MaxWidth = readFloat(value)
+		case "mh":
+			blocks.MaxHeight = readFloat(value)
+		case "ct":
+			blocks.ClampTop = readBool(value)
+		case "cl":
+			blocks.ClampLeft = readBool(value)
+		}
+		if err != nil {
+			return
+		}
+	}
+
+	if len(block.Glyphs) > 0 {
+		blocks.Blocks = append(blocks.Blocks, block)
+	}
+
+	return
+}
+
+func MustTextToBlocks(text string) GlyphBlocks {
+	blocks, err := TextToBlocks(text)
+	if err != nil {
+		panic(err)
+	}
 	return blocks
+}
+
+func TextToVisual(text string) (*VisualText, error) {
+	blocks, err := TextToBlocks(text)
+	if err != nil {
+		return nil, err
+	}
+	return &VisualText{Glyphs: blocks}, nil
+}
+
+func MustTextToVisual(text string) *VisualText {
+	return &VisualText{Glyphs: MustTextToBlocks(text)}
 }

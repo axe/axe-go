@@ -1,6 +1,9 @@
 package ui
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 //go:generate go run colors.go
 
@@ -97,4 +100,31 @@ func (c Color) Lighten(scale float32) Color {
 
 func (c Color) IsZero() bool {
 	return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0
+}
+
+func (c Color) ToInts() (r, g, b, a int) {
+	r = int(clamp(c.R*255, 0, 255))
+	g = int(clamp(c.G*255, 0, 255))
+	b = int(clamp(c.B*255, 0, 255))
+	a = int(clamp(c.A*255, 0, 255))
+	return
+}
+
+func (c Color) MarshalText() ([]byte, error) {
+	r, g, b, a := c.ToInts()
+	if a == 255 {
+		return []byte(fmt.Sprintf("#%.2X%.2X%.2X", r, g, b)), nil
+	}
+	return []byte(fmt.Sprintf("#%.2X%.2X%.2X%.2X", r, g, b, a)), nil
+}
+
+func (c *Color) UnmarshalText(text []byte) error {
+	s := string(text)
+	named := ColorNamed(s)
+	if !named.IsZero() {
+		*c = named
+		return nil
+	}
+	*c = ColorFromHex(s)
+	return nil
 }
