@@ -2,69 +2,88 @@ package types
 
 import (
 	"fmt"
-	"reflect"
+	"strconv"
 	"testing"
 )
 
-var TFloat = New("float", float32(0))
-
-type Vec3f struct {
-	X, Y, Z float32
+type Vec2f struct {
+	X, Y float32
 }
 
 var MetaJsonName = NewMeta("jsonName")
 
-var TVec3f = New("vec3f", Vec3f{}).Add([]GameTypeProperty{
-	{
-		Name: "x",
-		Type: TFloat,
-		Copy: func(source any) any { return source.(Vec3f).X },
-		Ref:  func(source any) any { return &source.(*Vec3f).X },
-		Set: func(source any, value any) {
-			source.(*Vec3f).X = CastNumeric[float32](value, 0)
+var (
+	TFloat = New("float")
+	TVec2f = New("vec2f")
+)
+
+func init() {
+	TFloat.Define(TypeDef{
+		Create: func() Value {
+			f := float32(0)
+			return &f
 		},
-		Meta: map[GameTypeMeta]any{
-			MetaJsonName: "$x",
+		ToString: func(v Value) string {
+			return fmt.Sprintf("%v", v)
 		},
-	}, {
-		Name: "y",
-		Type: TFloat,
-		Copy: func(source any) any { return source.(Vec3f).Y },
-		Ref:  func(source any) any { return &source.(*Vec3f).Y },
-		Set: func(source any, value any) {
-			source.(*Vec3f).Y = CastNumeric[float32](value, 0)
+		FromString: func(x string) (Value, error) {
+			f, err := strconv.ParseFloat(x, 32)
+			return &f, err
 		},
-	}, {
-		Name: "z",
-		Type: TFloat,
-		Copy: func(source any) any { return source.(Vec3f).Z },
-		Ref:  func(source any) any { return &source.(*Vec3f).Z },
-		Set: func(source any, value any) {
-			source.(*Vec3f).Z = CastNumeric[float32](value, 0)
-		},
-	},
-})
+	})
+
+	TVec2f.Define(TypeDef{
+		Create: func() Value { return &Vec2f{} },
+		Props: Props([]Prop{
+			NewProp("x", TFloat, func(v *Vec2f) *float32 { return &v.X }),
+			NewProp("y", TFloat, func(v *Vec2f) *float32 { return &v.Y }),
+		}),
+	})
+}
 
 func TestTypes(m *testing.T) {
-	v := Vec3f{1, 2, 3}
-	x := Copy(v, []string{"x"})
+	v := Vec2f{1, 2}
+	a, _ := TVec2f.Access(NewPathFromTokens([]string{"x"}))
+	a.Set(&v, float32(3))
 
-	fmt.Printf("%v: %v\n", x, reflect.TypeOf(x))
+	fmt.Printf("%+v\n", v.X)
+}
 
-	y := Copy(v, []string{"y"})
-
-	fmt.Printf("%v: %v\n", y, reflect.TypeOf(y))
-
-	xptr := Ref(&v, []string{"x"})
-
-	if xx, ok := xptr.(*float32); ok {
-		fmt.Printf("x before %v = %v\n", v.X, *xx)
-		*xx = 3.4
-		fmt.Printf("x after %v = %v\n", v.X, *xx)
-	}
-
-	if jsonName, ok := TVec3f.Props.Get("x").Meta[MetaJsonName].(string); ok {
-		fmt.Println(jsonName)
+func NewProp[S any, V any](name string, t *Type, ref func(source *S) *V) Prop {
+	return Prop{
+		Name: name,
+		Type: t,
+		Ref: func(source Value) Value {
+			if s, ok := source.(*S); ok {
+				return ref(s)
+			}
+			return nil
+		},
+		Get: func(source Value, args []Value) Value {
+			if s, ok := source.(*S); ok {
+				if v := ref(s); v != nil {
+					return *v
+				}
+			}
+			return nil
+		},
+		Set: func(source, value Value) bool {
+			if s, ok := source.(*S); ok {
+				r := ref(s)
+				if r == nil {
+					return false
+				}
+				if v, ok := value.(V); ok {
+					*r = v
+					return true
+				}
+				if v, ok := value.(*V); ok {
+					*r = *v
+					return true
+				}
+			}
+			return false
+		},
 	}
 }
 

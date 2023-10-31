@@ -32,13 +32,17 @@ func main() {
 			DeleteOnDestroy:           true,
 		},
 		Windows: []axe.StageWindow{{
-			Title:     "Test GLFW Main Window",
-			Placement: ui.Centered(720, 480),
+			Title:      "Test GLFW Main Window",
+			Placement:  ui.Centered(720, 480),
+			ClearColor: ui.ColorGray,
 		}},
 		Stages: []axe.Stage{{
 			Name: "cube",
 			Assets: []asset.Ref{
-				{Name: "cube model", URI: "cube.obj"},
+				{Name: "cube model", URI: "../assets/cube.obj"},
+				{Name: "sans-serif", URI: "../assets/sans-serif.fnt"},
+				{Name: "warrior", URI: "../assets/warrior.fnt"},
+				{Name: "roboto", URI: "../assets/roboto.fnt"},
 			},
 			Actions: input.CreateActionSets(input.ActionSetsInput{
 				"main": {
@@ -51,7 +55,11 @@ func main() {
 					"delete":   itb.Key(input.KeyTrigger{Key: input.KeyBackspace}),
 				},
 			}),
-			Views3: []axe.View3f{},
+			Views3: []axe.View3f{{
+				Name:      "main",
+				Camera:    axe.NewCamera3d(),
+				Placement: ui.Maximized(),
+			}},
 			Scenes3: []axe.Scene3f{{
 				Enable: func(scene *axe.Scene3f, game *axe.Game) {
 					// Add components & systems
@@ -122,6 +130,175 @@ func main() {
 					})
 				},
 			}},
+			Views2: []axe.View2f{{
+				Name:      "ui",
+				SceneName: "ui",
+				Camera:    axe.NewCamera2d(),
+				Placement: ui.Maximized(),
+			}},
+			Scenes2: []axe.Scene2f{{
+				Name: "ui",
+				Enable: func(scene *axe.Scene2f, game *axe.Game) {
+					scene.World.Enable(
+						ecs.DataSettings{Capacity: 1024, StageCapacity: 16},
+						axe.TAG, axe.TRANSFORM2, axe.AUDIO, axe.LOGIC, axe.INPUT, axe.UI,
+					)
+				},
+				Load: func(scene *axe.Scene2f, game *axe.Game) {
+					e := ecs.New()
+
+					userInterface := axe.NewUserInterface()
+
+					// userInterface.UI.Root = ui.NewBuilder().
+					// 	Place(ui.Absolute(20, 20, 200, 50)).
+					// 	Radius(4).
+					// 	OutlineRounded().
+					// 	Shrink(4).Shift(1, 4).
+					// 	Filled().
+					// 	States(ui.StateAny(ui.StateHover|ui.StatePressed|ui.StateFocused|ui.StateSelected)).
+					// 	BackgroundColor(ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3)).
+					// 	Layer().
+					// 	Bordered(4, ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3), ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.1).Ptr()).
+					// 	Layer().
+					// 	States(ui.StateNot(ui.StateHover|ui.StatePressed|ui.StateFocused|ui.StateSelected)).
+					// 	BackgroundColor(ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.1)).
+					// 	Layer().
+					// 	Bordered(4, ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.1), ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.0).Ptr()).
+					// 	Layer().
+					// 	Maximized().
+					// 	BackgroundColor(ui.ColorFromHex("#008080")).
+					// 	States(ui.StateNot(ui.StateHover | ui.StatePressed)).
+					// 	Layer().
+					// 	BackgroundColor(ui.ColorFromHex("#008080").Lighten(0.1)).
+					// 	States(ui.StateAll(ui.StateHover)).
+					// 	Layer().
+					// 	BackgroundColor(ui.ColorFromHex("#008080").Darken(0.1)).
+					// 	States(ui.StateAll(ui.StatePressed)).
+					// 	Layer().
+					// 	Shrink(10).
+					// 	Visual(&ui.VisualText{
+					// 		Glyphs: simpleTextGlyphs("Press me", "roboto", 16, ui.ColorWhite),
+					// 	}).
+					// 	End()
+
+					outline := ui.OutlineRounded{
+						Radius: ui.AmountCorners{
+							TopLeft:     ui.Amount{Value: 8},
+							TopRight:    ui.Amount{Value: 8},
+							BottomLeft:  ui.Amount{Value: 8},
+							BottomRight: ui.Amount{Value: 8},
+						},
+						UnitToPoints: 0.5,
+					}
+
+					userInterface.UI.Root = &ui.Base{
+						Children: []*ui.Base{
+							newDraggable(),
+							{
+								Placement: ui.Absolute(20, 20, 200, 50),
+								// Events: ui.Events{
+								// 	OnPointer: func(ev *ui.PointerEvent) {
+								// 		fmt.Printf("OnPointer: %+v\n", *ev)
+								// 	},
+								// 	OnKey: func(ev *ui.KeyEvent) {
+								// 		fmt.Printf("OnKey: %+v\n", *ev)
+								// 	},
+								// 	OnFocus: func(ev *ui.ComponentEvent) {
+								// 		fmt.Printf("OnFocus: %+v\n", *ev)
+								// 	},
+								// 	OnBlur: func(ev *ui.ComponentEvent) {
+								// 		fmt.Printf("OnBlur: %+v\n", *ev)
+								// 	},
+								// },
+								Layers: []ui.Layer{{
+									// Shadow filled
+									Placement: ui.Maximized().Shift(1, 4),
+									Visual: ui.VisualFilled{
+										Outline: outline,
+									},
+									Background: ui.BackgroundColor{
+										Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
+									},
+									States: ui.StateAny(ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected),
+								}, {
+									// Shadow blur
+									Placement: ui.Maximized().Shift(1, 4),
+									Visual: ui.VisualBordered{
+										Width:         4,
+										OuterColor:    ui.ColorTransparent,
+										HasOuterColor: true,
+										InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
+										HasInnerColor: true,
+										Outline:       outline,
+									},
+									States: ui.StateAny(ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected),
+								}, {
+									// Shadow filled (default)
+									Placement: ui.Maximized().Shift(1, 4),
+									Visual: ui.VisualFilled{
+										Outline: outline,
+									},
+									Background: ui.BackgroundColor{
+										Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3),
+									},
+									States: ui.StateNot(ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected),
+								}, {
+									// Shadow blur (default)
+									Placement: ui.Maximized().Shift(1, 4),
+									Visual: ui.VisualBordered{
+										Width:         4,
+										OuterColor:    ui.ColorTransparent,
+										HasOuterColor: true,
+										InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3),
+										HasInnerColor: true,
+										Outline:       outline,
+									},
+									States: ui.StateNot(ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected),
+								}, {
+									// Background
+									Placement: ui.Maximized(),
+									Visual: ui.VisualFilled{
+										Outline: outline,
+									},
+									Background: ui.BackgroundColor{
+										Color: ui.ColorFromHex("#008080"),
+									},
+									States: ui.StateNot(ui.StateHover | ui.StatePressed),
+								}, {
+									// Background on hover
+									Placement: ui.Maximized(),
+									Visual: ui.VisualFilled{
+										Outline: outline,
+									},
+									Background: ui.BackgroundColor{
+										Color: ui.ColorFromHex("#008080").Lighten(0.1),
+									},
+									States: ui.StateAll(ui.StateHover),
+								}, {
+									// Background on press
+									Placement: ui.Maximized(),
+									Visual: ui.VisualFilled{
+										Outline: outline,
+									},
+									Background: ui.BackgroundColor{
+										Color: ui.ColorFromHex("#008080").Darken(0.1),
+									},
+									States: ui.StateAll(ui.StatePressed),
+								}, {
+									// Text content
+									Placement: ui.Maximized().Shrink(10),
+									Visual: &ui.VisualText{
+										Glyphs: simpleTextGlyphs("Press me", "warrior", 24, ui.ColorBlack),
+									},
+								}},
+							},
+						},
+					}
+
+					axe.UI.Set(e, userInterface)
+					axe.INPUT.Set(e, userInterface.GetInputEventsHandler())
+				},
+			}},
 		}},
 	})
 
@@ -131,4 +308,57 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func simpleTextGlyphs(text string, font string, size float32, color ui.Color) ui.GlyphBlocks {
+	gs := make([]ui.Glyph, 0, len(text))
+	for _, c := range text {
+		gs = append(gs, &ui.TextGlyph{
+			Text:  c,
+			Font:  font,
+			Size:  ui.Amount{Value: size},
+			Color: color,
+		})
+	}
+	gbs := ui.GlyphBlocks{
+		ClampLeft:         true,
+		ClampTop:          true,
+		VerticalAlignment: 0.5,
+		Blocks: []ui.GlyphBlock{{
+			HorizontalAlignment: 0.5,
+			Wrap:                ui.TextWrapNone,
+			Glyphs:              gs,
+		}},
+	}
+	return gbs
+}
+
+func newDraggable() *ui.Base {
+	var draggable *ui.Base
+
+	draggable = &ui.Base{
+		Placement: ui.Absolute(10, 200, 80, 80),
+		Draggable: true,
+		Events: ui.Events{
+			OnDrag: func(ev *ui.DragEvent) {
+				if ev.Type == ui.DragEventMove {
+					draggable.Placement = draggable.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y)
+				}
+			},
+		},
+		Layers: []ui.Layer{{
+			Visual: ui.VisualFilled{
+				Outline: ui.OutlineRectangle{},
+			},
+			Background: ui.BackgroundColor{
+				Color: ui.ColorBlack,
+			},
+		}, {
+			Visual: &ui.VisualText{
+				Glyphs: simpleTextGlyphs("drag me", "roboto", 14, ui.ColorWhite),
+			},
+		}},
+	}
+
+	return draggable
 }

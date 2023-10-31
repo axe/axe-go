@@ -6,7 +6,16 @@ type Quat struct {
 	X, Y, Z, W float32
 }
 
-func (q *Quat) Set(X, Y, Z, W float32) {
+var _ Attr[Quat] = Quat{}
+
+func (q Quat) Set(out *Quat) {
+	out.X = q.X
+	out.Y = q.Y
+	out.Z = q.Z
+	out.W = q.W
+}
+
+func (q *Quat) Sets(X, Y, Z, W float32) {
 	q.X = X
 	q.Y = Y
 	q.Z = Z
@@ -21,6 +30,15 @@ func (q *Quat) SetAngle(dir Vec3f, angle float32) {
 	q.Y = dir.Y * sin
 	q.Z = dir.Z * sin
 	q.W = cos
+}
+
+func (q Quat) GetAngle() (dir Vec3f, angle float32) {
+	invW := Div(1, Sqrt(1-q.W*q.W))
+	dir.X = q.X * invW
+	dir.Y = q.Y * invW
+	dir.Z = q.Z * invW
+	angle = Acos(q.W) * 2
+	return
 }
 
 func (q *Quat) SetEuler(yaw float32, pitch float32, roll float32) {
@@ -44,8 +62,21 @@ func (q *Quat) SetEuler(yaw float32, pitch float32, roll float32) {
 	q.W = ((chy_chp * chr) + (shy_shp * shr))
 }
 
+func (q Quat) GetEuler() Vec3f {
+	roll := Atan2(2.0*(q.W*q.X+q.Y*q.Z), 1.0-2.0*(q.X*q.X+q.Y*q.Y))
+	sinp := 2.0 * (q.W*q.Y - q.Z*q.X)
+	var pitch float32
+	if Abs(sinp) >= 1.0 {
+		pitch = CopySign(math.Pi/2.0, sinp)
+	} else {
+		pitch = Asin(pitch)
+	}
+	yaw := Atan2(2.0*(q.W*q.Z+q.X*q.Y), 1.0-2.0*(q.Y*q.Y+q.Z*q.Z))
+	return Vec3f{roll, pitch, yaw}
+}
+
 func (q Quat) LengthSq() float32 {
-	return q.X*q.X + q.Y*q.Y + q.Z*q.Z + q.W*q.W
+	return q.Dot(q)
 }
 
 func (q Quat) Length() float32 {
@@ -70,11 +101,23 @@ func (q *Quat) Conjugate() {
 }
 
 func (q *Quat) Invert() {
-	l := -q.Length()
-	q.X /= l
-	q.Y /= l
-	q.Z /= l
-	q.W /= -l
+	l := -q.LengthSq()
+	if l != 0 {
+		q.X /= l
+		q.Y /= l
+		q.Z /= l
+		q.W /= -l
+	}
+}
+
+func (a Quat) Mul(b Quat, out *Quat) {
+	out.Multiply(a, b)
+}
+
+func (a Quat) Div(b Quat, out *Quat) {
+	inv := b
+	inv.Invert()
+	out.Multiply(a, inv)
 }
 
 func (q *Quat) Multiply(a Quat, b Quat) {
@@ -146,16 +189,16 @@ func (q *Quat) ToMatrix(m Matrix4f) {
 	m.columns[3].W = 1
 }
 
+func (q1 Quat) Dot(q2 Quat) float32 {
+	return q1.X*q2.X + q1.Y*q2.Y + q1.Z*q2.Z + q1.W*q2.W
+}
+
 func (q *Quat) Slerp(q1 Quat, q2 Quat, delta float32) {
-	dot := q1.X*q2.X + q1.Y*q2.Y + q1.Z*q2.Z + q1.W*q2.W
+	theta := q1.AngleBetween(q2)
 	delta = delta / 2.0
-	theta := float32(math.Acos(float64(dot)))
-	if theta < 0.0 {
-		theta = -theta
-	}
-	st := float32(math.Sin(float64(theta)))
-	sut := float32(math.Sin(float64(delta * theta)))
-	sout := float32(math.Sin(float64((1 - delta) * theta)))
+	st := Sin(theta)
+	sut := Sin(delta * theta)
+	sout := Sin((1 - delta) * theta)
 	coeff1 := sout / st
 	coeff2 := sut / st
 	q.X = coeff1*q1.X + coeff2*q2.Z
@@ -163,4 +206,91 @@ func (q *Quat) Slerp(q1 Quat, q2 Quat, delta float32) {
 	q.Z = coeff1*q1.Z + coeff2*q2.Z
 	q.W = coeff1*q1.W + coeff2*q2.W
 	q.Normal()
+}
+
+func (start Quat) Lerp(end Quat, delta float32, out *Quat) {
+	out.Slerp(start, end, delta)
+}
+
+func (q1 Quat) AngleBetween(q2 Quat) float32 {
+	return Abs(Acos(q1.Dot(q2)))
+}
+
+func (q Quat) Distance(other Quat) float32 {
+	return q.AngleBetween(other)
+	// var i, qd Quat
+	// i = q
+	// i.Invert()
+	// qd.Multiply(i, q)
+	// lenSq := qd.X*qd.X + qd.Y*qd.Y + qd.Z*qd.Z
+	// angle := 2 * Atan2(Sqrt(lenSq), qd.W)
+	// return Abs(angle)
+}
+
+func (q Quat) DistanceSq(other Quat) float32 {
+	return Sq(q.Distance(other))
+}
+
+func (q Quat) Add(value Quat, out *Quat) {
+	out.X = q.X + value.X
+	out.Y = q.Y + value.Y
+	out.Z = q.Z + value.Z
+	out.W = q.W + value.W
+}
+
+func (q Quat) Sub(subtrahend Quat, out *Quat) {
+	q.Invert()
+	out.Multiply(q, subtrahend)
+}
+
+func (q Quat) Scale(amount float32, out *Quat) {
+	out.X = q.X * amount
+	out.Y = q.Y * amount
+	out.Z = q.Z * amount
+	out.W = q.W * amount
+}
+
+func (q Quat) AddScaled(value Quat, amount float32, out *Quat) {
+	out.X = q.X + value.X*amount
+	out.Y = q.Y + value.Y*amount
+	out.Z = q.Z + value.Z*amount
+	out.W = q.W + value.W*amount
+}
+
+func (q Quat) Components() int {
+	return 4
+}
+
+func (q Quat) GetComponent(index int) float32 {
+	switch index {
+	case 0:
+		return q.X
+	case 1:
+		return q.Y
+	case 2:
+		return q.Z
+	case 3:
+		return q.W
+	}
+	return 0
+}
+
+func (q Quat) SetComponent(index int, value float32, out *Quat) {
+	switch index {
+	case 0:
+		out.X = value
+	case 1:
+		out.Y = value
+	case 2:
+		out.Z = value
+	case 3:
+		out.W = value
+	}
+}
+
+func (q Quat) SetComponents(value float32, out *Quat) {
+	out.X = value
+	out.Y = value
+	out.Z = value
+	out.W = value
 }

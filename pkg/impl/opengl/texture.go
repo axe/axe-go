@@ -85,13 +85,31 @@ func (loader *TextureFormat) Activate(asset *asset.Asset) error {
 
 	gl.GetError()
 
+	var minFilter int32 = gl.LINEAR
+	var maxFilter int32 = gl.LINEAR
+	var wrapX int32 = gl.CLAMP_TO_EDGE
+	var wrapY int32 = gl.CLAMP_TO_EDGE
+	var generateMipMaps bool
+
+	if settings, ok := asset.Ref.Options.(axe.TextureSettings); ok {
+		if settings.MipMap != nil {
+			minFilter = mipMapFilters[*settings.MipMap][settings.Min]
+		} else {
+			minFilter = filters[settings.Min]
+		}
+		maxFilter = filters[settings.Max]
+		wrapX = wraps[settings.WrapX]
+		wrapY = wraps[settings.WrapY]
+		generateMipMaps = settings.MipMap != nil
+	}
+
 	gl.Enable(gl.TEXTURE_2D)
 	gl.GenTextures(1, &tex.id)
 	gl.BindTexture(gl.TEXTURE_2D, tex.id)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, maxFilter)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapX)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapY)
 	gl.TexImage2D(
 		gl.TEXTURE_2D,
 		0,
@@ -102,6 +120,9 @@ func (loader *TextureFormat) Activate(asset *asset.Asset) error {
 		gl.RGBA,
 		gl.UNSIGNED_BYTE,
 		gl.Ptr(tex.image.Pix))
+	if generateMipMaps {
+		gl.GenerateMipmap(gl.TEXTURE_2D)
+	}
 
 	errCode := gl.GetError()
 
@@ -114,6 +135,27 @@ func (loader *TextureFormat) Activate(asset *asset.Asset) error {
 	asset.ActivateStatus.Success()
 
 	return nil
+}
+
+var mipMapFilters = map[axe.TextureFilter]map[axe.TextureFilter]int32{
+	axe.TextureFilterLinear: {
+		axe.TextureFilterNearest: gl.NEAREST_MIPMAP_LINEAR,
+		axe.TextureFilterLinear:  gl.LINEAR_MIPMAP_LINEAR,
+	},
+	axe.TextureFilterNearest: {
+		axe.TextureFilterNearest: gl.NEAREST_MIPMAP_NEAREST,
+		axe.TextureFilterLinear:  gl.LINEAR_MIPMAP_NEAREST,
+	},
+}
+var filters = map[axe.TextureFilter]int32{
+	axe.TextureFilterLinear:  gl.LINEAR,
+	axe.TextureFilterNearest: gl.NEAREST,
+}
+var wraps = map[axe.TextureWrap]int32{
+	axe.TextureWrapClampToBorder: gl.CLAMP_TO_BORDER,
+	axe.TextureWrapClampToEdge:   gl.CLAMP_TO_EDGE,
+	axe.TextureWrapMirrorRepeat:  gl.MIRRORED_REPEAT,
+	axe.TextureWrapRepeat:        gl.REPEAT,
 }
 
 func (loader *TextureFormat) Deactivate(asset *asset.Asset) error {

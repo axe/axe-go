@@ -20,6 +20,7 @@ func (assets *AssetSystem) Init(game *Game) error {
 	assets.AddDefaults()
 	assets.AddFormat(&ObjFormat{})
 	assets.AddFormat(&MtlFormat{})
+	assets.AddFormat(&FontBitmapFormat{})
 
 	if len(game.Settings.Assets) > 0 {
 		assets.AddMany(game.Settings.Assets)

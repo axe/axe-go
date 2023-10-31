@@ -44,7 +44,7 @@ func (b Bounds[A]) Bounds(bounds *Bounds[A]) bool {
 }
 func (b Bounds[A]) Round(round *Round[A]) bool {
 	round.Radius = b.Max.Distance(b.Min)*0.5 + float32(b.Thickness)
-	round.Center.Interpolate(b.Min, b.Max, 0.5, &round.Center)
+	b.Min.Lerp(b.Max, 0.5, &round.Center)
 	return true
 }
 func (b Bounds[A]) CornerCount() int {

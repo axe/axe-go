@@ -603,9 +603,9 @@ func (p *Plane3d) Clip(line Line[Vec3d], side PlaneSign) *Line[Vec3d] {
 	}
 
 	if q == side || q == PlaneSignOn {
-		line.End.Interpolate(line.Start, line.End, u, &line.End)
+		line.Start.Lerp(line.End, u, &line.End)
 	} else {
-		line.Start.Interpolate(line.Start, line.End, u, &line.Start)
+		line.Start.Lerp(line.End, u, &line.Start)
 	}
 
 	return &line

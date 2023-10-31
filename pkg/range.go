@@ -9,7 +9,7 @@ type Range[A Attr[A]] struct {
 
 func (r Range[A]) At(delta float32) A {
 	var at A
-	at.Interpolate(r.Min, r.Max, delta, &at)
+	r.Min.Lerp(r.Max, delta, &at)
 	return at
 }
 

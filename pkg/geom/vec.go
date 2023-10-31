@@ -1,9 +1,9 @@
 package geom
 
 type Vec2f Vec2[float32]
-type Vec2i Vec2[int]
+type Vec2i Vec2[int32]
 type Vec3f Vec3[float32]
-type Vec3i Vec3[int]
+type Vec3i Vec3[int32]
 
 type Vec2[D comparable] struct {
 	X D

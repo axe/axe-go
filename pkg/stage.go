@@ -13,8 +13,19 @@ type StageWindow struct {
 	Name       string
 	Title      string
 	Placement  ui.Placement
-	Fullscreen bool
+	ClearColor ui.Color
+	Mode       WindowMode
+	Screen     int
 }
+
+type WindowMode int
+
+const (
+	WindowModeResizable WindowMode = iota
+	WindowModeFixed
+	WindowModeBorderless
+	WindowModeFullscreen
+)
 
 type StageManager struct {
 	Stages  map[string]*Stage
@@ -117,6 +128,16 @@ func (sm *StageManager) initStage(game *Game) {
 	if sm.Current == nil && sm.Next == nil && game.Settings.FirstStage != "" {
 		sm.Set(game.Settings.FirstStage)
 	}
+}
+
+func (sm *StageManager) GetStage(game *Game) *Stage {
+	if sm.Current != nil {
+		return sm.Current
+	}
+	if sm.Next != nil {
+		return sm.Next
+	}
+	return sm.Get(game.Settings.FirstStage)
 }
 
 func (sm *StageManager) Get(name string) *Stage {
@@ -274,4 +295,22 @@ func (stage *Stage) Update(game *Game) {
 	for i := range stage.Views3 {
 		stage.Views3[i].Update(game)
 	}
+}
+
+func (stage *Stage) GetScene2f(name string) *Scene2f {
+	for i := range stage.Scenes2 {
+		if stage.Scenes2[i].Name == name {
+			return &stage.Scenes2[i]
+		}
+	}
+	return nil
+}
+
+func (stage *Stage) GetScene3f(name string) *Scene3f {
+	for i := range stage.Scenes3 {
+		if stage.Scenes3[i].Name == name {
+			return &stage.Scenes3[i]
+		}
+	}
+	return nil
 }

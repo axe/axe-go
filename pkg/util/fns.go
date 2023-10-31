@@ -1,6 +1,9 @@
 package util
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+)
 
 func SliceRemoveAt[E any](slice []E, index int) []E {
 	return append(slice[:index], slice[index+1:]...)
@@ -45,8 +48,8 @@ func Copy(dst any, src any) {
 	d.Elem().Set(s.Elem())
 }
 
-func Assert(condition bool, message string) {
+func Assert(condition bool, messageFormat string, args ...any) {
 	if !condition {
-		panic(message)
+		panic(fmt.Sprintf(messageFormat, args...))
 	}
 }

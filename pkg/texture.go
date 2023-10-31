@@ -13,6 +13,32 @@ type Texture interface {
 	Height() int
 }
 
+type TextureFilter int
+
+const (
+	TextureFilterLinear TextureFilter = iota
+	TextureFilterNearest
+)
+
+func (tf TextureFilter) Ptr() *TextureFilter { return &tf }
+
+type TextureWrap int
+
+const (
+	TextureWrapRepeat TextureWrap = iota
+	TextureWrapClampToEdge
+	TextureWrapClampToBorder
+	TextureWrapMirrorRepeat
+)
+
+type TextureSettings struct {
+	Min    TextureFilter
+	Max    TextureFilter
+	MipMap *TextureFilter
+	WrapX  TextureWrap
+	WrapY  TextureWrap
+}
+
 type TextureCoord struct {
 	U float32
 	V float32
@@ -39,7 +65,7 @@ func NewTile(tex Texture) Tile {
 	}
 }
 
-func (t *Tile) Rect(x, y, w, h int) Tile {
+func (t *Tile) Rect(x, y, w, h int32) Tile {
 	tw := float32(t.Texture.Width())
 	th := float32(t.Texture.Height())
 
@@ -51,7 +77,7 @@ func (t *Tile) Rect(x, y, w, h int) Tile {
 	}
 }
 
-func (t *Tile) Rects(w, h int, pos []geom.Vec2i) Tiles {
+func (t *Tile) Rects(w, h int32, pos []geom.Vec2i) Tiles {
 	rects := make(Tiles, len(pos))
 	for i, p := range pos {
 		rects[i] = t.Rect(p.X, p.Y, w, h)
@@ -59,10 +85,10 @@ func (t *Tile) Rects(w, h int, pos []geom.Vec2i) Tiles {
 	return rects
 }
 
-func (t *Tile) RectsGrid(x, y, w, h, columns, rows int) Tiles {
+func (t *Tile) RectsGrid(x, y, w, h, columns, rows int32) Tiles {
 	grid := make(Tiles, 0, columns*rows)
-	for r := 0; r < rows; r++ {
-		for c := 0; c < columns; c++ {
+	for r := int32(0); r < rows; r++ {
+		for c := int32(0); c < columns; c++ {
 			grid = append(grid, t.Rect(x+c*w, y+r*h, w, h))
 		}
 	}

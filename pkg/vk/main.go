@@ -7,17 +7,19 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 	vk "github.com/vulkan-go/vulkan"
 )
+
+// Windows: env var GODEBUG=cgocheck=0
 
 func init() {
 	runtime.LockOSThread()
 }
 
 func main() {
-
 	win, err := newWindow(640, 480, "Hello World")
 	if err != nil {
 		panic(err)
@@ -71,19 +73,19 @@ type AxeDevice struct {
 	instance                    vk.Instance
 	instanceAvailableExtensions instanceExtensions
 	instanceEnabledExtensions   instanceExtensions
-	// debugMessenger              vk.DebugUtilsMessenger
-	physicalDevice           vk.PhysicalDevice
-	window                   *AxeWindow
-	commandPool              *vk.CommandPool
-	device                   vk.Device
-	deviceActualExtensions   deviceExtensions
-	surface                  *vk.Surface
-	graphicsQueue            vk.Queue
-	presentQueue             vk.Queue
-	validationLayers         layerExtensions
-	deviceEnabledExtensions  deviceExtensions
-	deviceRequiredExtensions deviceExtensions
-	enableValidationLayers   bool
+	debugMessenger              vk.DebugReportCallback
+	physicalDevice              vk.PhysicalDevice
+	window                      *AxeWindow
+	commandPool                 *vk.CommandPool
+	device                      vk.Device
+	deviceActualExtensions      deviceExtensions
+	surface                     vk.Surface
+	graphicsQueue               vk.Queue
+	presentQueue                vk.Queue
+	validationLayers            layerExtensions
+	deviceEnabledExtensions     deviceExtensions
+	deviceRequiredExtensions    deviceExtensions
+	enableValidationLayers      bool
 }
 
 type instanceExtensions struct {
@@ -109,6 +111,7 @@ func (ext *instanceExtensions) fromLayerName(layerName string) error {
 	}
 
 	ext.fromNames(MapSlice(extenstionProperties, func(ext vk.ExtensionProperties) string {
+		ext.Deref()
 		return strings.Trim(string(ext.ExtensionName[:]), "\x00")
 	}))
 	return nil
@@ -206,6 +209,7 @@ func (ext *deviceExtensions) fromDevice(physicalDevice vk.PhysicalDevice, layerN
 		return err
 	}
 	ext.fromNames(MapSlice(extensionProperties, func(source vk.ExtensionProperties) string {
+		source.Deref()
 		return strings.Trim(string(source.ExtensionName[:]), "\x00")
 	}))
 	return nil
@@ -222,20 +226,26 @@ func (ext deviceExtensions) getExtensions() []string { return deviceExtensions{}
 func newDevice(window *AxeWindow) (*AxeDevice, error) {
 	dev := new(AxeDevice)
 	dev.window = window
-	dev.validationLayers.Validation = true
+	// dev.validationLayers.Validation = true
 	dev.deviceRequiredExtensions.Swapchain = true
 	dev.deviceEnabledExtensions.Swapchain = true
 	dev.instanceEnabledExtensions.Surface = true
-	// dev.instanceEnabledExtensions.SurfaceCapabilities = true
+	dev.instanceEnabledExtensions.SurfaceCapabilities = true
 	dev.instanceEnabledExtensions.PhysicalDeviceProperties = true
 	dev.enableValidationLayers = true
 
-	err := dev.loadInstanceExtensions()
-	if err != nil {
-		return nil, err
+	vk.SetGetInstanceProcAddr(glfw.GetVulkanGetInstanceProcAddress())
+
+	if err := vk.Init(); err != nil {
+		panic(err)
 	}
 
-	fmt.Printf("%+v]\n", dev.instanceAvailableExtensions)
+	err := dev.loadInstanceExtensions()
+	if err != nil {
+		return nil, fmt.Errorf("newDevice: %u", err)
+	}
+
+	fmt.Printf("%+v\n", dev.instanceAvailableExtensions)
 
 	err = dev.createInstance()
 	if err != nil {
@@ -278,13 +288,14 @@ func (this *AxeDevice) destroy() {
 	}
 	vk.DestroyDevice(this.device, nil)
 	if this.enableValidationLayers {
+		vk.DestroyDebugReportCallback(this.instance, this.debugMessenger, nil)
 		// vk.ToDestroyDebugUtilsMessengerKHR(
 		// 	vk.GetInstanceProcAddr(this.instance, "DestroyDebugUtilsMessengerEXT"),
 		// )(this.instance, this.debugMessenger, nil)
 	}
 
 	if this.surface != nil {
-		vk.DestroySurface(this.instance, *this.surface, nil)
+		vk.DestroySurface(this.instance, this.surface, nil)
 		// vk.ToDestroySurfaceKHR(
 		// 	vk.GetInstanceProcAddr(this.instance, "vkDestroySurfaceKHR"),
 		// )(this.instance, this.surface, nil)
@@ -310,6 +321,7 @@ func (this *AxeDevice) createInstance() error {
 	}
 
 	appInfo := vk.ApplicationInfo{}
+	appInfo.SType = vk.StructureTypeApplicationInfo
 	appInfo.PApplicationName = "Axe App"
 	appInfo.ApplicationVersion = vk.MakeVersion(1, 0, 0)
 	appInfo.PEngineName = "Axe Game Engine"
@@ -317,16 +329,21 @@ func (this *AxeDevice) createInstance() error {
 	appInfo.ApiVersion = vk.MakeVersion(1, 1, 0)
 
 	createInfo := vk.InstanceCreateInfo{}
+	createInfo.SType = vk.StructureTypeInstanceCreateInfo
 	createInfo.PApplicationInfo = &appInfo
 
 	extensions := this.getRequiredExtensions()
-	createInfo.PpEnabledExtensionNames = extensions.getExtensions()
+	enabledExtensions := extensions.getExtensions()
+	createInfo.EnabledExtensionCount = uint32(len(enabledExtensions))
+	createInfo.PpEnabledExtensionNames = enabledExtensions
 	// createInfo.Flags = vk.InstanceCreateFlags(vk.ACCESS_COLOR_ATTACHMENT_READ_NONCOHERENT_BIT_EXT)
 
 	if this.enableValidationLayers {
-		// debugCreateInfo := vk.DebugUtilsMessengerCreateInfo{}
-		// createInfo.PpEnabledLayerNames = this.validationLayers.getExtensions()
+		validationExtensions := this.validationLayers.getExtensions()
+		createInfo.EnabledLayerCount = uint32(len(validationExtensions))
+		createInfo.PpEnabledLayerNames = validationExtensions
 
+		// debugCreateInfo := vk.DebugUtilsMessengerCreateInfo{}
 		// this.populateDebugMessengerCreateInfo(&debugCreateInfo)
 		// createInfo.PNext = &debugCreateInfo
 	}
@@ -335,7 +352,12 @@ func (this *AxeDevice) createInstance() error {
 		return errors.New("failed to create instance!")
 	}
 
-	err := this.hasGflwRequiredInstanceExtensions()
+	err := vk.InitInstance(this.instance)
+	if err != nil {
+		return err
+	}
+
+	err = this.hasGflwRequiredInstanceExtensions()
 	if err != nil {
 		return err
 	}
@@ -346,6 +368,17 @@ func (this *AxeDevice) setupDebugMessenger() error {
 	if !this.enableValidationLayers {
 		return nil
 	}
+
+	ret := vk.CreateDebugReportCallback(this.instance, &vk.DebugReportCallbackCreateInfo{
+		SType:       vk.StructureTypeDebugReportCallbackCreateInfo,
+		Flags:       vk.DebugReportFlags(vk.DebugReportErrorBit | vk.DebugReportWarningBit),
+		PfnCallback: dbgCallbackFunc,
+	}, nil, &this.debugMessenger)
+
+	if ret != vk.Success {
+		return errors.New("failed to set up debug messenger!")
+	}
+
 	// createInfo := vk.DebugUtilsMessengerCreateInfoEXT{}
 	// this.populateDebugMessengerCreateInfo(&createInfo)
 
@@ -358,11 +391,11 @@ func (this *AxeDevice) setupDebugMessenger() error {
 	return nil
 }
 func (this *AxeDevice) createSurface() error {
-	surface, err := this.window.createWindowSurface(this.instance)
+	surface, err := this.window.createWindowSurface(&this.instance)
 	if err != nil {
 		return err
 	}
-	this.surface = &surface
+	this.surface = surface
 	return nil
 }
 func (this *AxeDevice) pickPhysicalDevice() error {
@@ -401,6 +434,7 @@ func (this *AxeDevice) pickPhysicalDevice() error {
 	}
 
 	vk.GetPhysicalDeviceProperties(this.physicalDevice, &this.properties)
+	this.properties.Deref()
 
 	fmt.Printf("Physical device: %s\n", this.properties.DeviceName)
 
@@ -420,6 +454,7 @@ func (this *AxeDevice) createLogicalDevice() error {
 
 	for _, queueFamily := range uniqueQueueFamilies {
 		queueCreateInfo := vk.DeviceQueueCreateInfo{}
+		queueCreateInfo.SType = vk.StructureTypeDeviceQueueCreateInfo
 		queueCreateInfo.QueueFamilyIndex = queueFamily
 		queueCreateInfo.PQueuePriorities = []float32{1.0}
 		queueCreateInfos = append(queueCreateInfos, queueCreateInfo)
@@ -428,15 +463,22 @@ func (this *AxeDevice) createLogicalDevice() error {
 	deviceFeatures := vk.PhysicalDeviceFeatures{}
 	deviceFeatures.SamplerAnisotropy = 1
 
+	deviceExtensions := this.deviceEnabledExtensions.getExtensions()
+
 	createInfo := vk.DeviceCreateInfo{}
+	createInfo.SType = vk.StructureTypeDeviceCreateInfo
 	createInfo.PQueueCreateInfos = queueCreateInfos
 	createInfo.PEnabledFeatures = []vk.PhysicalDeviceFeatures{deviceFeatures}
-	createInfo.PpEnabledExtensionNames = this.deviceEnabledExtensions.getExtensions()
+	createInfo.EnabledExtensionCount = uint32(len(deviceExtensions))
+	createInfo.PpEnabledExtensionNames = deviceExtensions
 
 	// might not really be necessary anymore because device specific validation layers
 	// have been deprecated
 	if this.enableValidationLayers {
-		createInfo.PpEnabledLayerNames = this.validationLayers.getExtensions()
+		validationExtensions := this.validationLayers.getExtensions()
+
+		createInfo.EnabledLayerCount = uint32(len(validationExtensions))
+		createInfo.PpEnabledLayerNames = validationExtensions
 	}
 
 	if vk.CreateDevice(this.physicalDevice, &createInfo, nil, &this.device) != vk.Success {
@@ -444,6 +486,7 @@ func (this *AxeDevice) createLogicalDevice() error {
 	}
 
 	vk.GetDeviceQueue(this.device, indices.graphicsFamily, 0, &this.graphicsQueue)
+
 	vk.GetDeviceQueue(this.device, indices.presentFamily, 0, &this.presentQueue)
 
 	return nil
@@ -455,6 +498,7 @@ func (this *AxeDevice) createCommandPool() error {
 	}
 
 	poolInfo := vk.CommandPoolCreateInfo{}
+	poolInfo.SType = vk.StructureTypeCommandPoolCreateInfo
 	poolInfo.QueueFamilyIndex = queueFamilyIndices.graphicsFamily
 	poolInfo.Flags = vk.CommandPoolCreateFlags(vk.CommandPoolCreateTransientBit | vk.CommandPoolCreateResetCommandBufferBit)
 
@@ -489,6 +533,7 @@ func (this *AxeDevice) isDeviceSuitable(device vk.PhysicalDevice) (bool, error) 
 
 	supportedFeatures := vk.PhysicalDeviceFeatures{}
 	vk.GetPhysicalDeviceFeatures(device, &supportedFeatures)
+	supportedFeatures.Deref()
 
 	fmt.Printf("Supported features: %+v\n", supportedFeatures)
 
@@ -498,7 +543,7 @@ func (this *AxeDevice) getRequiredExtensions() instanceExtensions {
 	extensions := this.instanceEnabledExtensions
 	extensions.fromNames(this.window.window.GetRequiredInstanceExtensions())
 	if this.enableValidationLayers {
-		extensions.DebugUtils = true
+		extensions.DebugReport = true
 	}
 	return extensions
 }
@@ -524,12 +569,12 @@ func (this *AxeDevice) findQueueFamilies(device vk.PhysicalDevice) (QueueFamilyI
 		}
 		presentSupport := vk.Bool32(0)
 
-		result := vk.GetPhysicalDeviceSurfaceSupport(device, i, *this.surface, &presentSupport)
+		result := vk.GetPhysicalDeviceSurfaceSupport(device, i, this.surface, &presentSupport)
 		if result != vk.Success {
 			return indices, VkError{result, "vkGetPhysicalDeviceSurfaceSupport"}
 		}
 
-		if queueFamily.QueueCount > 0 && presentSupport == 1 {
+		if queueFamily.QueueCount > 0 && presentSupport.B() {
 			indices.presentFamily = i
 			indices.presentFamilyHasValue = true
 		}
@@ -584,7 +629,7 @@ func (this *AxeDevice) querySwapChainSupport(device vk.PhysicalDevice) (SwapChai
 	details := SwapChainSupportDetails{}
 
 	if this.instanceAvailableExtensions.PhysicalDeviceProperties && this.instanceAvailableExtensions.Surface {
-		result := vk.GetPhysicalDeviceSurfaceCapabilities(device, *this.surface, &details.capabilities)
+		result := vk.GetPhysicalDeviceSurfaceCapabilities(device, this.surface, &details.capabilities)
 		// result := vk.ToGetPhysicalDeviceSurfaceCapabilitiesKHR(
 		// 	vk.GetInstanceProcAddr(this.instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"),
 		// )(device, this.surface, &details.capabilities)
@@ -592,28 +637,31 @@ func (this *AxeDevice) querySwapChainSupport(device vk.PhysicalDevice) (SwapChai
 		if result != vk.Success {
 			return details, VkError{result, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"}
 		}
+		details.capabilities.Deref()
 
 		var err error
 
 		details.formats, err = GetSliceError(func(count *uint32, out []vk.SurfaceFormat) error {
 			return checkResult(
-				vk.GetPhysicalDeviceSurfaceFormats(device, *this.surface, count, out),
+				vk.GetPhysicalDeviceSurfaceFormats(device, this.surface, count, out),
 				"vkGetPhysicalDeviceSurfaceFormatsKHR",
 			)
 		})
 		if err != nil {
 			return details, err
 		}
+		DerefSlice(details.formats)
 
 		details.presentModes, err = GetSliceError(func(count *uint32, out []vk.PresentMode) error {
 			return checkResult(
-				vk.GetPhysicalDeviceSurfacePresentModes(device, *this.surface, count, out),
+				vk.GetPhysicalDeviceSurfacePresentModes(device, this.surface, count, out),
 				"vkGetPhysicalDeviceSurfacePresentModesKHR",
 			)
 		})
 		if err != nil {
 			return details, err
 		}
+		DerefSlice(details.presentModes)
 	}
 
 	return details, nil
@@ -625,9 +673,12 @@ func (this *AxeDevice) getSwapChainSupport() (SwapChainSupportDetails, error) {
 func (this *AxeDevice) findMemoryType(typeFilter uint32, properties vk.MemoryPropertyFlags) (uint32, error) {
 	memProperties := vk.PhysicalDeviceMemoryProperties{}
 	vk.GetPhysicalDeviceMemoryProperties(this.physicalDevice, &memProperties)
+	memProperties.Deref()
 	var i uint32
 	for i = 0; i < memProperties.MemoryTypeCount; i++ {
-		if (typeFilter&(1<<i)) != 0 && (uint32(memProperties.MemoryTypes[i].PropertyFlags)&uint32(properties)) == uint32(properties) {
+		memoryType := memProperties.MemoryTypes[i]
+		memoryType.Deref()
+		if (typeFilter&(1<<i)) != 0 && (uint32(memoryType.PropertyFlags)&uint32(properties)) == uint32(properties) {
 			return i, nil
 		}
 	}
@@ -640,6 +691,7 @@ func (this *AxeDevice) findSupportedFormat(candidates []vk.Format, tiling vk.Ima
 	for _, format := range candidates {
 		props := vk.FormatProperties{}
 		vk.GetPhysicalDeviceFormatProperties(this.physicalDevice, format, &props)
+		props.Deref()
 
 		if tiling == vk.ImageTilingLinear && (props.LinearTilingFeatures&features) == features {
 			return format, nil
@@ -653,6 +705,7 @@ func (this *AxeDevice) findSupportedFormat(candidates []vk.Format, tiling vk.Ima
 // Buffer Helper Functions
 func (this *AxeDevice) createBuffer(size vk.DeviceSize, usage vk.BufferUsageFlags, properties vk.MemoryPropertyFlags, buffer *vk.Buffer, bufferMemory *vk.DeviceMemory) error {
 	bufferInfo := vk.BufferCreateInfo{}
+	bufferInfo.SType = vk.StructureTypeBufferCreateInfo
 	bufferInfo.Size = size
 	bufferInfo.Usage = usage
 	bufferInfo.SharingMode = vk.SharingModeExclusive
@@ -663,8 +716,10 @@ func (this *AxeDevice) createBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 
 	memRequirements := vk.MemoryRequirements{}
 	vk.GetBufferMemoryRequirements(this.device, *buffer, &memRequirements)
+	memRequirements.Deref()
 
 	allocInfo := vk.MemoryAllocateInfo{}
+	allocInfo.SType = vk.StructureTypeMemoryAllocateInfo
 	allocInfo.AllocationSize = memRequirements.Size
 	allocInfo.MemoryTypeIndex, _ = this.findMemoryType(memRequirements.MemoryTypeBits, properties)
 
@@ -679,6 +734,7 @@ func (this *AxeDevice) createBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 }
 func (this *AxeDevice) beginSingleTimeCommands() (vk.CommandBuffer, error) {
 	allocInfo := vk.CommandBufferAllocateInfo{}
+	allocInfo.SType = vk.StructureTypeCommandBufferAllocateInfo
 	allocInfo.Level = vk.CommandBufferLevelPrimary
 	allocInfo.CommandPool = *this.commandPool
 	allocInfo.CommandBufferCount = 1
@@ -689,6 +745,7 @@ func (this *AxeDevice) beginSingleTimeCommands() (vk.CommandBuffer, error) {
 	}
 
 	beginInfo := vk.CommandBufferBeginInfo{}
+	beginInfo.SType = vk.StructureTypeCommandBufferBeginInfo
 	beginInfo.Flags = vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit)
 
 	if result := vk.BeginCommandBuffer(commandBuffer[0], &beginInfo); result != vk.Success {
@@ -769,8 +826,10 @@ func (this *AxeDevice) createImageWithInfo(imageInfo *vk.ImageCreateInfo, proper
 
 	memRequirements := vk.MemoryRequirements{}
 	vk.GetImageMemoryRequirements(this.device, *image, &memRequirements)
+	memRequirements.Deref()
 
 	allocInfo := vk.MemoryAllocateInfo{}
+	allocInfo.SType = vk.StructureTypeMemoryAllocateInfo
 	allocInfo.AllocationSize = memRequirements.Size
 	allocInfo.MemoryTypeIndex, _ = this.findMemoryType(memRequirements.MemoryTypeBits, properties)
 
@@ -852,10 +911,10 @@ func (this *AxeWindow) resetWindowResizedFlag() {
 func (this *AxeWindow) getGLFWwindow() *glfw.Window {
 	return this.window
 }
-func (this *AxeWindow) createWindowSurface(instance vk.Instance) (vk.Surface, error) {
+func (this *AxeWindow) createWindowSurface(instance *vk.Instance) (vk.Surface, error) {
 	surface, err := this.window.CreateWindowSurface(instance, nil)
 	if err != nil {
-		return nil, err
+		return vk.NullSurface, err
 	}
 	return vk.SurfaceFromPointer(surface), err
 }
@@ -927,7 +986,14 @@ func getMissingNames(actualValue any, expectedValue any) []string {
 			}
 		}
 	}
+	if len(missing) > 0 {
+		fmt.Printf("missing: %v, actual: %+v\n", missing, actual)
+	}
 	return missing
+}
+
+type HasDeref interface {
+	Deref()
 }
 
 func GetSlice[T any](getter func(*uint32, []T)) []T {
@@ -935,6 +1001,7 @@ func GetSlice[T any](getter func(*uint32, []T)) []T {
 	getter(&count, nil)
 	out := make([]T, count)
 	getter(&count, out)
+	DerefSlice(out)
 	return out
 }
 
@@ -946,7 +1013,17 @@ func GetSliceError[T any](getter func(*uint32, []T) error) ([]T, error) {
 	}
 	out := make([]T, count)
 	err = getter(&count, out)
+	DerefSlice(out)
 	return out, err
+}
+
+func DerefSlice[T any](slice []T) {
+	for i := range slice {
+		x := &slice[i]
+		if deref, ok := any(x).(HasDeref); ok {
+			deref.Deref()
+		}
+	}
 }
 
 func MapSlice[S any, D any](source []S, mapper func(source S) D) []D {
@@ -973,4 +1050,25 @@ var _ error = &VkError{}
 
 func (e VkError) Error() string {
 	return fmt.Sprintf("There was an error calling '%s', result: %v.", e.Func, e.Result)
+}
+
+func dbgCallbackFunc(flags vk.DebugReportFlags, objectType vk.DebugReportObjectType,
+	object uint64, location uint, messageCode int32, pLayerPrefix string,
+	pMessage string, pUserData unsafe.Pointer) vk.Bool32 {
+
+	switch {
+	case flags&vk.DebugReportFlags(vk.DebugReportInformationBit) != 0:
+		fmt.Printf("INFORMATION: [%s] Code %d : %s", pLayerPrefix, messageCode, pMessage)
+	case flags&vk.DebugReportFlags(vk.DebugReportWarningBit) != 0:
+		fmt.Printf("WARNING: [%s] Code %d : %s", pLayerPrefix, messageCode, pMessage)
+	case flags&vk.DebugReportFlags(vk.DebugReportPerformanceWarningBit) != 0:
+		fmt.Printf("PERFORMANCE WARNING: [%s] Code %d : %s", pLayerPrefix, messageCode, pMessage)
+	case flags&vk.DebugReportFlags(vk.DebugReportErrorBit) != 0:
+		fmt.Printf("ERROR: [%s] Code %d : %s", pLayerPrefix, messageCode, pMessage)
+	case flags&vk.DebugReportFlags(vk.DebugReportDebugBit) != 0:
+		fmt.Printf("DEBUG: [%s] Code %d : %s", pLayerPrefix, messageCode, pMessage)
+	default:
+		fmt.Printf("INFORMATION: [%s] Code %d : %s", pLayerPrefix, messageCode, pMessage)
+	}
+	return vk.Bool32(vk.False)
 }

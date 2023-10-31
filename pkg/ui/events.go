@@ -1,20 +1,49 @@
 package ui
 
-import "time"
+import (
+	"time"
+)
 
-type Coord struct {
-	X float32
-	Y float32
-}
-
-func (mp Coord) Equals(other Coord) bool {
-	return mp.X == other.X && mp.Y == other.Y
+type Events struct {
+	OnPointer func(ev *PointerEvent)
+	OnKey     func(ev *KeyEvent)
+	OnFocus   func(ev *ComponentEvent)
+	OnBlur    func(ev *ComponentEvent)
+	OnDrag    func(ev *DragEvent)
 }
 
 type Event struct {
 	Time    time.Time
 	Stop    bool
 	Capture bool
+	Cancel  bool
+}
+
+type DragEventType string
+
+const (
+	DragEventStart  DragEventType = "start"
+	DragEventMove   DragEventType = "move"
+	DragEventEnd    DragEventType = "end"
+	DragEventCancel DragEventType = "cancel"
+	DragEventOver   DragEventType = "over"
+	DragEventDrop   DragEventType = "drop"
+)
+
+type DragEvent struct {
+	Event
+	Point      Coord
+	Start      Coord
+	DeltaStart Coord
+	DeltaMove  Coord
+	Type       DragEventType
+	Dragging   Component
+}
+
+func (ev DragEvent) as(dragType DragEventType) *DragEvent {
+	ev.Event = Event{Capture: false}
+	ev.Type = dragType
+	return &ev
 }
 
 type PointerEventType string
@@ -36,18 +65,10 @@ type PointerEvent struct {
 	Type   PointerEventType
 }
 
-func (ev PointerEvent) OfType(eventType PointerEventType) PointerEvent {
-	return PointerEvent{
-		Type:   eventType,
-		Point:  ev.Point,
-		Button: ev.Button,
-		Amount: ev.Amount,
-		Event: Event{
-			Time:    ev.Time,
-			Stop:    false,
-			Capture: true,
-		},
-	}
+func (ev PointerEvent) as(eventType PointerEventType) PointerEvent {
+	ev.Event = Event{Capture: true}
+	ev.Type = eventType
+	return ev
 }
 
 type PointerButtons struct {
@@ -58,14 +79,14 @@ type PointerButtons struct {
 type KeyEventType string
 
 const (
-	KeyEventDown  PointerEventType = "down"
-	KeyEventUp    PointerEventType = "up"
-	KeyEventPress PointerEventType = "press"
+	KeyEventDown  KeyEventType = "down"
+	KeyEventUp    KeyEventType = "up"
+	KeyEventPress KeyEventType = "press"
 )
 
 type KeyEvent struct {
 	Event
-	Key  int
+	Key  string
 	Char rune
 	Type KeyEventType
 }

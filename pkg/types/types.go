@@ -1,256 +1,475 @@
 package types
 
 import (
-	"reflect"
-	"strings"
+	"fmt"
+
+	"github.com/axe/axe-go/pkg/util"
 )
 
-type Named interface {
-	GetName() string
+// Using
+// - create all your types with types.New("typeName")
+// - define all your types after creation with TypeInt.Define(...)
+// - at the beginning of game play create all the access you'll need to validate and ensure values that need to be set/get can be.
+
+// Features
+// - define your game types so your game data can be dynamically set/get
+// - this allows runtime access for animation, scripting, debugging, and editting purposes
+// - it's extenable allowing users to define their own types and add to existing types
+// - values can be a:
+//   - gettable/settable prop on a type
+//   - dynamic value on a type
+//   - dynamic value on a type that takes arguments
+//   - collection of values keyed by another type, ie. lists and maps
+// - convert an expression like the following to an accessible value:
+//   - "game.entities.player.head.position"
+//   - "game.entities.withFlag('bullets').expire"
+//   - "game.ui.pauseButton.disabled"
+// - the above expressions can be used in a scripting language, in a console prompt to inspect game state, or be stored in a animation file to point to what value it animates
+
+var (
+	typeIDs = NewIncrementor[uint16](0, 1)
+	types   = NewNameMap(getTypeName, 128, true, true)
+)
+
+func getTypeName(t *Type) string { return t.Name }
+
+// Returns all defined types.
+func Types() NameMap[*Type] {
+	return types
 }
 
-type NameMap[N Named] struct {
-	Values []N
-	Map    map[string]N
-}
-
-func NewNameMap[V Named]() NameMap[V] {
-	return NameMap[V]{
-		Values: make([]V, 0),
-		Map:    make(map[string]V, 0),
-	}
-}
-
-func (m *NameMap[V]) Add(value V) {
-	m.Values = append(m.Values, value)
-	m.Map[value.GetName()] = value
-}
-
-func (m *NameMap[V]) Remove(value V) {
-	delete(m.Map, value.GetName())
-}
-
-func (m NameMap[N]) Get(name string) N {
-	return m.Map[name]
-}
-
-var GameTypes = make(map[string]*GameType)
-var GameTypesReflect = make(map[reflect.Type]*GameType)
-
-type GameType struct {
-	Name     string
-	Zero     any
-	Props    NameMap[*GameTypeProperty]
-	Collects NameMap[*GameTypeCollection]
-}
-
-func New[S any](name string, zero S) *GameType {
-	t := &GameType{
-		Name:     name,
-		Zero:     zero,
-		Props:    NewNameMap[*GameTypeProperty](),
-		Collects: NewNameMap[*GameTypeCollection](),
-	}
-	GameTypes[name] = t
-	GameTypesReflect[reflect.TypeOf(zero)] = t
+// Creates a new type with the given name.
+func New(name string) *Type {
+	util.Assert(!types.Has(name), "type %s already created", name)
+	t := &Type{ID: typeIDs.Get(), Name: name}
+	types.Add(t)
 	return t
 }
 
-func (t GameType) Instance() any {
-	i := t.Zero
-	v := reflect.ValueOf(i)
-	if v.Kind() == reflect.Pointer {
-		i = v.Elem()
-	}
-	return i
+// A lightweight type with an ID (auto-incrementing starting at 0) and a name.
+// A definition can be attached to it later.
+type Type struct {
+	ID   uint16
+	Name string
+	Def  *TypeDef
 }
 
-func (t GameType) Get(name string) *GameTypeProperty {
-	return t.Props.Map[name]
+// Sets the definition for the type.
+func (t *Type) Define(def TypeDef) { t.Def = &def }
+
+// Returns a new instance of the given type.
+func (t Type) New() Value {
+	util.Assert(t.Def != nil && t.Def.Create != nil, "create is not defined for %s", t.Name)
+	return t.Def.Create()
 }
 
-func (t *GameType) Add(props []GameTypeProperty) *GameType {
+// Gets a prop with the given name.
+func (t Type) Prop(name string) *Prop {
+	p, _ := t.Def.Props.Get(name)
+	return p
+}
+
+// A value for a type (void* in C/C++)
+type Value = any
+
+// A value for a type but its explicitly an addressable value.
+type Ptr = any
+
+// A value with given defined type.
+type TypedValue struct {
+	Value Value
+	Type  *Type
+}
+
+// Something that can iterate or fetch values from a collection of key-values.
+type Collection interface {
+	// The number of items in the collection.
+	Len() int
+	// Gets the value of the item in the collection with the given key
+	Get(key Value) (Value, bool)
+	// Sets the value of the item in the collection with the given key
+	Set(key Value, value Value) bool
+	// Adds the value to the collection
+	Add(key Value, value Value) bool
+	// Returns true if a value exists in the collection with the given key
+	Contains(key Value) bool
+	// Returns an iterator for the collection.
+	Iterator() Iterator
+}
+
+// Iterates over values and keys.
+type Iterator interface {
+	// Returns true if there is a next key & value
+	HasNext() bool
+	// Returns the next key and value
+	Next() (value Value, key Value)
+	// Removes the last key and value returned by Next and returns true.
+	// If they cannot be removed or Next() was never called then false is returned.
+	Remove() bool
+	// Sets the value for the last key returned by Next and returns true.
+	// If it cannot be set or Next() was never called then false is returned.
+	Set(value Value) bool
+	// Resets the iterator to the beginning of the key-values.
+	Reset()
+}
+
+// A definition for a type which holds key-values
+type CollectionDef struct {
+	// The key type.
+	Key *Type
+	// The value type.
+	Value *Type
+	// Returns a collection given a value.
+	Collect func(value Value) Collection
+}
+
+// A definition for a type.
+type TypeDef struct {
+	// Creates a value of this type if possible.
+	Create func() Value
+	// If the type supports it this value is convertible to a string.
+	ToString func(Value) string
+	// If the type supports it this value is convertible from a string.
+	FromString func(x string) (Value, error)
+	// The properties on this type.
+	Props NameMap[*Prop]
+	// A definition if this type holds a collection of key-values.
+	Collection *CollectionDef
+	// Metadata on the Type
+	Meta map[Meta]Value
+}
+
+var typeMetaNames = make(map[Meta]string)
+
+// Metadata stored on a type/prop
+type Meta int
+
+func (m Meta) GetName() string { return typeMetaNames[m] }
+func (m Meta) String() string  { return typeMetaNames[m] }
+
+// Creates a new Meta with the given name.
+func NewMeta(name string) Meta {
+	key := Meta(len(typeMetaNames))
+	typeMetaNames[key] = name
+	return key
+}
+
+// A property on a type
+type Prop struct {
+	// The name of the property
+	Name string
+	// The type of the prop
+	Type *Type
+	// A function to return a copy of a prop value on a source value.
+	Get GetArgsFn
+	// A function to return a pointer to a prop value from a source value.
+	Ref RefFn
+	// A function to set a prop value on a source value.
+	Set SetFn
+	// A virtual prop is one that can be get or set but should be transferred.
+	Virtual bool
+	// The default value for a property. Why is this here?
+	Default any
+	// Metadata on the Prop
+	Meta map[Meta]Value
+}
+
+func getPropName(p *Prop) string { return p.Name }
+
+func (p Prop) GetName() string  { return p.Name }
+func (p Prop) IsReadOnly() bool { return p.Set == nil }
+
+// Returns a NameMap given a list of props.
+func Props(props []Prop) NameMap[*Prop] {
+	m := NewNameMap(getPropName, len(props), true, true)
 	for i := range props {
-		t.Props.Add(&props[i])
+		m.Set(&props[i])
 	}
-	return t
+	return m
 }
 
-func (t *GameType) Access(path []string) *GameTypeAccess {
-	props := make([]*GameTypeProperty, 0)
-	cache := make([]any, 0)
+// A get function that returns a copy of a value.
+type GetFn = func(source Value) Value
+
+// A get function that can accept args. Source is
+type GetArgsFn = func(source Value, args []Value) Value
+
+// A ref function. Source is always a ptr and so is the returned value.
+type RefFn = func(source Value) Value
+
+// A set function. Source is always a ptr and value is not.
+type SetFn = func(source Value, value Value) bool
+
+// A path node represents a path starting with a base value
+// and ending with a desired value.
+type PathNode struct {
+	Token string
+	Key   Value
+	Args  []Value
+}
+
+func (n PathNode) toAccessNode(t *Type) (node *AccessNode, err error) {
+	if n.Token != "" {
+		prop := t.Prop(n.Token)
+		if prop != nil {
+			node = accessNodeForProp(prop, n.Args)
+			return
+		}
+		if t.Def.Collection != nil {
+			key := n.Key
+			keyType := t.Def.Collection.Key
+			if key == nil && keyType.Def.FromString != nil {
+				key, err = keyType.Def.FromString(n.Token)
+				if err != nil {
+					return
+				}
+			}
+			if key != nil {
+				node = accessNodeForKey(key, t.Def.Collection)
+				return
+			}
+		}
+	} else if n.Key != nil && t.Def.Collection != nil {
+		node = accessNodeForKey(n.Key, t.Def.Collection)
+		return
+	}
+	err = fmt.Errorf("%s not found on type %s", n.Token, t.Name)
+	return
+}
+func accessNodeForProp(prop *Prop, args []Value) *AccessNode {
+	node := &AccessNode{
+		Prop: prop,
+		Type: prop.Type,
+		Args: args,
+		Ref:  prop.Ref,
+		Set:  prop.Set,
+	}
+	if prop.Get != nil {
+		node.Get = func(source Value) Value {
+			return prop.Get(source, args)
+		}
+	}
+	return node
+}
+func accessNodeForKey(key Value, def *CollectionDef) *AccessNode {
+	return &AccessNode{
+		Key:  key,
+		Type: def.Value,
+		Get: func(source Value) Value {
+			v, _ := def.Collect(source).Get(key)
+			return v
+		},
+		Set: func(source, value Value) bool {
+			return def.Collect(source).Set(key, value)
+		},
+	}
+}
+
+// Creates a new simple path from a stream of tokens.
+func NewPathFromTokens(tokens []string) []PathNode {
+	nodes := make([]PathNode, len(tokens))
+	for i, token := range tokens {
+		nodes[i].Token = token
+	}
+	return nodes
+}
+
+// Starting with a type and path of props/keys return something
+// that will allow us to set & get a value.
+func (t *Type) Access(path []PathNode) (Access, error) {
+	nodes := make([]AccessNode, 0, len(path))
+	cache := make([]Value, 0, len(path))
+	cacheRef := make([]bool, len(path))
 
 	currentType := t
 	canRef := true
-	canCopy := true
+	canGet := true
 	canSet := true
 
-	for _, node := range path {
-		prop := currentType.Props.Get(node)
-		if prop == nil || prop.Type == nil {
-			return nil
+	for _, pathNode := range path {
+		node, err := pathNode.toAccessNode(currentType)
+		if err != nil || node == nil || node.Type == nil {
+			if err == nil {
+				err = fmt.Errorf("%s could not be converted to an access node", pathNode.Token)
+			}
+			return Access{}, err
 		}
-		props = append(props, prop)
-		currentType = prop.Type
-		if prop.Ref == nil {
+		nodes = append(nodes, *node)
+		currentType = node.Type
+		if node.Ref == nil {
 			canRef = false
 		}
-		if prop.Ref == nil && prop.Copy == nil {
-			canCopy = false
+		if node.Ref == nil && node.Get == nil {
+			canGet = false
 		}
-		if prop.Ref == nil && prop.Set == nil {
+		if node.Ref == nil && node.Set == nil {
 			canSet = false
 		}
 	}
 
-	if !canRef && !canSet && !canCopy {
-		return nil
+	if !canRef && !canSet && !canGet {
+		return Access{}, fmt.Errorf("its not possible to get, set, or ref the given path")
 	}
 
 	if !canRef {
-		for _, p := range props {
-			cache = append(cache, p.Type.Instance())
+		for _, p := range nodes {
+			cache = append(cache, p.Type.New())
 		}
 	}
 
-	return &GameTypeAccess{
-		Base:    t,
-		Path:    path,
-		Props:   props,
-		Cache:   cache,
-		CanRef:  canRef,
-		CanCopy: canCopy,
-		CanSet:  canSet,
+	return Access{
+		Base:     t,
+		Path:     path,
+		Nodes:    nodes,
+		Cache:    cache,
+		CacheRef: cacheRef,
+		CanRef:   canRef,
+		CanGet:   canGet,
+		CanSet:   canSet,
+	}, nil
+}
+
+// Access to value down a path starting from a given type.
+type Access struct {
+	Base     *Type
+	Path     []PathNode
+	Nodes    []AccessNode
+	Cache    []Value
+	CacheRef []bool
+	CanSet   bool
+	CanGet   bool
+	CanRef   bool
+}
+
+// A node along an access path with the necessary values.
+type AccessNode struct {
+	Prop *Prop
+	Key  Value
+	Type *Type
+	Args []Value
+	Get  GetFn
+	Ref  RefFn
+	Set  SetFn
+}
+
+// The last node in the access path. If there is no path then nil
+// is returned.
+func (a Access) Last() *AccessNode {
+	i := len(a.Nodes) - 1
+	if i == -1 {
+		return nil
 	}
+	return &a.Nodes[i]
 }
 
-type GameTypeAccess struct {
-	Base    *GameType
-	Path    []string
-	Props   []*GameTypeProperty
-	Cache   []any
-	CanSet  bool
-	CanCopy bool
-	CanRef  bool
+// The return type for the access.
+func (a Access) Type() *Type {
+	last := a.Last()
+	if last != nil {
+		return last.Type
+	}
+	return a.Base
 }
 
-func (a GameTypeAccess) Last() *GameTypeProperty {
-	return a.Props[len(a.Props)-1]
-}
-
-func (a GameTypeAccess) Type() *GameType {
-	return a.Last().Type
-}
-
-func (a GameTypeAccess) Copy(source any) any {
-	if !a.CanCopy {
+// Gets a copy of a value in the access path from the source.
+func (a Access) Get(source Value) Value {
+	if !a.CanGet {
 		panic("Accessor cannot copy requested value")
 	}
 	currentValue := source
-
 	last := len(a.Path) - 1
-	for i, p := range a.Props {
-		if p.Ref != nil && i != last {
-			currentValue = p.Ref(currentValue)
+	for i, n := range a.Nodes {
+		if n.Ref != nil && i != last {
+			currentValue = n.Ref(currentValue)
 		} else {
-			currentValue = p.Copy(currentValue)
+			currentValue = n.Get(currentValue)
 		}
 	}
 
 	return currentValue
 }
 
-func (a GameTypeAccess) Ref(source any) any {
+// Gets a reference to a value in the access path from the source.
+// A reference points to an addressable value meaning changing
+// the value directly is possible.
+func (a Access) Ref(source Value) Value {
 	if !a.CanRef {
 		panic("Accessor cannot ref requested value")
 	}
 	currentValue := source
-
-	for _, p := range a.Props {
-		currentValue = p.Ref(currentValue)
+	for _, n := range a.Nodes {
+		currentValue = n.Ref(currentValue)
 	}
 
 	return currentValue
 }
 
-func (a GameTypeAccess) Set(source any, value any) bool {
+// Sets a value to a given source in the access path.
+func (a Access) Set(source Ptr, value Value) bool {
 	if !a.CanSet {
 		panic("Accessor cannot set requested value")
 	}
 
-	if a.CanRef {
-		ref := a.Ref(source)
-		return copy(value, ref)
-	} else {
-		currentValue := source
+	isRef := true
+	currentValue := source
+	last := len(a.Nodes) - 1
+	for i := 0; i <= last; i++ {
+		a.Cache[i] = currentValue
+		a.CacheRef[i] = isRef
 
-		// last := len(a.Path) - 1
-		for _, p := range a.Props {
-			currentValue = p.Ref(currentValue)
+		if i == last {
+			break
+		}
+		n := a.Nodes[i]
+		if n.Ref != nil && isRef {
+			currentValue = n.Ref(currentValue)
+		} else {
+			isRef = false
+			currentValue = n.Get(currentValue)
+		}
+		if currentValue == nil {
+			return false
 		}
 	}
 
-	return false
+	if isRef {
+		a.Nodes[last].Set(a.Cache[last], value)
+	} else {
+		prev := value
+		for i := last; i >= 0; i-- {
+			a.Nodes[i].Set(a.Cache[i], prev)
+			if a.CacheRef[i] {
+				break
+			}
+			prev = a.Cache[i]
+		}
+	}
+
+	return true
 }
 
-type GameObject struct {
+/*
+type Object struct {
 	Value any
-	Type  *GameType
+	Type  *Type
 	Tags  []string
 	Props map[GameObjectPath]*GameObjectProperty
 }
 
 type GameObjectProperty struct {
-	Prop   *GameTypeProperty
+	Prop   *Prop
 	Cached any
 	Stale  bool
 	Props  map[string]*GameObjectProperty
 }
 
 type GameObjectAccess struct {
-	Access GameTypeAccess
-}
-
-type GameTypeMeta int
-
-var typeMetaNames = make(map[GameTypeMeta]string)
-
-func (m GameTypeMeta) GetName() string {
-	return typeMetaNames[m]
-}
-
-func (m GameTypeMeta) String() string {
-	return typeMetaNames[m]
-}
-
-func NewMeta(name string) GameTypeMeta {
-	key := GameTypeMeta(len(typeMetaNames))
-	typeMetaNames[key] = name
-	return key
-}
-
-type GameTypeProperty struct {
-	Name    string
-	Type    *GameType
-	Copy    func(source any) any
-	Ref     func(source any) any
-	Set     func(source any, value any)
-	Virtual bool
-	Default any
-	Meta    map[GameTypeMeta]any
-}
-
-func (p GameTypeProperty) GetName() string {
-	return p.Name
-}
-
-func (p GameTypeProperty) IsReadOnly() bool {
-	return p.Set == nil
+	Access Access
 }
 
 type GameTypeCollection struct {
 	Name     string
-	Type     *GameType
+	Type     *TypeDef
 	Iterator func(source any) GameObjectIterator
 }
 
@@ -261,7 +480,7 @@ func (c GameTypeCollection) GetName() string {
 type GameObjectIterator interface {
 	Len() int
 	HasNext() bool
-	Next() (value any, key any)
+	Next() (value Value, key Value)
 	Remove()
 	Reset()
 }
@@ -396,3 +615,4 @@ func GetPath(props []string) GameObjectPath {
 func (p GameObjectPath) Props() []string {
 	return paths[p]
 }
+*/

@@ -3,8 +3,8 @@ package opengl
 import (
 	axe "github.com/axe/axe-go/pkg"
 	"github.com/axe/axe-go/pkg/core"
-	"github.com/axe/axe-go/pkg/ecs"
 	"github.com/axe/axe-go/pkg/geom"
+	"github.com/axe/axe-go/pkg/ui"
 	"github.com/go-gl/gl/v2.1/gl"
 )
 
@@ -42,9 +42,10 @@ func (gr *graphicsSystem) Init(game *axe.Game) error {
 	gl.Enable(gl.DEPTH_TEST) // view dependent
 	gl.Enable(gl.LIGHTING)   // view dependent
 
-	gl.ClearColor(0.5, 0.5, 0.5, 0.0) // system dependent
-	gl.ClearDepth(1)                  // system dependent
-	gl.DepthFunc(gl.LEQUAL)           // view dependent
+	clear := gr.window.clear
+	gl.ClearColor(clear.R, clear.G, clear.B, clear.A) // system dependent
+	gl.ClearDepth(1)                                  // system dependent
+	gl.DepthFunc(gl.LEQUAL)                           // view dependent
 
 	// ambient := []float32{0.5, 0.5, 0.5, 1}
 	// diffuse := []float32{1, 1, 1, 1}
@@ -55,36 +56,35 @@ func (gr *graphicsSystem) Init(game *axe.Game) error {
 	// gl.Enable(gl.LIGHT0)                                  // view dependent
 
 	gr.resize(gr.window.size.X, gr.window.size.Y) // view dependent
-	gl.MatrixMode(gl.MODELVIEW)                   // view dependent
-	gl.LoadIdentity()                             // view dependent
-
-	// asset := game.Assets.Add(axe.AssetRef{
-	// 	URI: "./square.png",
-	// })
-	// err = asset.Activate()
-	// if err != nil {
-	// 	return err
-	// }
-	// gr.texture = asset.Data.(*texture)
 
 	return nil
 }
-func (gr *graphicsSystem) resize(width int, height int) {
+
+func (gr *graphicsSystem) resize(width int32, height int32) {
 	// gl.Viewport(0, 0, int32(width), int32(height))
 
 	// 3d
-	gl.MatrixMode(gl.PROJECTION)
-	gl.LoadIdentity()
-	f := float64(width)/float64(height) - 1
-	gl.Frustum(-1-f, 1+f, -1, 1, 1.0, 10.0)
+	// gl.MatrixMode(gl.PROJECTION)
+	// gl.LoadIdentity()
+	// f := float64(width)/float64(height) - 1
+	// gl.Frustum(-1-f, 1+f, -1, 1, 1.0, 10.0)
 
 	// 2d
 	// gl.MatrixMode(gl.PROJECTION)
 	// gl.LoadIdentity()
 	// gl.Ortho(0, float64(w), float64(h), 0, 0, 1)
 }
+
 func (gr *graphicsSystem) Update(game *axe.Game) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT) // system dependent (potentially)
+
+	defer gr.window.window.SwapBuffers()
+
+	current := game.Stages.Current
+
+	if current == nil {
+		return
+	}
 
 	/**
 	 * get current stage
@@ -103,15 +103,64 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 	 * for each renderable in a vertex buffer that hasn't been used in X frames, offload it
 	 */
 
-	if !ecs.HasActiveWorld() {
-		// fmt.Printf("no active world: %v\n", time.Now().Sub(game.State.StartTime))
-		gr.window.window.SwapBuffers()
-		return
+	for _, view3 := range current.Views3 {
+		gr.renderView3(view3, game)
 	}
 
-	gl.MatrixMode(gl.MODELVIEW) // view dependent
-	gl.LoadIdentity()           // view dependent
+	for _, view2 := range current.Views2 {
+		gr.renderView2(view2, game)
+	}
+}
 
+func (gr *graphicsSystem) Destroy() {
+	gr.offs.Off()
+}
+
+func (gr *graphicsSystem) renderView2(view axe.View2f, game *axe.Game) {
+	scene := view.Scene()
+	if scene == nil {
+		return
+	}
+	scene.World.Activate()
+
+	initView2(view, game)
+	renderUserInterfaces(view, game)
+}
+
+func (gr *graphicsSystem) renderView3(view axe.View3f, game *axe.Game) {
+	scene := view.Scene()
+	if scene == nil {
+		return
+	}
+	scene.World.Activate()
+
+	initView3(view, game)
+	renderLights()
+	renderMeshes(game)
+}
+
+func initView3(view axe.View3f, game *axe.Game) {
+	winSize := game.Windows.MainWindow().Size()
+	bounds := view.Placement.GetBoundsi(float32(winSize.X), float32(winSize.Y))
+	width := int32(bounds.Width())
+	height := int32(bounds.Height())
+
+	gl.MatrixMode(gl.PROJECTION)
+	gl.LoadIdentity()
+	f := float64(width)/float64(height) - 1
+	gl.Frustum(-1-f, 1+f, -1, 1, 1.0, 10.0)
+
+	if view.Placement.IsMaximized() {
+		gl.Viewport(0, 0, width, height)
+	} else {
+		gl.Viewport(int32(bounds.Min.X), int32(winSize.Y-bounds.Max.Y), int32(width), int32(height))
+	}
+
+	gl.MatrixMode(gl.MODELVIEW)
+	gl.LoadIdentity()
+}
+
+func renderLights() {
 	lights := axe.LIGHT.Iterable().Iterator()
 	lightIndex := uint32(0)
 	for lights.HasNext() {
@@ -131,7 +180,24 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 	if lightIndex == 0 {
 		gl.Disable(gl.LIGHTING)
 	}
+}
 
+func applyTransform3(transform *axe.Transform[axe.Vec4[float32]]) {
+	if transform != nil {
+		pos := transform.GetPosition()
+		rot := transform.GetRotation()
+		scl := transform.GetScale()
+
+		gl.LoadIdentity()
+		gl.Translatef(pos.X, pos.Y, pos.Z)
+		gl.Rotatef(rot.X, 1, 0, 0)
+		gl.Rotatef(rot.Y, 0, 1, 0)
+		gl.Rotatef(rot.Z, 0, 0, 1)
+		gl.Scalef(scl.X, scl.Y, scl.Z)
+	}
+}
+
+func renderMeshes(game *axe.Game) {
 	meshes := axe.MESH.Iterable().Iterator()
 	for meshes.HasNext() {
 		entityMesh := meshes.Next()
@@ -149,20 +215,10 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 		}
 		meshMaterials := meshMaterialsAsset.Data.(axe.Materials)
 
-		transform := axe.TRANSFORM3.Get(entityMesh.ID.Entity())
-		if transform != nil {
-			pos := transform.GetPosition()
-			rot := transform.GetRotation()
-			scl := transform.GetScale()
+		applyTransform3(axe.TRANSFORM3.Get(entityMesh.ID.Entity()))
 
-			gl.LoadIdentity()
-			gl.Translatef(pos.X, pos.Y, pos.Z)
-			gl.Rotatef(rot.X, 1, 0, 0)
-			gl.Rotatef(rot.Y, 0, 1, 0)
-			gl.Rotatef(rot.Z, 0, 0, 1)
-			gl.Scalef(scl.X, scl.Y, scl.Z)
-		}
-
+		gl.Enable(gl.TEXTURE_2D)
+		gl.Enable(gl.LIGHTING)
 		for _, group := range meshData.Groups {
 			if material, ok := meshMaterials[group.Material]; ok {
 				textureAsset := game.Assets.GetEither(material.Diffuse.Texture)
@@ -192,18 +248,112 @@ func (gr *graphicsSystem) Update(game *axe.Game) {
 
 		}
 	}
-
-	gr.window.window.SwapBuffers() // system dependent
 }
 
-func (gr *graphicsSystem) Destroy() {
-	gr.offs.Off()
+func placementWindowBounds(placement ui.Placement, game *axe.Game) ui.Bounds {
+	winSize := game.Windows.MainWindow().Size()
+	bounds := placement.GetBounds(float32(winSize.X), float32(winSize.Y))
+	return bounds
 }
 
-func (gr *graphicsSystem) renderView2(view axe.View2f, game *axe.Game) {
+func initView2(view axe.View2f, game *axe.Game) {
+	winSize := game.Windows.MainWindow().Size()
+	bounds := view.Placement.GetBoundsi(float32(winSize.X), float32(winSize.Y))
+	width := int32(bounds.Width())
+	height := int32(bounds.Height())
 
+	gl.MatrixMode(gl.PROJECTION)
+	gl.LoadIdentity()
+	gl.Ortho(0, float64(width), float64(height), 0, 0, 1)
+
+	if view.Placement.IsMaximized() {
+		gl.Viewport(0, 0, width, height)
+	} else {
+		gl.Viewport(int32(bounds.Min.X), int32(winSize.Y-bounds.Max.Y), int32(width), int32(height))
+	}
+	gl.MatrixMode(gl.MODELVIEW)
+	gl.LoadIdentity()
 }
 
-func (gr *graphicsSystem) renderView3(view axe.View2f, game *axe.Game) {
+var vb = ui.NewVertexBuffer(1024)
 
+// var echo bool
+
+func renderUserInterfaces(view axe.View2f, game *axe.Game) {
+	bounds := placementWindowBounds(view.Placement, game)
+
+	uis := axe.UI.Iterable().Iterator()
+	for uis.HasNext() {
+		u := uis.Next().Data
+
+		vb.Clear()
+		u.Root.Place(bounds)
+		u.Root.Render(vb)
+
+		// if !echo {
+		// 	js, _ := json.MarshalIndent(vb, "", "  ")
+		// 	fmt.Printf("BOUNDS: %+v\nVB:\n%s\n", bounds, js)
+		// 	echo = true
+		// }
+
+		if vb.Pos() > 0 {
+			gl.Enable(gl.BLEND)
+			gl.Disable(gl.LIGHTING)
+			gl.Disable(gl.TEXTURE_2D)
+			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+			// fmt.Printf("VB: %+v\n", vb)
+
+			began := false
+			lastTexture := ""
+			for _, i := range vb.Indices {
+				v := vb.Data[i]
+				if v.Coord.Texture != lastTexture {
+					if began {
+						gl.End()
+						began = false
+					}
+					if v.Coord.Texture == "" {
+						gl.Disable(gl.TEXTURE_2D)
+					} else {
+						textureAsset := game.Assets.GetEither(v.Coord.Texture)
+						if textureAsset == nil {
+							break
+						}
+						texture := textureAsset.Data.(*texture)
+						gl.Enable(gl.TEXTURE_2D)
+						gl.BindTexture(gl.TEXTURE_2D, texture.id)
+					}
+					lastTexture = v.Coord.Texture
+				}
+				if !began {
+					gl.Begin(gl.TRIANGLES)
+					began = true
+				}
+				if v.HasColor {
+					gl.Color4f(v.Color.R, v.Color.G, v.Color.B, v.Color.A)
+				}
+				if v.HasCoord {
+					gl.TexCoord2f(v.Coord.X, v.Coord.Y)
+				}
+				gl.Vertex2f(v.X, v.Y)
+			}
+			if began {
+				gl.End()
+			}
+
+			gl.Disable(gl.BLEND)
+		}
+	}
+}
+
+func applyTransform2(transform axe.Trans2d) {
+	pos := transform.Position
+	rot := transform.Rotation
+	scl := transform.Scale
+
+	gl.LoadIdentity()
+	gl.Translatef(pos.X, pos.Y, 0)
+	gl.Rotatef(rot.X, 0, 0, 1)
+	gl.Scalef(scl.X, scl.Y, 0)
 }

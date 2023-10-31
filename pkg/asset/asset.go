@@ -18,6 +18,7 @@ const (
 	TypeModel          Type = "model"
 	TypeMaterials      Type = "materials"
 	TypeMaterial       Type = "material"
+	TypeFontBitmap     Type = "font-bitmap"
 )
 
 type Format interface {
@@ -42,9 +43,10 @@ type Source interface {
 }
 
 type Ref struct {
-	Name string
-	URI  string
-	Type Type
+	Name    string
+	URI     string
+	Type    Type
+	Options any
 }
 
 func (ref Ref) UniqueName() string {

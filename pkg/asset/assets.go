@@ -101,8 +101,6 @@ func (assets *Assets) AddDefaults() {
 
 	assets.AddFormat(&XmlGenericAssetFormat{})
 	assets.AddFormat(&JsonGenericAssetFormat{})
-	// assets.AddFormat(&ObjFormat{})
-	// assets.AddFormat(&MtlFormat{})
 }
 
 func (assets *Assets) Destroy() {

@@ -11,8 +11,8 @@ type Vec2d = Vec2[float32]
 type Vec2f = Vec2[float32]
 type Vec2i = Vec2[int]
 
-var _ Attr[Vec2f] = &Vec2f{}
-var _ SpaceCoord = &Vec2f{}
+var _ Attr[Vec2f] = Vec2f{}
+var _ SpaceCoord = Vec2f{}
 
 func (v Vec2[D]) To2d() (x, y float32) {
 	return float32(v.X), float32(v.Y)
@@ -90,7 +90,7 @@ func (v Vec2[D]) Div(factor Vec2[D], out *Vec2[D]) {
 	out.X = Div(v.X, factor.X)
 	out.Y = Div(v.Y, factor.Y)
 }
-func (v Vec2[D]) Interpolate(start Vec2[D], end Vec2[D], delta float32, out *Vec2[D]) {
+func (start Vec2[D]) Lerp(end Vec2[D], delta float32, out *Vec2[D]) {
 	out.X = D(float32(end.X-start.X)*delta) + start.X
 	out.Y = D(float32(end.Y-start.Y)*delta) + start.Y
 }
@@ -111,8 +111,8 @@ type Vec3[D Numeric] struct {
 type Vec3f = Vec3[float32]
 type Vec3i = Vec3[int]
 
-var _ Attr[Vec3f] = &Vec3f{}
-var _ SpaceCoord = &Vec3f{}
+var _ Attr[Vec3f] = Vec3f{}
+var _ SpaceCoord = Vec3f{}
 
 func (v Vec3[D]) To2d() (x, y float32) {
 	return float32(v.X), float32(v.Y)
@@ -213,7 +213,7 @@ func (v Vec3[D]) Div(value Vec3[D], out *Vec3[D]) {
 	out.Y = Div(v.Y, value.Y)
 	out.Z = Div(v.Z, value.Z)
 }
-func (v Vec3[D]) Interpolate(start Vec3[D], end Vec3[D], delta float32, out *Vec3[D]) {
+func (start Vec3[D]) Lerp(end Vec3[D], delta float32, out *Vec3[D]) {
 	out.X = D(float32(end.X-start.X)*delta) + start.X
 	out.Y = D(float32(end.Y-start.Y)*delta) + start.Y
 	out.Z = D(float32(end.Z-start.Z)*delta) + start.Z
@@ -236,7 +236,14 @@ type Vec4f = Vec4[float32]
 type Vec4i = Vec4[int]
 
 var _ Attr[Vec4f] = &Vec4f{}
+var _ SpaceCoord = Vec3f{}
 
+func (v Vec4[D]) To2d() (x, y float32) {
+	return float32(v.X), float32(v.Y)
+}
+func (v Vec4[D]) To3d() (x, y, z float32) {
+	return float32(v.X), float32(v.Y), float32(v.Z)
+}
 func (v Vec4[D]) Length() float32 {
 	return float32(math.Sqrt(float64(v.LengthSq())))
 }
@@ -335,7 +342,7 @@ func (v Vec4[D]) Div(value Vec4[D], out *Vec4[D]) {
 	out.Z = Div(v.Z, value.Z)
 	out.W = Div(v.W, value.W)
 }
-func (v Vec4[D]) Interpolate(start Vec4[D], end Vec4[D], delta float32, out *Vec4[D]) {
+func (start Vec4[D]) Lerp(end Vec4[D], delta float32, out *Vec4[D]) {
 	out.X = D(float32(end.X-start.X)*delta) + start.X
 	out.Y = D(float32(end.Y-start.Y)*delta) + start.Y
 	out.Z = D(float32(end.Z-start.Z)*delta) + start.Z

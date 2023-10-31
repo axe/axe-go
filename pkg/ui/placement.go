@@ -25,6 +25,45 @@ func Centered(width float32, height float32) Placement {
 	return p
 }
 
+func Absolute(left, top, width, height float32) Placement {
+	p := Placement{}
+	p.Left.Set(left, 0)
+	p.Right.Set(left+width, 0)
+	p.Top.Set(top, 0)
+	p.Bottom.Set(top+height, 0)
+	return p
+}
+
+func (p *Placement) Init(defaultPlacement Placement) {
+	if !p.Defined() {
+		*p = defaultPlacement
+	}
+}
+
+func (p Placement) Defined() bool {
+	return !p.Left.IsZero() || !p.Right.IsZero() || !p.Top.IsZero() || !p.Bottom.IsZero()
+}
+
+func (p Placement) Shrink(amount float32) Placement {
+	p.Left.Base += amount
+	p.Top.Base += amount
+	p.Right.Base -= amount
+	p.Bottom.Base -= amount
+	return p
+}
+
+func (p Placement) Grow(amount float32) Placement {
+	return p.Shrink(-amount)
+}
+
+func (p Placement) Shift(dx, dy float32) Placement {
+	p.Left.Base += dx
+	p.Top.Base += dy
+	p.Right.Base += dx
+	p.Bottom.Base += dy
+	return p
+}
+
 func (p *Placement) Relative(leftAnchor float32, topAnchor float32, rightAnchor float32, bottomAnchor float32) {
 	p.Left.Set(0, leftAnchor)
 	p.Top.Set(0, topAnchor)
@@ -36,11 +75,15 @@ func (p *Placement) Maximize() {
 	p.Relative(0, 0, 1, 1)
 }
 
+func (p Placement) IsMaximized() bool {
+	return p.Left.Is(0, 0) && p.Top.Is(0, 0) && p.Right.Is(0, 1) && p.Bottom.Is(0, 1)
+}
+
 func (p *Placement) Attach(dx float32, dy float32, width float32, height float32) {
 	p.Left.Set(width*-dx, dx)
 	p.Right.Set(width*(1-dx), dx)
-	p.Bottom.Set(height*-dy, dy)
-	p.Top.Set(height*(1-dy), dy)
+	p.Top.Set(height*-dy, dy)
+	p.Bottom.Set(height*(1-dy), dy)
 }
 
 func (p *Placement) Center(width float32, height float32) {
@@ -88,24 +131,44 @@ func (p *Placement) GetBoundsf(parentWidth float32, parentHeight float32) geom.B
 	}
 }
 
+func (p Placement) GetBoundsIn(parent Bounds) Bounds {
+	w := parent.Width()
+	h := parent.Height()
+	return Bounds{
+		Left:   p.Left.Get(w) + parent.Left,
+		Top:    p.Top.Get(h) + parent.Top,
+		Right:  p.Right.Get(w) + parent.Left,
+		Bottom: p.Bottom.Get(h) + parent.Top,
+	}
+}
+
+func (p Placement) GetBounds(parentWidth float32, parentHeight float32) Bounds {
+	return Bounds{
+		Left:   p.Left.Get(parentWidth),
+		Top:    p.Top.Get(parentHeight),
+		Right:  p.Right.Get(parentWidth),
+		Bottom: p.Bottom.Get(parentHeight),
+	}
+}
+
 func (p *Placement) GetBoundsi(parentWidth float32, parentHeight float32) geom.Bounds2i {
 	return geom.Bounds2i{
 		Min: geom.Vec2i{
-			X: int(p.Left.Get(parentWidth)),
-			Y: int(p.Top.Get(parentHeight)),
+			X: int32(p.Left.Get(parentWidth)),
+			Y: int32(p.Top.Get(parentHeight)),
 		},
 		Max: geom.Vec2i{
-			X: int(p.Right.Get(parentWidth)),
-			Y: int(p.Bottom.Get(parentHeight)),
+			X: int32(p.Right.Get(parentWidth)),
+			Y: int32(p.Bottom.Get(parentHeight)),
 		},
 	}
 }
 
 func (p Placement) Contains(x float32, y float32, parentWidth float32, parentHeight float32) bool {
 	return !(x < p.Left.Get(parentWidth) ||
-		y > p.Top.Get(parentHeight) ||
+		y < p.Top.Get(parentHeight) ||
 		x > p.Right.Get(parentWidth) ||
-		y < p.Bottom.Get(parentHeight))
+		y > p.Bottom.Get(parentHeight))
 }
 
 func (p Placement) GetWidth(parentWidth float32) float32 {
@@ -132,14 +195,7 @@ func (p Placement) PreferredWidth() float32 {
 }
 
 func (p Placement) MinParentWidth() float32 {
-	w := p.PreferredWidth()
-	if p.Left.Delta == 0 {
-		w += p.Left.Base
-	}
-	if p.Right.Delta == 1 {
-		w += p.Right.Base
-	}
-	return w
+	return p.ParentWidth(p.PreferredWidth())
 }
 
 func (p Placement) PreferredHeight() float32 {
@@ -150,7 +206,22 @@ func (p Placement) PreferredHeight() float32 {
 }
 
 func (p Placement) MinParentHeight() float32 {
-	h := p.PreferredHeight()
+	return p.ParentHeight(p.PreferredHeight())
+}
+
+func (p Placement) ParentWidth(minWidth float32) float32 {
+	w := minWidth
+	if p.Left.Delta == 0 {
+		w += p.Left.Base
+	}
+	if p.Right.Delta == 1 {
+		w += p.Right.Base
+	}
+	return w
+}
+
+func (p Placement) ParentHeight(minHeight float32) float32 {
+	h := minHeight
 	if p.Top.Delta == 0 {
 		h += p.Top.Base
 	}

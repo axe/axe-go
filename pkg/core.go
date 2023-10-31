@@ -99,8 +99,98 @@ type View[A Attr[A]] interface {
 	Target() RenderTarget
 }
 
-type View2f = View[Vec2f]
-type View3f = View[Vec3f]
+// type View2f = View[Vec2f]
+// type View3f = View[Vec3f]
+
+type View3f struct {
+	Name             string
+	SceneName        string
+	Camera           Camera3d
+	ProjectionMatrix Matrix4f
+	ViewMatrix       Matrix4f
+	CombinedMatrix   Matrix4f
+	Placement        ui.Placement
+	Target           RenderTarget
+
+	OnInit    func(view *View3f, game *Game)
+	OnUpdate  func(view *View3f, game *Game)
+	OnDestroy func(view *View3f)
+
+	scene *Scene3f
+}
+
+func (v *View3f) Init(game *Game) error {
+	v.scene = game.Stages.Next.GetScene3f(v.SceneName)
+	v.Placement.Init(ui.Maximized())
+	v.Camera.Init(game)
+	if v.OnInit != nil {
+		v.OnInit(v, game)
+	}
+	return nil
+}
+func (v *View3f) Update(game *Game) {
+	v.Camera.Update(game)
+	if v.OnUpdate != nil {
+		v.OnUpdate(v, game)
+	}
+}
+func (v *View3f) Destroy() {
+	v.Camera.Destroy()
+	if v.OnDestroy != nil {
+		v.OnDestroy(v)
+	}
+}
+func (v View3f) Scene() *Scene3f                                                { return v.scene }
+func (v View3f) ProjectPoint(mouse geom.Vec2i, outside ProjectionOutside) Vec3f { return Vec3f{} }
+func (v View3f) Project(outside ProjectionOutside) Vec3f                        { return Vec3f{} }
+func (v View3f) ProjectIgnore() Vec3f                                           { return Vec3f{} }
+func (v View3f) UnprojectPoint(point Vec3f, outside ProjectionOutside) Vec3f    { return Vec3f{} }
+func (v View3f) UnprojectIgnore(point Vec3f) Vec3f                              { return Vec3f{} }
+
+type View2f struct {
+	Name             string
+	SceneName        string
+	Camera           Camera2d
+	ProjectionMatrix Matrix2f
+	ViewMatrix       Matrix2f
+	CombinedMatrix   Matrix2f
+	Placement        ui.Placement
+	Target           RenderTarget
+
+	OnInit    func(view *View2f, game *Game)
+	OnUpdate  func(view *View2f, game *Game)
+	OnDestroy func(view *View2f)
+
+	scene *Scene2f
+}
+
+func (v *View2f) Init(game *Game) error {
+	v.scene = game.Stages.Next.GetScene2f(v.SceneName)
+	v.Placement.Init(ui.Maximized())
+	v.Camera.Init(game)
+	if v.OnInit != nil {
+		v.OnInit(v, game)
+	}
+	return nil
+}
+func (v *View2f) Update(game *Game) {
+	v.Camera.Update(game)
+	if v.OnUpdate != nil {
+		v.OnUpdate(v, game)
+	}
+}
+func (v *View2f) Destroy() {
+	v.Camera.Destroy()
+	if v.OnDestroy != nil {
+		v.OnDestroy(v)
+	}
+}
+func (v View2f) Scene() *Scene2f                                                { return v.scene }
+func (v View2f) ProjectPoint(mouse geom.Vec2i, outside ProjectionOutside) Vec2f { return Vec2f{} }
+func (v View2f) Project(outside ProjectionOutside) Vec2f                        { return Vec2f{} }
+func (v View2f) ProjectIgnore() Vec2f                                           { return Vec2f{} }
+func (v View2f) UnprojectPoint(point Vec2f, outside ProjectionOutside) Vec2f    { return Vec2f{} }
+func (v View2f) UnprojectIgnore(point Vec2f) Vec2f                              { return Vec2f{} }
 
 type EventSystem struct {
 }

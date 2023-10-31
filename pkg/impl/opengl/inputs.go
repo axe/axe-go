@@ -267,7 +267,7 @@ func (in *inputSystem) Destroy() {
 	in.offs.Off()
 }
 
-var KEYS map[glfw.Key]string = map[glfw.Key]string{
+var KEYS = map[glfw.Key]string{
 	glfw.KeySpace:        input.KeySpace,
 	glfw.KeyApostrophe:   input.KeyApostrophe,
 	glfw.KeyComma:        input.KeyComma,

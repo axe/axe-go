@@ -31,7 +31,7 @@ var _ Path[Vec2f] = &Tween[Vec2f]{}
 func (path Tween[T]) Set(out *T, delta float32) {
 	s := path.Start.Get()
 	e := path.End.Get()
-	s.Interpolate(s, e, delta, out)
+	s.Lerp(e, delta, out)
 }
 func (path Tween[T]) PointCount() int { return 2 }
 func (path Tween[T]) Point(index int) AnimValue[T] {
@@ -84,7 +84,7 @@ func (path PathDelta[T]) Set(out *T, delta float32) {
 	var p0 = path.Points[i].Get()
 	var p1 = path.Points[i+1].Get()
 
-	p0.Interpolate(p0, p1, pd, out)
+	p0.Lerp(p1, pd, out)
 }
 func (path PathDelta[T]) PointCount() int              { return len(path.Points) }
 func (path PathDelta[T]) Point(index int) AnimValue[T] { return path.Points[index] }
