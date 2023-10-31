@@ -46,7 +46,7 @@ func (b Builder) Radius(radius float32) Builder {
 	return b
 }
 func (b Builder) RadiusOval() Builder {
-	b.borderRadius.Set(0.5, UnitPercent)
+	b.borderRadius.Set(0.5, UnitParent)
 	return b
 }
 func (b Builder) OutlineRounded() Builder {

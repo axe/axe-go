@@ -6,7 +6,7 @@ type Component interface {
 	Init(init Init)
 	Place(parent Bounds)
 	Update(update Update)
-	Render(out *UIVertexBuffer)
+	Render(ctx AmountContext, out *UIVertexBuffer)
 	Parent() Component
 	At(pt Coord) Component
 

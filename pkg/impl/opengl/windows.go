@@ -143,6 +143,7 @@ func (ws *windowSystem) createWindow(stageWindow axe.StageWindow) *window {
 	gwin.MakeContextCurrent()
 	gwin.SetPos(int(winBounds.Min.X), int(winBounds.Min.Y))
 	win.window = gwin
+	win.screen = screen
 
 	if ws.main == nil {
 		ws.main = win
@@ -225,6 +226,7 @@ type window struct {
 	window    *glfw.Window
 	size      geom.Vec2i
 	clear     ui.Color
+	screen    *screen
 }
 
 var _ axe.Window = &window{}
@@ -244,7 +246,7 @@ func newWindow() *window {
 func (w *window) Name() string               { return w.name }
 func (w *window) Title() react.Value[string] { return w.title }
 func (w *window) Placement() ui.Placement    { return w.placement }
-func (w *window) Screen() axe.Screen         { return nil }
+func (w *window) Screen() axe.Screen         { return w.screen }
 func (w *window) Size() geom.Vec2i           { return w.size }
 
 type screen struct {

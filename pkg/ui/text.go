@@ -40,8 +40,8 @@ func (f Font) GetKerning(prev rune, next rune) float32 {
 }
 
 type Glyph interface {
-	GetState(theme *Theme, wrap TextWrap, prev Glyph) GlyphState
-	Render(theme *Theme, start Coord) RenderedGlyph
+	GetState(theme *Theme, ctx AmountContext, wrap TextWrap, prev Glyph) GlyphState
+	Render(theme *Theme, ctx AmountContext, start Coord) RenderedGlyph
 }
 
 type GlyphState struct {
@@ -83,30 +83,30 @@ type RenderedGlyph struct {
 	Color  Color
 }
 
-func (block GlyphBlock) GetLineHeight(theme *Theme, actualLineHeight float32) float32 {
+func (block GlyphBlock) GetLineHeight(ctx AmountContext, actualLineHeight float32) float32 {
 	if block.LineHeight.IsZero() {
 		return actualLineHeight
 	} else {
-		return block.LineHeight.Get(theme.DefaultFontSize)
+		return block.LineHeight.Get(ctx)
 	}
 }
 
-func (block GlyphBlock) GetStates(theme *Theme) []GlyphState {
+func (block GlyphBlock) GetStates(theme *Theme, ctx AmountContext) []GlyphState {
 	states := make([]GlyphState, len(block.Glyphs))
 	var prev Glyph
 	for i, g := range block.Glyphs {
-		states[i] = g.GetState(theme, block.Wrap, prev)
+		states[i] = g.GetState(theme, ctx, block.Wrap, prev)
 		prev = block.Glyphs[i]
 	}
 	return states
 }
 
-func (block GlyphBlock) UnwrappedSize(theme *Theme, scale Coord, blocks GlyphBlocks) Coord {
-	states := block.GetStates(theme)
+func (block GlyphBlock) UnwrappedSize(theme *Theme, ctx AmountContext, scale Coord, blocks GlyphBlocks) Coord {
+	states := block.GetStates(theme, ctx)
 	lineWidth := float32(0)
 	lineHeight := float32(0)
 	lineCount := 0
-	lineSpacing := block.LineSpacing.Get(theme.DefaultFontSize)
+	lineSpacing := block.LineSpacing.Get(ctx)
 	size := Coord{}
 
 	for glyphIndex := range block.Glyphs {
@@ -118,7 +118,7 @@ func (block GlyphBlock) UnwrappedSize(theme *Theme, scale Coord, blocks GlyphBlo
 			if lineCount > 0 {
 				size.Y += lineSpacing
 			}
-			size.Y += block.GetLineHeight(theme, lineHeight) * scale.Y
+			size.Y += block.GetLineHeight(ctx, lineHeight) * scale.Y
 			lineCount++
 			lineWidth = 0
 			lineHeight = 0
@@ -130,7 +130,7 @@ func (block GlyphBlock) UnwrappedSize(theme *Theme, scale Coord, blocks GlyphBlo
 		}
 	}
 
-	padding := block.Padding.GetBounds(theme.DefaultFontSize, theme.DefaultFontSize)
+	padding := block.Padding.GetBounds(ctx)
 
 	size.Y += padding.Top
 	size.Y += padding.Bottom
@@ -140,8 +140,8 @@ func (block GlyphBlock) UnwrappedSize(theme *Theme, scale Coord, blocks GlyphBlo
 	return size
 }
 
-func (block GlyphBlock) Render(theme *Theme, blocks GlyphBlocks) RenderedGlyphBlock {
-	states := block.GetStates(theme)
+func (block GlyphBlock) Render(theme *Theme, ctx AmountContext, blocks GlyphBlocks) RenderedGlyphBlock {
+	states := block.GetStates(theme, ctx)
 
 	type line struct {
 		width  float32
@@ -149,7 +149,7 @@ func (block GlyphBlock) Render(theme *Theme, blocks GlyphBlocks) RenderedGlyphBl
 		glyphs []int
 	}
 
-	padding := block.Padding.GetBounds(theme.DefaultFontSize, theme.DefaultFontSize)
+	padding := block.Padding.GetBounds(ctx)
 	paddingWidth := padding.Left + padding.Right
 
 	lines := make([]line, 0, 8)
@@ -195,7 +195,7 @@ func (block GlyphBlock) Render(theme *Theme, blocks GlyphBlocks) RenderedGlyphBl
 	if len(currentLine.glyphs) > 0 {
 		lines = append(lines, currentLine)
 	}
-	lineSpacing := block.LineSpacing.Get(theme.DefaultFontSize)
+	lineSpacing := block.LineSpacing.Get(ctx)
 
 	totalHeight := padding.Top + padding.Bottom
 	for lineIndex := range lines {
@@ -207,7 +207,7 @@ func (block GlyphBlock) Render(theme *Theme, blocks GlyphBlocks) RenderedGlyphBl
 				actualLineHeight = state.Size.Y
 			}
 		}
-		line.height = block.GetLineHeight(theme, actualLineHeight)
+		line.height = block.GetLineHeight(ctx, actualLineHeight)
 		totalHeight += line.height
 		if lineIndex > 0 {
 			totalHeight += lineSpacing
@@ -231,7 +231,7 @@ func (block GlyphBlock) Render(theme *Theme, blocks GlyphBlocks) RenderedGlyphBl
 			g := block.Glyphs[glyphIndex]
 			s := states[glyphIndex]
 			start.Y = offsetY + block.VerticalAlignment*(line.height-s.Size.Y)
-			render := g.Render(theme, start)
+			render := g.Render(theme, ctx, start)
 			if render.Bounds.Width() > 0 {
 				rendered = append(rendered, render)
 			}
@@ -254,11 +254,12 @@ func (blocks GlyphBlocks) Wrap(lineWidth float32) bool {
 	return blocks.MaxWidth > 0 && lineWidth > blocks.MaxWidth
 }
 
-func (blocks GlyphBlocks) UnwrappedSize(theme *Theme, scale Coord) Coord {
+func (blocks GlyphBlocks) UnwrappedSize(theme *Theme, ctx AmountContext, scale Coord) Coord {
 	size := Coord{}
-	blockSpacing := blocks.BlockSpacing.Get(theme.DefaultFontSize)
+	blockCtx := ctx.WithParent(blocks.MaxWidth, blocks.MaxHeight)
+	blockSpacing := blocks.BlockSpacing.Get(blockCtx)
 	for i, block := range blocks.Blocks {
-		blockSize := block.UnwrappedSize(theme, scale, blocks)
+		blockSize := block.UnwrappedSize(theme, blockCtx, scale, blocks)
 		if i > 0 {
 			size.Y += blockSpacing
 		}
@@ -270,13 +271,14 @@ func (blocks GlyphBlocks) UnwrappedSize(theme *Theme, scale Coord) Coord {
 	return size
 }
 
-func (blocks GlyphBlocks) Render(theme *Theme) RenderedGlyphBlock {
+func (blocks GlyphBlocks) Render(theme *Theme, ctx AmountContext) RenderedGlyphBlock {
 	rendered := make([]RenderedGlyphBlock, len(blocks.Blocks))
 	totalHeight := float32(0)
 	totalGlyphs := 0
-	blockSpacing := blocks.BlockSpacing.Get(theme.DefaultFontSize)
+	blockCtx := ctx.WithParent(blocks.MaxWidth, blocks.MaxHeight)
+	blockSpacing := blocks.BlockSpacing.Get(blockCtx)
 	for i, block := range blocks.Blocks {
-		rendered[i] = block.Render(theme, blocks)
+		rendered[i] = block.Render(theme, blockCtx, blocks)
 		totalHeight += rendered[i].Height
 		if i > 0 {
 			totalHeight += blockSpacing
@@ -339,15 +341,15 @@ func (g TextGlyph) getColor(theme *Theme) Color {
 	}
 }
 
-func (g TextGlyph) getSize(theme *Theme) float32 {
+func (g TextGlyph) getSize(ctx AmountContext) float32 {
 	if g.Size.Value == 0 {
-		return theme.DefaultFontSize
+		return ctx.FontSize
 	} else {
-		return g.Size.Get(theme.DefaultFontSize)
+		return g.Size.Get(ctx)
 	}
 }
 
-func (g *TextGlyph) GetState(theme *Theme, wrap TextWrap, prev Glyph) GlyphState {
+func (g *TextGlyph) GetState(theme *Theme, ctx AmountContext, wrap TextWrap, prev Glyph) GlyphState {
 	space := unicode.IsSpace(g.Text)
 	state := GlyphState{
 		CanBreak:    wrap == TextWrapChar || (wrap == TextWrapWord && space),
@@ -368,20 +370,20 @@ func (g *TextGlyph) GetState(theme *Theme, wrap TextWrap, prev Glyph) GlyphState
 		}
 	}
 
-	size := g.getSize(theme)
+	size := g.getSize(ctx)
 	state.Size.X = (size * g.fontRune.Width) + offset*size
 	state.Size.Y = size * g.font.LineHeight
 
 	return state
 }
 
-func (g *TextGlyph) Render(theme *Theme, topLeft Coord) RenderedGlyph {
+func (g *TextGlyph) Render(theme *Theme, ctx AmountContext, topLeft Coord) RenderedGlyph {
 	g.init(theme)
 	if g.font == nil {
 		return RenderedGlyph{}
 	}
 	color := g.getColor(theme)
-	size := g.getSize(theme)
+	size := g.getSize(ctx)
 	extents := g.fontRune.Extent
 	baselineOffset := g.font.Baseline * size
 

@@ -31,13 +31,14 @@ func (l *Layer) Update(update Update) {
 	}
 }
 
-func (l Layer) Render(out *UIVertexBuffer) {
+func (l Layer) Render(ctx AmountContext, out *UIVertexBuffer) {
+	layerCtx := ctx.WithParent(l.Bounds.Width(), l.Bounds.Height())
 	start := out.Pos()
-	l.Visual.Visualize(l.Bounds, out)
+	l.Visual.Visualize(l.Bounds, layerCtx, out)
 	end := out.Pos()
 	if l.Background != nil {
 		for i := start; i < end; i++ {
-			l.Background.Backgroundify(l.Bounds, &out.Data[i])
+			l.Background.Backgroundify(l.Bounds, layerCtx, &out.Data[i])
 		}
 	}
 }

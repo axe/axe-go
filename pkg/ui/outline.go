@@ -4,7 +4,7 @@ import "math"
 
 type Outline interface {
 	Init(init Init)
-	Outlinify(b Bounds) []Coord
+	Outlinify(b Bounds, ctx AmountContext) []Coord
 }
 
 var _ Outline = OutlineRectangle{}
@@ -14,7 +14,7 @@ var _ Outline = OutlineSharpen{}
 type OutlineRectangle struct{}
 
 func (o OutlineRectangle) Init(init Init) {}
-func (o OutlineRectangle) Outlinify(b Bounds) []Coord {
+func (o OutlineRectangle) Outlinify(b Bounds, ctx AmountContext) []Coord {
 	return []Coord{
 		{X: b.Left, Y: b.Top},
 		{X: b.Right, Y: b.Top},
@@ -32,16 +32,15 @@ var OutlineRoundedAngles = [][]float32{{math.Pi, math.Pi * 0.5}, {math.Pi * 0.5,
 var OutlineRoundedPlacements = [][]float32{{0, 0}, {1, 0}, {1, 1}, {0, 1}} // 0=1, 1=-1     *2 (0,2) -1 (-1,1)
 
 func (o OutlineRounded) Init(init Init) {}
-func (o OutlineRounded) Outlinify(b Bounds) []Coord {
+func (o OutlineRounded) Outlinify(b Bounds, ctx AmountContext) []Coord {
 	amounts := []Amount{o.Radius.TopLeft, o.Radius.TopRight, o.Radius.BottomRight, o.Radius.BottomLeft}
 	coords := make([]Coord, 0, 16)
-	width, height := b.Dimensions()
 	for i := 0; i < 4; i++ {
 		amount := amounts[i]
 		angles := OutlineRoundedAngles[i]
 		placements := OutlineRoundedPlacements[i]
-		radiusW := amount.Get(width)
-		radiusH := amount.Get(height)
+		radiusW := amount.Get(ctx.ForWidth())
+		radiusH := amount.Get(ctx.ForHeight())
 		points := int((radiusW+radiusH)*0.5*o.UnitToPoints) + 1
 		originX := lerp(b.Left, b.Right, placements[0]) - (radiusW * ((placements[0] * 2) - 1))
 		originY := lerp(b.Top, b.Bottom, placements[1]) - (radiusH * ((placements[1] * 2) - 1))
@@ -66,8 +65,8 @@ type OutlineSharpen struct {
 func (o OutlineSharpen) Init(init Init) {
 	o.Outline.Init(init)
 }
-func (o OutlineSharpen) Outlinify(b Bounds) []Coord {
-	points := o.Outline.Outlinify(b)
+func (o OutlineSharpen) Outlinify(b Bounds, ctx AmountContext) []Coord {
+	points := o.Outline.Outlinify(b, ctx)
 	times := o.Times + 1
 	sharpened := make([]Coord, len(points)*times)
 	last := len(points) - 1

@@ -3,6 +3,7 @@ package ui
 type Layoutable interface {
 	Placement() Placement
 	Margin() Bounds
+	MinSize() Coord
 }
 
 type Layout interface {

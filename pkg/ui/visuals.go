@@ -3,7 +3,7 @@ package ui
 type Visual interface {
 	Init(init Init)
 	Update(update Update)
-	Visualize(b Bounds, out *UIVertexBuffer)
+	Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer)
 }
 
 var _ Visual = VisualFilled{}
@@ -23,8 +23,8 @@ func (s VisualFilled) Update(update Update) {
 
 }
 
-func (s VisualFilled) Visualize(b Bounds, out *UIVertexBuffer) {
-	points := s.Outline.Outlinify(b)
+func (s VisualFilled) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer) {
+	points := s.Outline.Outlinify(b, ctx)
 	center := Coord{}
 	for _, p := range points {
 		center.X += p.X
@@ -66,8 +66,8 @@ func (s VisualBordered) Update(update Update) {
 
 }
 
-func (s VisualBordered) Visualize(b Bounds, out *UIVertexBuffer) {
-	inner := s.Outline.Outlinify(b)
+func (s VisualBordered) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer) {
+	inner := s.Outline.Outlinify(b, ctx)
 	outer := make([]Coord, len(inner))
 	last := len(inner) - 1
 	i0 := last - 1
@@ -117,9 +117,8 @@ func (r VisualFrame) Update(update Update) {
 
 }
 
-func (r VisualFrame) Visualize(b Bounds, out *UIVertexBuffer) {
-	width, height := b.Dimensions()
-	sizes := r.Sizes.GetBounds(width, height)
+func (r VisualFrame) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer) {
+	sizes := r.Sizes.GetBounds(ctx)
 	axisX := []float32{b.Left, b.Left + sizes.Left, b.Right - sizes.Right, b.Right}
 	axisY := []float32{b.Top, b.Top + sizes.Top, b.Bottom - sizes.Bottom, b.Bottom}
 	for i, tile := range r.Tile {
@@ -151,10 +150,10 @@ func (s *VisualText) Update(update Update) {
 
 }
 
-func (s *VisualText) Visualize(b Bounds, out *UIVertexBuffer) {
+func (s *VisualText) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer) {
 	if s.renderedBounds != b {
 		s.Glyphs.MaxWidth, s.Glyphs.MaxHeight = b.Dimensions()
-		s.rendered = s.Glyphs.Render(s.theme)
+		s.rendered = s.Glyphs.Render(s.theme, ctx)
 		s.rendered.Translate(b.Left, b.Top)
 		s.renderedBounds = b
 	}

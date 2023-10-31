@@ -48,14 +48,15 @@ func (c *Base) Update(update Update) {
 	}
 }
 
-func (c *Base) Render(out *UIVertexBuffer) {
+func (c *Base) Render(ctx AmountContext, out *UIVertexBuffer) {
+	baseCtx := ctx.WithParent(c.Bounds.Width(), c.Bounds.Height())
 	for _, layer := range c.Layers {
 		if layer.ForStates(c.States) {
-			layer.Render(out)
+			layer.Render(baseCtx, out)
 		}
 	}
 	for _, child := range c.Children {
-		child.Render(out)
+		child.Render(baseCtx, out)
 	}
 }
 

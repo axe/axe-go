@@ -51,11 +51,11 @@ func main() {
 					e := ecs.New()
 
 					lines := []string{
-						"{c:white}{s:150%}{ls:100%}{ps:100%}Dear Reader,",
+						"{c:white}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
 						"{p}{h:0.5}This is centered.",
-						"{v:0.5}And {s:300%}{f:warrior}THIS{s:150%}{f} is big!",
-						"{v:1}This is bottom & center {s:300%}aligned?",
-						"{p}{h:0}{v:0}Top{s:150%} and left aligned.",
+						"{v:0.5}And {s:300%f}{f:warrior}THIS{s:150%f}{f} is big!",
+						"{v:1}This is bottom & center {s:300%f}aligned?",
+						"{p}{h:0}{v:0}Top{s:150%f} and left aligned.",
 						"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
 						"{p}{h:1}{c:white}Right aligned!",
 						"{p}{h:0.25}25% aligned?",

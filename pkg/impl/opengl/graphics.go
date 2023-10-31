@@ -277,24 +277,29 @@ func initView2(view axe.View2f, game *axe.Game) {
 
 var vb = ui.NewVertexBuffer(1024)
 
-// var echo bool
-
 func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 	bounds := placementWindowBounds(view.Placement, game)
+	width, height := bounds.Dimensions()
+	window := game.Windows.MainWindow()
+	windowSize := window.Size()
+	screenSize := window.Screen().Size()
+
+	ctx := ui.AmountContext{
+		Parent: ui.UnitContext{Value: width, Width: width, Height: height},
+		View:   ui.UnitContext{Value: width, Width: width, Height: height},
+		Window: ui.UnitContext{Value: float32(windowSize.X), Width: float32(windowSize.X), Height: float32(windowSize.Y)},
+		Screen: ui.UnitContext{Value: float32(screenSize.X), Width: float32(screenSize.X), Height: float32(screenSize.Y)},
+	}
 
 	uis := axe.UI.Iterable().Iterator()
 	for uis.HasNext() {
 		u := uis.Next().Data
 
+		ctx.FontSize = u.Theme.DefaultFontSize
+
 		vb.Clear()
 		u.Root.Place(bounds)
-		u.Root.Render(vb)
-
-		// if !echo {
-		// 	js, _ := json.MarshalIndent(vb, "", "  ")
-		// 	fmt.Printf("BOUNDS: %+v\nVB:\n%s\n", bounds, js)
-		// 	echo = true
-		// }
+		u.Root.Render(ctx, vb)
 
 		if vb.Pos() > 0 {
 			gl.Enable(gl.BLEND)
