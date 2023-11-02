@@ -2,25 +2,6 @@ package ui
 
 import "github.com/axe/axe-go/pkg/ds"
 
-type Component interface {
-	Init(init Init)
-	Place(parent Bounds)
-	Update(update Update)
-	Render(ctx AmountContext, out *UIVertexBuffer)
-	Parent() Component
-	At(pt Coord) Component
-
-	IsFocusable() bool
-	IsDraggable() bool
-	IsDroppable() bool
-
-	OnPointer(ev *PointerEvent)
-	OnKey(ev *KeyEvent)
-	OnFocus(ev *ComponentEvent)
-	OnBlur(ev *ComponentEvent)
-	OnDrag(ev *DragEvent)
-}
-
 type UI struct {
 	PointerButtons []PointerButtons
 	PointerPoint   Coord
@@ -31,6 +12,40 @@ type UI struct {
 	DragStart      Coord
 	DragCancels    ds.Set[string]
 	Theme          *Theme
+
+	context AmountContext
+	bounds  Bounds
+}
+
+func (ui *UI) Init(init Init) {
+	ui.Root.Init(init)
+}
+
+func (ui *UI) Place(newBounds Bounds) {
+	force := ui.bounds != newBounds
+	if force || ui.Root.GetDirty().Is(DirtyDeepPlacement|DirtyPlacement) {
+		ui.bounds = newBounds
+		ui.Root.Place(newBounds, force)
+	}
+}
+
+func (ui *UI) SetContext(ctx AmountContext) {
+	if ui.context != ctx {
+		ui.Root.Dirty(DirtyVisual)
+		ui.context = ctx
+	}
+}
+
+func (ui *UI) NeedsRender() bool {
+	return ui.Root.GetDirty().Is(DirtyVisual)
+}
+
+func (ui *UI) Update(update Update) {
+	ui.Root.Update(update)
+}
+
+func (ui *UI) Render(out *VertexBuffer) {
+	ui.Root.Render(ui.context, out)
 }
 
 func (ui *UI) ProcessKeyEvent(ev KeyEvent) error {

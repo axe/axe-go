@@ -19,7 +19,6 @@ func NewUserInterface() UserInterface {
 	return UserInterface{
 		UI: ui.UI{
 			Theme: &ui.Theme{
-				Components:       make(map[string]*ui.ComponentTheme),
 				Fonts:            make(map[string]*ui.Font),
 				DefaultFontSize:  16,
 				DefaultFontColor: ui.ColorBlack,
@@ -117,7 +116,7 @@ func (sys UserInterfaceSystem) OnLive(data *UserInterface, e *ecs.Entity, ctx ec
 		}
 	}
 
-	data.Root.Init(ui.Init{
+	data.Init(ui.Init{
 		Theme: data.Theme,
 	})
 }
@@ -133,7 +132,7 @@ func (sys UserInterfaceSystem) Update(iter ds.Iterable[ecs.Value[*UserInterface]
 	}
 	guis := iter.Iterator()
 	for guis.HasNext() {
-		guis.Next().Data.Root.Update(update)
+		guis.Next().Data.Update(update)
 	}
 }
 func (sys UserInterfaceSystem) Destroy(ctx ecs.Context) {

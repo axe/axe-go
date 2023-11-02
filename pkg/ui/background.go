@@ -2,8 +2,8 @@ package ui
 
 type Background interface {
 	Init(init Init)
-	Update(update Update)
-	Backgroundify(b Bounds, ctx AmountContext, out *UIVertex)
+	Update(update Update) Dirty
+	Backgroundify(b Bounds, ctx AmountContext, out *Vertex)
 }
 
 var _ Background = BackgroundColor{}
@@ -15,9 +15,9 @@ type BackgroundColor struct {
 	Color Color
 }
 
-func (bc BackgroundColor) Init(init Init)       {}
-func (bc BackgroundColor) Update(update Update) {}
-func (bc BackgroundColor) Backgroundify(b Bounds, ctx AmountContext, out *UIVertex) {
+func (bc BackgroundColor) Init(init Init)             {}
+func (bc BackgroundColor) Update(update Update) Dirty { return DirtyNone }
+func (bc BackgroundColor) Backgroundify(b Bounds, ctx AmountContext, out *Vertex) {
 	out.AddColor(bc.Color.R, bc.Color.G, bc.Color.B, bc.Color.A)
 }
 
@@ -28,9 +28,9 @@ type BackgroundLinearGradient struct {
 	End        Coord
 }
 
-func (bc BackgroundLinearGradient) Init(init Init)       {}
-func (bc BackgroundLinearGradient) Update(update Update) {}
-func (bg BackgroundLinearGradient) Backgroundify(b Bounds, ctx AmountContext, out *UIVertex) {
+func (bc BackgroundLinearGradient) Init(init Init)             {}
+func (bc BackgroundLinearGradient) Update(update Update) Dirty { return DirtyNone }
+func (bg BackgroundLinearGradient) Backgroundify(b Bounds, ctx AmountContext, out *Vertex) {
 	dx := bg.End.X - bg.Start.X
 	dy := bg.End.Y - bg.Start.Y
 	lenSq := dx*dx + dy*dy
@@ -49,9 +49,9 @@ type BackgroundImage struct {
 	Tile Tile
 }
 
-func (bi BackgroundImage) Init(init Init)       {}
-func (bc BackgroundImage) Update(update Update) {}
-func (bi BackgroundImage) Backgroundify(b Bounds, ctx AmountContext, out *UIVertex) {
+func (bi BackgroundImage) Init(init Init)             {}
+func (bc BackgroundImage) Update(update Update) Dirty { return DirtyNone }
+func (bi BackgroundImage) Backgroundify(b Bounds, ctx AmountContext, out *Vertex) {
 	out.SetCoord(
 		bi.Tile.Texture,
 		lerp(bi.Tile.Coords.Left, bi.Tile.Coords.Right, b.Dx(out.X)),
@@ -66,9 +66,9 @@ type BackgroundRadialGradient struct {
 	Offset     AmountPoint
 }
 
-func (bg BackgroundRadialGradient) Init(init Init)       {}
-func (bc BackgroundRadialGradient) Update(update Update) {}
-func (bg BackgroundRadialGradient) Backgroundify(b Bounds, ctx AmountContext, out *UIVertex) {
+func (bg BackgroundRadialGradient) Init(init Init)             {}
+func (bc BackgroundRadialGradient) Update(update Update) Dirty { return DirtyNone }
+func (bg BackgroundRadialGradient) Backgroundify(b Bounds, ctx AmountContext, out *Vertex) {
 	offX, offY := bg.Offset.Get(ctx)
 	cx := b.Dx(0.5) + offX
 	cy := b.Dy(0.5) + offY

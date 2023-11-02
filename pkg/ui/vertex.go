@@ -1,6 +1,42 @@
 package ui
 
-type UIVertex struct {
+import "github.com/axe/axe-go/pkg/buf"
+
+type Coord struct {
+	X float32
+	Y float32
+}
+
+func (mp Coord) Equals(other Coord) bool {
+	return mp.X == other.X && mp.Y == other.Y
+}
+
+type TexCoord struct {
+	Coord
+	Texture string
+}
+
+type Tile struct {
+	Coords  Bounds
+	Texture string
+}
+
+func (t Tile) Coord(dx, dy float32) TexCoord {
+	return TexCoord{
+		Texture: t.Texture,
+		Coord: Coord{
+			X: lerp(t.Coords.Left, t.Coords.Right, dx),
+			Y: lerp(t.Coords.Top, t.Coords.Bottom, dy),
+		},
+	}
+}
+
+type ExtentTile struct {
+	Tile
+	Extent Bounds
+}
+
+type Vertex struct {
 	X, Y     float32
 	Coord    TexCoord
 	HasCoord bool
@@ -8,7 +44,9 @@ type UIVertex struct {
 	HasColor bool
 }
 
-func (v *UIVertex) AddColor(r, g, b, a float32) {
+type VertexModifier func(*Vertex)
+
+func (v *Vertex) AddColor(r, g, b, a float32) {
 	if v.HasColor {
 		v.Color.R *= r
 		v.Color.G *= g
@@ -23,42 +61,85 @@ func (v *UIVertex) AddColor(r, g, b, a float32) {
 	}
 }
 
-func (v *UIVertex) SetCoord(texture string, x, y float32) {
+func (v *Vertex) SetCoord(texture string, x, y float32) {
 	v.Coord.Texture = texture
 	v.Coord.X = x
 	v.Coord.Y = y
 	v.HasCoord = true
 }
 
-type UIVertexBuffer struct {
-	Data    []UIVertex
-	Indices []int
+type VertexBuffers struct {
+	buf.Buffers[*VertexBuffer]
 }
 
-func NewVertexBuffer(capacity int) *UIVertexBuffer {
-	return &UIVertexBuffer{
-		Data:    make([]UIVertex, 0, capacity),
-		Indices: make([]int, 0, capacity*3/2),
+func (vb *VertexBuffers) ClipStart(bounds Bounds) *VertexBuffer {
+	added := vb.AddBuffer()
+	added.clip = bounds
+	return added
+}
+
+func (vb *VertexBuffers) ClipEnd() *VertexBuffer {
+	prev := vb.At(vb.Current() - 1)
+	ended := vb.AddBuffer()
+	if prev != nil {
+		ended.clip = prev.clip
+	}
+	return ended
+}
+
+// Usage:
+//
+//	func (u) Render(out *VertexBuffers) {
+//	  out.ClipMaybe(u.clipBounds, func(vb *VertexBuffer) {
+//	    span := vb.Span()
+//	    u.renderTo(vb)
+//	    u.postProcess(span)
+//	  })
+//	}
+func (vb *VertexBuffers) ClipMaybe(bounds Bounds, render func(vb *VertexBuffer)) {
+	if bounds.IsZero() {
+		render(vb.Buffer())
+	} else {
+		start := vb.ClipStart(bounds)
+		render(start)
+		vb.ClipEnd()
 	}
 }
 
-func (b UIVertexBuffer) Pos() int {
-	return len(b.Data)
-}
-func (b *UIVertexBuffer) Add(v ...UIVertex) int {
-	i := len(b.Data)
-	b.Data = append(b.Data, v...)
-	return i
-}
-func (b *UIVertexBuffer) AddIndices(index ...int) {
-	b.Indices = append(b.Indices, index...)
-}
-func (b *UIVertexBuffer) Clear() {
-	b.Data = b.Data[:0]
-	b.Indices = b.Indices[:0]
+type VertexBuffer struct {
+	buf.Buffer[Vertex]
+	clip Bounds
 }
 
-// assuming the vertex at the given index is the top left corner and the remaining vertices are clockwise this adds two triangles that make a quad.
-func (b *UIVertexBuffer) AddQuad(i int) {
-	b.Indices = append(b.Indices, i, i+1, i+2, i+2, i+3, i)
+func (b *VertexBuffer) Init(capacity int) {
+	if b == nil {
+		*b = VertexBuffer{}
+	}
+	b.Buffer.Init(capacity)
+	b.clip = Bounds{}
+}
+func (b *VertexBuffer) Empty() bool {
+	return b == nil || b.Buffer.Empty()
+}
+func (b *VertexBuffer) Remaining() int {
+	if b == nil {
+		return 0
+	}
+	return b.Buffer.Remaining()
+}
+func (b *VertexBuffer) AddIndexQuad(i int) {
+	b.AddIndex(i, i+1, i+2, i+2, i+3, i)
+}
+
+var relativeQuad = []int{0, 1, 2, 2, 3, 0}
+
+func (b *VertexBuffer) AddQuad(v ...Vertex) {
+	b.AddRelative(v, relativeQuad)
+}
+func (b *VertexBuffer) Clear() {
+	b.Buffer.Clear()
+	b.clip = Bounds{}
+}
+func (b *VertexBuffer) Clip() Bounds {
+	return b.clip
 }

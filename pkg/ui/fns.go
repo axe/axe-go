@@ -1,6 +1,9 @@
 package ui
 
-import "math"
+import (
+	"math"
+	"reflect"
+)
 
 func lerp(s, e, d float32) float32 {
 	return (e-s)*d + s
@@ -43,4 +46,8 @@ func clamp(v, min, max float32) float32 {
 		return max
 	}
 	return v
+}
+
+func toPtr(x any) uintptr {
+	return reflect.ValueOf(x).Pointer()
 }

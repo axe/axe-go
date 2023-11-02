@@ -22,23 +22,24 @@ func (l *Layer) Place(parent Bounds) {
 	l.Bounds = l.Placement.GetBoundsIn(parent)
 }
 
-func (l *Layer) Update(update Update) {
+func (l *Layer) Update(update Update) Dirty {
+	dirty := DirtyNone
 	if l.Visual != nil {
-		l.Visual.Update(update)
+		dirty.Add(l.Visual.Update(update))
 	}
 	if l.Background != nil {
-		l.Background.Update(update)
+		dirty.Add(l.Background.Update(update))
 	}
+	return dirty
 }
 
-func (l Layer) Render(ctx AmountContext, out *UIVertexBuffer) {
+func (l Layer) Render(ctx AmountContext, out *VertexBuffer) {
 	layerCtx := ctx.WithParent(l.Bounds.Width(), l.Bounds.Height())
-	start := out.Pos()
+	span := out.DataSpan()
 	l.Visual.Visualize(l.Bounds, layerCtx, out)
-	end := out.Pos()
 	if l.Background != nil {
-		for i := start; i < end; i++ {
-			l.Background.Backgroundify(l.Bounds, layerCtx, &out.Data[i])
+		for i := 0; i < span.Len(); i++ {
+			l.Background.Backgroundify(l.Bounds, layerCtx, span.At(i))
 		}
 	}
 }

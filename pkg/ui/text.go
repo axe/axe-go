@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -37,6 +39,33 @@ func (f Font) GetKerning(prev rune, next rune) float32 {
 		}
 	}
 	return 0
+}
+
+type TextWrap string
+
+const (
+	TextWrapNone TextWrap = "none"
+	TextWrapWord TextWrap = "word"
+	TextWrapChar TextWrap = "char"
+)
+
+func (w TextWrap) MarshalText() ([]byte, error) {
+	return []byte(w), nil
+}
+
+func (w *TextWrap) UnmarshalText(text []byte) error {
+	s := strings.ToLower(string(text))
+	switch s {
+	case "none", "n", "":
+		*w = TextWrapNone
+	case "word", "w":
+		*w = TextWrapWord
+	case "char", "c", "letter":
+		*w = TextWrapChar
+	default:
+		return fmt.Errorf("invalid text wrap: " + s)
+	}
+	return nil
 }
 
 type Glyph interface {

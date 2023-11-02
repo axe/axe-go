@@ -116,7 +116,7 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 		Events: ui.Events{
 			OnDrag: func(ev *ui.DragEvent) {
 				if ev.Type == ui.DragEventMove {
-					frame.Placement = frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y)
+					frame.SetPlacement(frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y))
 				}
 			},
 		},

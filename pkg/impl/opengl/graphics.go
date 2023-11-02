@@ -275,7 +275,11 @@ func initView2(view axe.View2f, game *axe.Game) {
 	gl.LoadIdentity()
 }
 
-var vb = ui.NewVertexBuffer(1024)
+var vb = &ui.VertexBuffer{}
+
+func init() {
+	vb.Init(4096)
+}
 
 func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 	bounds := placementWindowBounds(view.Placement, game)
@@ -297,11 +301,18 @@ func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 
 		ctx.FontSize = u.Theme.DefaultFontSize
 
-		vb.Clear()
-		u.Root.Place(bounds)
-		u.Root.Render(ctx, vb)
+		span := vb.IndexSpanAt(0)
 
-		if vb.Pos() > 0 {
+		u.SetContext(ctx)
+		u.Place(bounds)
+
+		if u.NeedsRender() {
+			vb.Clear()
+			u.Render(vb)
+		}
+
+		indices := span.Len()
+		if indices > 0 {
 			gl.Enable(gl.BLEND)
 			gl.Disable(gl.LIGHTING)
 			gl.Disable(gl.TEXTURE_2D)
@@ -311,8 +322,8 @@ func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 
 			began := false
 			lastTexture := ""
-			for _, i := range vb.Indices {
-				v := vb.Data[i]
+			for i := 0; i < indices; i++ {
+				v := span.At(i)
 				if v.Coord.Texture != lastTexture {
 					if began {
 						gl.End()

@@ -191,7 +191,7 @@ func main() {
 						UnitToPoints: 0.5,
 					}
 
-					userInterface.UI.Root = &ui.Base{
+					userInterface.Root = &ui.Base{
 						Children: []*ui.Base{
 							newDraggable(),
 							{
@@ -219,7 +219,7 @@ func main() {
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
 									},
-									States: ui.StateAny(ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected),
+									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
 								}, {
 									// Shadow blur
 									Placement: ui.Maximized().Shift(1, 4),
@@ -231,7 +231,7 @@ func main() {
 										HasInnerColor: true,
 										Outline:       outline,
 									},
-									States: ui.StateAny(ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected),
+									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
 								}, {
 									// Shadow filled (default)
 									Placement: ui.Maximized().Shift(1, 4),
@@ -241,7 +241,7 @@ func main() {
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3),
 									},
-									States: ui.StateNot(ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected),
+									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
 								}, {
 									// Shadow blur (default)
 									Placement: ui.Maximized().Shift(1, 4),
@@ -253,7 +253,7 @@ func main() {
 										HasInnerColor: true,
 										Outline:       outline,
 									},
-									States: ui.StateNot(ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected),
+									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
 								}, {
 									// Background
 									Placement: ui.Maximized(),
@@ -263,7 +263,7 @@ func main() {
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080"),
 									},
-									States: ui.StateNot(ui.StateHover | ui.StatePressed),
+									States: (ui.StateHover | ui.StatePressed).Not,
 								}, {
 									// Background on hover
 									Placement: ui.Maximized(),
@@ -273,7 +273,7 @@ func main() {
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080").Lighten(0.1),
 									},
-									States: ui.StateAll(ui.StateHover),
+									States: ui.StateHover.Is,
 								}, {
 									// Background on press
 									Placement: ui.Maximized(),
@@ -283,7 +283,7 @@ func main() {
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080").Darken(0.1),
 									},
-									States: ui.StateAll(ui.StatePressed),
+									States: ui.StatePressed.Is,
 								}, {
 									// Text content
 									Placement: ui.Maximized().Shrink(10),
@@ -317,7 +317,7 @@ func newDraggable() *ui.Base {
 		Events: ui.Events{
 			OnDrag: func(ev *ui.DragEvent) {
 				if ev.Type == ui.DragEventMove {
-					draggable.Placement = draggable.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y)
+					draggable.SetPlacement(draggable.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y))
 				}
 			},
 		},

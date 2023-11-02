@@ -2,8 +2,8 @@ package ui
 
 type Visual interface {
 	Init(init Init)
-	Update(update Update)
-	Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer)
+	Update(update Update) Dirty
+	Visualize(b Bounds, ctx AmountContext, out *VertexBuffer)
 }
 
 var _ Visual = VisualFilled{}
@@ -19,11 +19,11 @@ func (s VisualFilled) Init(init Init) {
 	s.Outline.Init(init)
 }
 
-func (s VisualFilled) Update(update Update) {
-
+func (s VisualFilled) Update(update Update) Dirty {
+	return DirtyNone
 }
 
-func (s VisualFilled) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer) {
+func (s VisualFilled) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer) {
 	points := s.Outline.Outlinify(b, ctx)
 	center := Coord{}
 	for _, p := range points {
@@ -40,11 +40,11 @@ func (s VisualFilled) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer
 		prevPoint := points[prev]
 		nextPoint := points[next]
 		i := out.Add(
-			UIVertex{X: prevPoint.X, Y: prevPoint.Y},
-			UIVertex{X: nextPoint.X, Y: nextPoint.Y},
-			UIVertex{X: center.X, Y: center.Y},
+			Vertex{X: prevPoint.X, Y: prevPoint.Y},
+			Vertex{X: nextPoint.X, Y: nextPoint.Y},
+			Vertex{X: center.X, Y: center.Y},
 		)
-		out.AddIndices(i, i+1, i+2)
+		out.AddIndex(i, i+1, i+2)
 		prev = next
 	}
 }
@@ -62,11 +62,11 @@ func (s VisualBordered) Init(init Init) {
 	s.Outline.Init(init)
 }
 
-func (s VisualBordered) Update(update Update) {
-
+func (s VisualBordered) Update(update Update) Dirty {
+	return DirtyNone
 }
 
-func (s VisualBordered) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer) {
+func (s VisualBordered) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer) {
 	inner := s.Outline.Outlinify(b, ctx)
 	outer := make([]Coord, len(inner))
 	last := len(inner) - 1
@@ -93,13 +93,12 @@ func (s VisualBordered) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuff
 		nextOuter := outer[next]
 		prevInner := inner[prev]
 		nextInner := inner[next]
-		i := out.Add(
-			UIVertex{X: prevOuter.X, Y: prevOuter.Y, Color: s.OuterColor, HasColor: s.HasOuterColor},
-			UIVertex{X: nextOuter.X, Y: nextOuter.Y, Color: s.OuterColor, HasColor: s.HasOuterColor},
-			UIVertex{X: nextInner.X, Y: nextInner.Y, Color: s.InnerColor, HasColor: s.HasInnerColor},
-			UIVertex{X: prevInner.X, Y: prevInner.Y, Color: s.InnerColor, HasColor: s.HasInnerColor},
+		out.AddQuad(
+			Vertex{X: prevOuter.X, Y: prevOuter.Y, Color: s.OuterColor, HasColor: s.HasOuterColor},
+			Vertex{X: nextOuter.X, Y: nextOuter.Y, Color: s.OuterColor, HasColor: s.HasOuterColor},
+			Vertex{X: nextInner.X, Y: nextInner.Y, Color: s.InnerColor, HasColor: s.HasInnerColor},
+			Vertex{X: prevInner.X, Y: prevInner.Y, Color: s.InnerColor, HasColor: s.HasInnerColor},
 		)
-		out.AddQuad(i)
 		prev = next
 	}
 }
@@ -113,24 +112,23 @@ func (r VisualFrame) Init(init Init) {
 
 }
 
-func (r VisualFrame) Update(update Update) {
-
+func (r VisualFrame) Update(update Update) Dirty {
+	return DirtyNone
 }
 
-func (r VisualFrame) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer) {
+func (r VisualFrame) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer) {
 	sizes := r.Sizes.GetBounds(ctx)
 	axisX := []float32{b.Left, b.Left + sizes.Left, b.Right - sizes.Right, b.Right}
 	axisY := []float32{b.Top, b.Top + sizes.Top, b.Bottom - sizes.Bottom, b.Bottom}
 	for i, tile := range r.Tile {
 		indexX := i % 3
 		indexY := i / 3
-		k := out.Add(
-			UIVertex{X: axisX[indexX+0], Y: axisY[indexY+0], Coord: tile.Coord(0, 0), HasCoord: true},
-			UIVertex{X: axisX[indexX+1], Y: axisY[indexY+0], Coord: tile.Coord(1, 0), HasCoord: true},
-			UIVertex{X: axisX[indexX+1], Y: axisY[indexY+1], Coord: tile.Coord(1, 1), HasCoord: true},
-			UIVertex{X: axisX[indexX+0], Y: axisY[indexY+1], Coord: tile.Coord(0, 1), HasCoord: true},
+		out.AddQuad(
+			Vertex{X: axisX[indexX+0], Y: axisY[indexY+0], Coord: tile.Coord(0, 0), HasCoord: true},
+			Vertex{X: axisX[indexX+1], Y: axisY[indexY+0], Coord: tile.Coord(1, 0), HasCoord: true},
+			Vertex{X: axisX[indexX+1], Y: axisY[indexY+1], Coord: tile.Coord(1, 1), HasCoord: true},
+			Vertex{X: axisX[indexX+0], Y: axisY[indexY+1], Coord: tile.Coord(0, 1), HasCoord: true},
 		)
-		out.AddQuad(k)
 	}
 }
 
@@ -146,11 +144,11 @@ func (s *VisualText) Init(init Init) {
 	s.theme = init.Theme
 }
 
-func (s *VisualText) Update(update Update) {
-
+func (s *VisualText) Update(update Update) Dirty {
+	return DirtyNone
 }
 
-func (s *VisualText) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer) {
+func (s *VisualText) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer) {
 	if s.renderedBounds != b {
 		s.Glyphs.MaxWidth, s.Glyphs.MaxHeight = b.Dimensions()
 		s.rendered = s.Glyphs.Render(s.theme, ctx)
@@ -158,12 +156,11 @@ func (s *VisualText) Visualize(b Bounds, ctx AmountContext, out *UIVertexBuffer)
 		s.renderedBounds = b
 	}
 	for _, g := range s.rendered.Glyphs {
-		i := out.Add(
-			UIVertex{X: g.Bounds.Left, Y: g.Bounds.Top, Coord: g.Coord(0, 0), HasCoord: true, Color: g.Color, HasColor: true},
-			UIVertex{X: g.Bounds.Right, Y: g.Bounds.Top, Coord: g.Coord(1, 0), HasCoord: true, Color: g.Color, HasColor: true},
-			UIVertex{X: g.Bounds.Right, Y: g.Bounds.Bottom, Coord: g.Coord(1, 1), HasCoord: true, Color: g.Color, HasColor: true},
-			UIVertex{X: g.Bounds.Left, Y: g.Bounds.Bottom, Coord: g.Coord(0, 1), HasCoord: true, Color: g.Color, HasColor: true},
+		out.AddQuad(
+			Vertex{X: g.Bounds.Left, Y: g.Bounds.Top, Coord: g.Coord(0, 0), HasCoord: true, Color: g.Color, HasColor: true},
+			Vertex{X: g.Bounds.Right, Y: g.Bounds.Top, Coord: g.Coord(1, 0), HasCoord: true, Color: g.Color, HasColor: true},
+			Vertex{X: g.Bounds.Right, Y: g.Bounds.Bottom, Coord: g.Coord(1, 1), HasCoord: true, Color: g.Color, HasColor: true},
+			Vertex{X: g.Bounds.Left, Y: g.Bounds.Bottom, Coord: g.Coord(0, 1), HasCoord: true, Color: g.Color, HasColor: true},
 		)
-		out.AddQuad(i)
 	}
 }
