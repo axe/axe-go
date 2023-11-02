@@ -137,10 +137,10 @@ func (r VisualFrame) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) 
 }
 
 type VisualText struct {
-	Glyphs GlyphBlocks
+	Paragraphs Paragraphs
 
 	theme          *Theme
-	rendered       RenderedGlyphBlock
+	rendered       RenderedText
 	renderedBounds Bounds
 }
 
@@ -154,8 +154,8 @@ func (s *VisualText) Update(update Update) Dirty {
 
 func (s *VisualText) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
 	if s.renderedBounds != b {
-		s.Glyphs.MaxWidth, s.Glyphs.MaxHeight = b.Dimensions()
-		s.rendered = s.Glyphs.Render(s.theme, ctx.AmountContext)
+		s.Paragraphs.MaxWidth, s.Paragraphs.MaxHeight = b.Dimensions()
+		s.rendered = s.Paragraphs.Render(s.theme, ctx.AmountContext)
 		s.rendered.Translate(b.Left, b.Top)
 		s.renderedBounds = b
 	}

@@ -59,8 +59,8 @@ func main() {
 						"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
 						"{p}{h:1}{c:white}Right aligned!",
 						"{p}{h:0.25}25% aligned?",
-						"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
-						"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
+						"{p}{h}{w:word}{i:2rem}This should wrap at the word and not at the character and should take up at least two lines with an indent. Resize the window!",
+						"{p}{i}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
 					}
 
 					userInterface := axe.NewUserInterface()
