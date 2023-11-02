@@ -236,12 +236,15 @@ func (c *Base) At(pt Coord) Component {
 	if !c.Bounds.Contains(pt) {
 		return nil
 	}
-	for i := range c.Children {
+
+	last := len(c.Children)
+	for i := last; i >= 0; i-- {
 		at := c.Children[i].At(pt)
 		if at != nil {
 			return at
 		}
 	}
+
 	return c
 }
 
