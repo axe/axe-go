@@ -12,6 +12,7 @@ type Base struct {
 	States    State
 	Clip      Placement
 
+	OverShape    []Coord
 	Transparency Watch[float32]
 
 	dirty  Dirty
@@ -237,7 +238,17 @@ func (c *Base) At(pt Coord) Component {
 		return nil
 	}
 
-	last := len(c.Children)
+	if len(c.OverShape) > 0 {
+		normalized := Coord{
+			X: c.Bounds.Dx(pt.X),
+			Y: c.Bounds.Dy(pt.Y),
+		}
+		if !inPolygon(c.OverShape, normalized) {
+			return nil
+		}
+	}
+
+	last := len(c.Children) - 1
 	for i := last; i >= 0; i-- {
 		at := c.Children[i].At(pt)
 		if at != nil {

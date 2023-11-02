@@ -221,6 +221,13 @@ func main() {
 func newDraggable() *ui.Base {
 	var draggable *ui.Base
 
+	shape := []ui.Coord{
+		{X: 0, Y: 0.5},
+		{X: 0.5, Y: 0},
+		{X: 1, Y: 0.5},
+		{X: 0.5, Y: 1},
+	}
+
 	draggable = &ui.Base{
 		Placement: ui.Absolute(10, 200, 80, 80),
 		Draggable: true,
@@ -232,20 +239,15 @@ func newDraggable() *ui.Base {
 				}
 			},
 		},
+		OverShape: shape,
 		Layers: []ui.Layer{{
-			Visual: ui.VisualFilled{
-				Shape: ui.ShapePolygon{
-					Points: []ui.Coord{
-						{X: 0, Y: 0.5},
-						{X: 0.5, Y: 0},
-						{X: 1, Y: 0.5},
-						{X: 0.5, Y: 1},
-					},
-				},
-			},
-			Background: ui.BackgroundColor{
-				Color: ui.ColorBlack,
-			},
+			Visual:     ui.VisualFilled{Shape: ui.ShapePolygon{Points: shape}},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+			States:     ui.StateHover.Not,
+		}, {
+			Visual:     ui.VisualFilled{Shape: ui.ShapePolygon{Points: shape}},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack.Lighten(0.3)},
+			States:     ui.StateHover.Is,
 		}, {
 			Visual: ui.MustTextToVisual("{f:roboto}{s:14}{c:white}{h:0.5}{pv:0.5}drag me"),
 		}},

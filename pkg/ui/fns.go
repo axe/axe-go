@@ -52,6 +52,23 @@ func toPtr(x any) uintptr {
 	return reflect.ValueOf(x).Pointer()
 }
 
+func inPolygon(polygon []Coord, pt Coord) bool {
+	in := false
+	n := len(polygon)
+	i := 0
+	j := n - 1
+	for i < n {
+		jp := polygon[j]
+		ip := polygon[i]
+		if ((ip.Y > pt.Y) != (jp.Y > pt.Y)) && (pt.X < (jp.X-ip.X)*(pt.Y-ip.Y)/(jp.Y-ip.Y)+ip.X) {
+			in = !in
+		}
+		j = i
+		i++
+	}
+	return in
+}
+
 func sliceIndexOf[V comparable](slice []V, value V) int {
 	for i := range slice {
 		if slice[i] == value {
