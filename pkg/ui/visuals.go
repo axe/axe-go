@@ -12,11 +12,11 @@ var _ Visual = VisualFrame{}
 var _ Visual = &VisualText{}
 
 type VisualFilled struct {
-	Outline Outline
+	Shape Shape
 }
 
 func (s VisualFilled) Init(init Init) {
-	s.Outline.Init(init)
+	s.Shape.Init(init)
 }
 
 func (s VisualFilled) Update(update Update) Dirty {
@@ -24,7 +24,7 @@ func (s VisualFilled) Update(update Update) Dirty {
 }
 
 func (s VisualFilled) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
-	points := s.Outline.Outlinify(b, ctx)
+	points := s.Shape.Shapify(b, ctx)
 	center := Coord{}
 	for _, p := range points {
 		center.X += p.X
@@ -55,11 +55,11 @@ type VisualBordered struct {
 	HasOuterColor bool
 	InnerColor    Color
 	HasInnerColor bool
-	Outline       Outline
+	Shape         Shape
 }
 
 func (s VisualBordered) Init(init Init) {
-	s.Outline.Init(init)
+	s.Shape.Init(init)
 }
 
 func (s VisualBordered) Update(update Update) Dirty {
@@ -67,7 +67,7 @@ func (s VisualBordered) Update(update Update) Dirty {
 }
 
 func (s VisualBordered) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
-	inner := s.Outline.Outlinify(b, ctx)
+	inner := s.Shape.Shapify(b, ctx)
 	outer := make([]Coord, len(inner))
 	last := len(inner) - 1
 	i0 := last - 1

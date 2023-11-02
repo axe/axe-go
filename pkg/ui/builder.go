@@ -3,7 +3,7 @@ package ui
 import "github.com/axe/axe-go/pkg/ds"
 
 type Builder struct {
-	outline    ds.Stack[Outline]
+	shape      ds.Stack[Shape]
 	placement  ds.Stack[Placement]
 	background ds.Stack[Background]
 	visual     ds.Stack[Visual]
@@ -18,7 +18,7 @@ type Builder struct {
 
 func NewBuilder() Builder {
 	return Builder{
-		outline:      ds.NewStack[Outline](8),
+		shape:        ds.NewStack[Shape](8),
 		placement:    ds.NewStack[Placement](8),
 		background:   ds.NewStack[Background](8),
 		visual:       ds.NewStack[Visual](8),
@@ -30,16 +30,16 @@ func NewBuilder() Builder {
 	}
 }
 
-func (b Builder) Outline(outline Outline) Builder {
-	b.outline.Push(outline)
+func (b Builder) Shape(shape Shape) Builder {
+	b.shape.Push(shape)
 	return b
 }
-func (b Builder) OutlinePop() Builder {
-	b.outline.Pop()
+func (b Builder) ShapePop() Builder {
+	b.shape.Pop()
 	return b
 }
-func (b Builder) OutlineRectangle() Builder {
-	return b.Outline(OutlineRectangle{})
+func (b Builder) ShapeRectangle() Builder {
+	return b.Shape(ShapeRectangle{})
 }
 func (b Builder) Radius(radius float32) Builder {
 	b.borderRadius.Set(radius, UnitConstant)
@@ -49,8 +49,8 @@ func (b Builder) RadiusOval() Builder {
 	b.borderRadius.Set(0.5, UnitParent)
 	return b
 }
-func (b Builder) OutlineRounded() Builder {
-	return b.Outline(OutlineRounded{
+func (b Builder) ShapeRounded() Builder {
+	return b.Shape(ShapeRounded{
 		Radius:       b.borderRadius,
 		UnitToPoints: b.unitsToPoint,
 	})
@@ -107,10 +107,10 @@ func (b Builder) VisualPop() Builder {
 	return b
 }
 func (b Builder) Filled() Builder {
-	return b.Visual(VisualFilled{Outline: b.outline.Peek()})
+	return b.Visual(VisualFilled{Shape: b.shape.Peek()})
 }
 func (b Builder) Bordered(width float32, color Color, outerColor *Color) Builder {
-	vb := VisualBordered{Width: width, Outline: b.outline.Peek(), InnerColor: color, HasInnerColor: true, OuterColor: color, HasOuterColor: true}
+	vb := VisualBordered{Width: width, Shape: b.shape.Peek(), InnerColor: color, HasInnerColor: true, OuterColor: color, HasOuterColor: true}
 	if outerColor != nil {
 		vb.OuterColor = *outerColor
 	}

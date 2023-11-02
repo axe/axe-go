@@ -152,7 +152,7 @@ func main() {
 					// userInterface.UI.Root = ui.NewBuilder().
 					// 	Place(ui.Absolute(20, 20, 200, 50)).
 					// 	Radius(4).
-					// 	OutlineRounded().
+					// 	ShapeRounded().
 					// 	Shrink(4).Shift(1, 4).
 					// 	Filled().
 					// 	States(ui.StateAny(ui.StateHover|ui.StatePressed|ui.StateFocused|ui.StateSelected)).
@@ -181,7 +181,7 @@ func main() {
 					// 	}).
 					// 	End()
 
-					outline := ui.OutlineRounded{
+					shape := ui.ShapeRounded{
 						Radius: ui.AmountCorners{
 							TopLeft:     ui.Amount{Value: 8},
 							TopRight:    ui.Amount{Value: 8},
@@ -214,7 +214,7 @@ func main() {
 									// Shadow filled
 									Placement: ui.Maximized().Shift(1, 4),
 									Visual: ui.VisualFilled{
-										Outline: outline,
+										Shape: shape,
 									},
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
@@ -229,14 +229,14 @@ func main() {
 										HasOuterColor: true,
 										InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
 										HasInnerColor: true,
-										Outline:       outline,
+										Shape:         shape,
 									},
 									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
 								}, {
 									// Shadow filled (default)
 									Placement: ui.Maximized().Shift(1, 4),
 									Visual: ui.VisualFilled{
-										Outline: outline,
+										Shape: shape,
 									},
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3),
@@ -251,14 +251,14 @@ func main() {
 										HasOuterColor: true,
 										InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3),
 										HasInnerColor: true,
-										Outline:       outline,
+										Shape:         shape,
 									},
 									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
 								}, {
 									// Background
 									Placement: ui.Maximized(),
 									Visual: ui.VisualFilled{
-										Outline: outline,
+										Shape: shape,
 									},
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080"),
@@ -268,7 +268,7 @@ func main() {
 									// Background on hover
 									Placement: ui.Maximized(),
 									Visual: ui.VisualFilled{
-										Outline: outline,
+										Shape: shape,
 									},
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080").Lighten(0.1),
@@ -278,7 +278,7 @@ func main() {
 									// Background on press
 									Placement: ui.Maximized(),
 									Visual: ui.VisualFilled{
-										Outline: outline,
+										Shape: shape,
 									},
 									Background: ui.BackgroundColor{
 										Color: ui.ColorFromHex("#008080").Darken(0.1),
@@ -323,7 +323,14 @@ func newDraggable() *ui.Base {
 		},
 		Layers: []ui.Layer{{
 			Visual: ui.VisualFilled{
-				Outline: ui.OutlineRectangle{},
+				Shape: ui.ShapePolygon{
+					Points: []ui.Coord{
+						{X: 0, Y: 0.5},
+						{X: 0.5, Y: 0},
+						{X: 1, Y: 0.5},
+						{X: 0.5, Y: 1},
+					},
+				},
 			},
 			Background: ui.BackgroundColor{
 				Color: ui.ColorBlack,

@@ -2,19 +2,20 @@ package ui
 
 import "math"
 
-type Outline interface {
+type Shape interface {
 	Init(init Init)
-	Outlinify(b Bounds, ctx RenderContext) []Coord
+	Shapify(b Bounds, ctx RenderContext) []Coord
 }
 
-var _ Outline = OutlineRectangle{}
-var _ Outline = OutlineRounded{}
-var _ Outline = OutlineSharpen{}
+var _ Shape = ShapeRectangle{}
+var _ Shape = ShapeRounded{}
+var _ Shape = ShapeSharpen{}
+var _ Shape = ShapePolygon{}
 
-type OutlineRectangle struct{}
+type ShapeRectangle struct{}
 
-func (o OutlineRectangle) Init(init Init) {}
-func (o OutlineRectangle) Outlinify(b Bounds, ctx RenderContext) []Coord {
+func (o ShapeRectangle) Init(init Init) {}
+func (o ShapeRectangle) Shapify(b Bounds, ctx RenderContext) []Coord {
 	return []Coord{
 		{X: b.Left, Y: b.Top},
 		{X: b.Right, Y: b.Top},
@@ -23,22 +24,22 @@ func (o OutlineRectangle) Outlinify(b Bounds, ctx RenderContext) []Coord {
 	}
 }
 
-type OutlineRounded struct {
+type ShapeRounded struct {
 	Radius       AmountCorners
 	UnitToPoints float32
 }
 
-var OutlineRoundedAngles = [][]float32{{math.Pi, math.Pi * 0.5}, {math.Pi * 0.5, 0}, {math.Pi * 2, math.Pi * 1.5}, {math.Pi * 1.5, math.Pi}}
-var OutlineRoundedPlacements = [][]float32{{0, 0}, {1, 0}, {1, 1}, {0, 1}} // 0=1, 1=-1     *2 (0,2) -1 (-1,1)
+var ShapeRoundedAngles = [][]float32{{math.Pi, math.Pi * 0.5}, {math.Pi * 0.5, 0}, {math.Pi * 2, math.Pi * 1.5}, {math.Pi * 1.5, math.Pi}}
+var ShapeRoundedPlacements = [][]float32{{0, 0}, {1, 0}, {1, 1}, {0, 1}} // 0=1, 1=-1     *2 (0,2) -1 (-1,1)
 
-func (o OutlineRounded) Init(init Init) {}
-func (o OutlineRounded) Outlinify(b Bounds, ctx RenderContext) []Coord {
+func (o ShapeRounded) Init(init Init) {}
+func (o ShapeRounded) Shapify(b Bounds, ctx RenderContext) []Coord {
 	amounts := []Amount{o.Radius.TopLeft, o.Radius.TopRight, o.Radius.BottomRight, o.Radius.BottomLeft}
 	coords := make([]Coord, 0, 16)
 	for i := 0; i < 4; i++ {
 		amount := amounts[i]
-		angles := OutlineRoundedAngles[i]
-		placements := OutlineRoundedPlacements[i]
+		angles := ShapeRoundedAngles[i]
+		placements := ShapeRoundedPlacements[i]
 		radiusW := amount.Get(ctx.ForWidth())
 		radiusH := amount.Get(ctx.ForHeight())
 		points := int((radiusW+radiusH)*0.5*o.UnitToPoints) + 1
@@ -57,16 +58,16 @@ func (o OutlineRounded) Outlinify(b Bounds, ctx RenderContext) []Coord {
 	return coords
 }
 
-type OutlineSharpen struct {
-	Outline Outline
-	Times   int
+type ShapeSharpen struct {
+	Shape Shape
+	Times int
 }
 
-func (o OutlineSharpen) Init(init Init) {
-	o.Outline.Init(init)
+func (o ShapeSharpen) Init(init Init) {
+	o.Shape.Init(init)
 }
-func (o OutlineSharpen) Outlinify(b Bounds, ctx RenderContext) []Coord {
-	points := o.Outline.Outlinify(b, ctx)
+func (o ShapeSharpen) Shapify(b Bounds, ctx RenderContext) []Coord {
+	points := o.Shape.Shapify(b, ctx)
 	times := o.Times + 1
 	sharpened := make([]Coord, len(points)*times)
 	last := len(points) - 1
@@ -82,4 +83,21 @@ func (o OutlineSharpen) Outlinify(b Bounds, ctx RenderContext) []Coord {
 		}
 	}
 	return sharpened
+}
+
+type ShapePolygon struct {
+	Points []Coord
+}
+
+func (o ShapePolygon) Init(init Init) {
+
+}
+func (o ShapePolygon) Shapify(b Bounds, ctx RenderContext) []Coord {
+	n := len(o.Points)
+	points := make([]Coord, n)
+	for i := 0; i < n; i++ {
+		points[i].X = b.Lerpx(o.Points[i].X)
+		points[i].Y = b.Lerpy(o.Points[i].Y)
+	}
+	return points
 }

@@ -71,7 +71,7 @@ func main() {
 }
 
 func generateWindow(title string, placement ui.Placement) *ui.Base {
-	frameOutline := ui.OutlineRounded{
+	frameShape := ui.ShapeRounded{
 		Radius: ui.AmountCorners{
 			TopLeft:     ui.Amount{Value: 8},
 			TopRight:    ui.Amount{Value: 8},
@@ -83,12 +83,12 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 	frame := &ui.Base{
 		Placement: placement,
 		Layers: []ui.Layer{{
-			Visual:     ui.VisualFilled{Outline: frameOutline},
+			Visual:     ui.VisualFilled{Shape: frameShape},
 			Background: ui.BackgroundColor{Color: ui.ColorGray},
 		}},
 	}
 
-	barOutline := ui.OutlineRounded{
+	barShape := ui.ShapeRounded{
 		Radius: ui.AmountCorners{
 			TopLeft:  ui.Amount{Value: 8},
 			TopRight: ui.Amount{Value: 8},
@@ -103,7 +103,7 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 			Bottom: ui.Anchor{Base: 24, Delta: 0},
 		},
 		Layers: []ui.Layer{{
-			Visual: ui.VisualFilled{Outline: barOutline},
+			Visual: ui.VisualFilled{Shape: barShape},
 			Background: ui.BackgroundLinearGradient{
 				StartColor: ui.ColorCornflowerBlue,
 				EndColor:   ui.ColorCornflowerBlue.Lighten(0.2),

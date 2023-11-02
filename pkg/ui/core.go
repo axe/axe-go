@@ -28,6 +28,18 @@ func (b Bounds) Dx(x float32) float32 {
 func (b Bounds) Dy(y float32) float32 {
 	return (y - b.Top) / b.Height()
 }
+func (b Bounds) Delta(x, y float32) (float32, float32) {
+	return b.Dx(x), b.Dy(y)
+}
+func (b Bounds) Lerpx(dx float32) float32 {
+	return b.Width()*dx + b.Left
+}
+func (b Bounds) Lerpy(dy float32) float32 {
+	return b.Height()*dy + b.Top
+}
+func (b Bounds) Lerp(x, y float32) (float32, float32) {
+	return b.Lerpx(x), b.Lerpy(y)
+}
 func (b Bounds) Contains(c Coord) bool {
 	return !(c.X < b.Left || c.X > b.Right || c.Y < b.Top || c.Y > b.Bottom)
 }
