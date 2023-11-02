@@ -40,8 +40,25 @@ func (b Bounds) Lerpy(dy float32) float32 {
 func (b Bounds) Lerp(x, y float32) (float32, float32) {
 	return b.Lerpx(x), b.Lerpy(y)
 }
-func (b Bounds) Contains(c Coord) bool {
+func (b Bounds) Inside(c Coord) bool {
 	return !(c.X < b.Left || c.X > b.Right || c.Y < b.Top || c.Y > b.Bottom)
+}
+func (b Bounds) Union(a Bounds) Bounds {
+	if b.IsZero() {
+		return a
+	}
+	return Bounds{
+		Left:   min(a.Left, b.Left),
+		Top:    min(a.Top, b.Top),
+		Right:  max(a.Right, b.Right),
+		Bottom: max(a.Bottom, b.Bottom),
+	}
+}
+func (b Bounds) Intersects(a Bounds) bool {
+	return !(a.Right < b.Left || a.Left > b.Right || a.Bottom < b.Top || a.Top > b.Bottom)
+}
+func (b Bounds) Contains(a Bounds) bool {
+	return !(a.Left < b.Left || a.Top < b.Top || a.Right > b.Right || a.Bottom > b.Bottom)
 }
 
 type Theme struct {

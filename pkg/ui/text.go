@@ -119,11 +119,53 @@ type ParagraphStyles struct {
 	ParagraphPadding      AmountBounds // padding around the paragraph
 }
 
+type ClipShow int
+
+const (
+	ClipShowNone ClipShow = iota
+	ClipShowLeft
+	ClipShowRight
+	ClipShowTop
+	ClipShowBottom
+)
+
+func (a ClipShow) MarshalText() ([]byte, error) {
+	switch a {
+	case ClipShowNone:
+		return []byte{}, nil
+	case ClipShowLeft:
+		return []byte("left"), nil
+	case ClipShowTop:
+		return []byte("top"), nil
+	case ClipShowRight:
+		return []byte("right"), nil
+	case ClipShowBottom:
+		return []byte("bottom"), nil
+	}
+	return nil, fmt.Errorf("invalid clip show %d", a)
+}
+func (c *ClipShow) UnmarshalText(text []byte) error {
+	s := strings.ToLower(string(text))
+	switch s {
+	case "none", "":
+		*c = ClipShowNone
+	case "top", "t":
+		*c = ClipShowTop
+	case "left", "l":
+		*c = ClipShowLeft
+	case "bottom", "b":
+		*c = ClipShowBottom
+	case "right", "r":
+		*c = ClipShowRight
+	}
+	return fmt.Errorf("invalid clip show %s", string(text))
+}
+
 type ParagraphsStyles struct {
 	ParagraphSpacing  Amount    // how much space between paragraphs
 	VerticalAlignment Alignment // how to align all paragraphs in an area
-	ClampLeft         bool      // when text cannot fit in the area width, which side should we prefer to show (left, right, center)
-	ClampTop          bool      // when text cannot fit in the area height, which side should we prefer to show (top, bottom, center)
+	ClipShowX         ClipShow  // when text cannot fit in the area width, which side should we prefer to show (left, right, none)
+	ClipShowY         ClipShow  // when text cannot fit in the area height, which side should we prefer to show (top, bottom, none)
 }
 
 type TextStyles struct {
@@ -144,15 +186,37 @@ type Paragraphs struct {
 }
 
 type RenderedText struct {
-	Height float32
+	Bounds Bounds
 	Glyphs []RenderedGlyph
+}
+
+func (text RenderedText) UpdateVisibility(visibleBounds Bounds) {
+	for i := range text.Glyphs {
+		g := &text.Glyphs[i]
+		if visibleBounds.Contains(g.Bounds) {
+			g.Visibility = GlyphVisibilityVisible
+		} else if visibleBounds.Intersects(g.Bounds) {
+			g.Visibility = GlyphVisibilityPartial
+		} else {
+			g.Visibility = GlyphVisibilityInvisible
+		}
+	}
 }
 
 type RenderedGlyph struct {
 	Tile
-	Bounds Bounds
-	Color  Color
+	Bounds     Bounds
+	Color      Color
+	Visibility GlyphVisibility
 }
+
+type GlyphVisibility int
+
+const (
+	GlyphVisibilityVisible GlyphVisibility = iota
+	GlyphVisibilityPartial
+	GlyphVisibilityInvisible
+)
 
 type Glyph interface {
 	GetState(theme *Theme, ctx AmountContext, wrap TextWrap, prev Glyph) GlyphState
@@ -283,8 +347,18 @@ func (paragraph Paragraph) Render(theme *Theme, ctx AmountContext, paragraphs Pa
 	}
 	lineSpacing := paragraph.LineSpacing.Get(ctx)
 
-	totalHeight := padding.Top + padding.Bottom
+	bounds := Bounds{
+		Left:   0,
+		Top:    0,
+		Right:  0,
+		Bottom: padding.Top + padding.Bottom,
+	}
+
 	for lineIndex := range lines {
+		if lineIndex > 0 {
+			bounds.Bottom += lineSpacing
+		}
+
 		line := &lines[lineIndex]
 		actualLineHeight := float32(0)
 		for _, glyphIndex := range line.glyphs {
@@ -294,10 +368,7 @@ func (paragraph Paragraph) Render(theme *Theme, ctx AmountContext, paragraphs Pa
 			}
 		}
 		line.height = paragraph.GetLineHeight(ctx, actualLineHeight)
-		totalHeight += line.height
-		if lineIndex > 0 {
-			totalHeight += lineSpacing
-		}
+		bounds.Bottom += line.height
 	}
 
 	rendered := make([]RenderedGlyph, 0, len(paragraph.Glyphs))
@@ -308,11 +379,15 @@ func (paragraph Paragraph) Render(theme *Theme, ctx AmountContext, paragraphs Pa
 			X: paragraph.HorizontalAlignment.Compute(paragraphs.MaxWidth - line.width),
 			Y: offsetY,
 		}
-		if lineIndex == 0 {
-			start.X += lineIndent
+		if start.X < bounds.Left {
+			bounds.Left = start.X
 		}
-		if paragraphs.ClampLeft && start.X < 0 {
-			start.X = 0
+		right := start.X + line.width
+		if right > bounds.Right {
+			bounds.Right = right
+		}
+		if lineIndex == 0 && len(lines) > 1 {
+			start.X += lineIndent
 		}
 		start.X += padding.Left
 
@@ -330,7 +405,7 @@ func (paragraph Paragraph) Render(theme *Theme, ctx AmountContext, paragraphs Pa
 		offsetY += line.height + lineSpacing
 	}
 
-	return RenderedText{Height: totalHeight, Glyphs: rendered}
+	return RenderedText{Bounds: bounds, Glyphs: rendered}
 }
 
 func (paragraph RenderedText) Translate(x, y float32) {
@@ -368,21 +443,52 @@ func (paragraphs Paragraphs) Render(theme *Theme, ctx AmountContext) RenderedTex
 	paragraphSpacing := paragraphs.ParagraphSpacing.Get(paragraphCtx)
 	for i, paragraph := range paragraphs.Paragraphs {
 		rendered[i] = paragraph.Render(theme, paragraphCtx, paragraphs)
-		totalHeight += rendered[i].Height
+		totalHeight += rendered[i].Bounds.Height()
 		if i > 0 {
 			totalHeight += paragraphSpacing
 		}
 		totalGlyphs += len(rendered[i].Glyphs)
 	}
-	offset := paragraphs.VerticalAlignment.Compute(paragraphs.MaxHeight - totalHeight)
-	for i := range rendered {
-		if offset != 0 {
-			rendered[i].Translate(0, offset)
+	offsetY := paragraphs.VerticalAlignment.Compute(paragraphs.MaxHeight - totalHeight)
+
+	switch paragraphs.ClipShowY {
+	case ClipShowTop:
+		if offsetY < 0 {
+			offsetY = 0
 		}
-		offset += rendered[i].Height + paragraphSpacing
+	case ClipShowBottom:
+		if totalHeight > paragraphs.MaxHeight {
+			offsetY = paragraphs.MaxHeight - totalHeight
+		}
 	}
+
+	joinedBounds := Bounds{}
+
+	for i := range rendered {
+		paragraph := &rendered[i]
+
+		offsetX := float32(0)
+		switch paragraphs.ClipShowX {
+		case ClipShowLeft:
+			if paragraph.Bounds.Left < 0 {
+				offsetX = paragraph.Bounds.Left
+			}
+		case ClipShowRight:
+			if paragraph.Bounds.Right > paragraphs.MaxWidth {
+				offsetX = paragraphs.MaxWidth - paragraph.Bounds.Right
+			}
+		}
+
+		if offsetY != 0 || offsetX != 0 {
+			paragraph.Translate(offsetX, offsetY)
+		}
+
+		offsetY += paragraph.Bounds.Height() + paragraphSpacing
+		joinedBounds = joinedBounds.Union(paragraph.Bounds)
+	}
+
 	joined := RenderedText{
-		Height: totalHeight,
+		Bounds: joinedBounds,
 		Glyphs: make([]RenderedGlyph, 0, totalGlyphs),
 	}
 	for _, paragraph := range rendered {
@@ -508,8 +614,8 @@ var TextFormatRegex = regexp.MustCompile(`\\{|\{([^:}]+):?([^}]*)\}|.|\s`)
 // - set vertical alignment of paragraphs in area = {pv:0.5}
 // - set max height in area = {mh:100}
 // - set max width in area = {mw:100}
-// - set clamp left in area = {cl:1}
-// - set clamp top in area = {ct:0}
+// - set clip show x in area = {cx} aka {cx:} aka {cx:none} or {cx:left} or {cx:right}
+// - set clip show y in area = {cy} aka {cy:} aka {cy:none} or {cy:top} or {cy:bottom}
 //
 // Ex: "Hello {f:roboto}World{f:} {s:20}HOW{s:} {c:#00F}blue {c:red}red {c:} \{"
 func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
@@ -537,6 +643,13 @@ func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
 		}
 		return align
 	}
+	readClipShow := func(s string) ClipShow {
+		show := ClipShow(0)
+		if s != "" {
+			err = show.UnmarshalText([]byte(s))
+		}
+		return show
+	}
 	readWrap := func(s string) TextWrap {
 		wrap := TextWrap("")
 		err = wrap.UnmarshalText([]byte(s))
@@ -548,13 +661,6 @@ func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
 			err = color.UnmarshalText([]byte(s))
 		}
 		return color
-	}
-	readBool := func(s string) bool {
-		b := false
-		if s != "" {
-			b, err = strconv.ParseBool(s)
-		}
-		return b
 	}
 
 	pieces := TextFormatRegex.FindAllStringSubmatch(text, -1)
@@ -609,10 +715,10 @@ func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
 			paragraphs.MaxWidth = readFloat(value)
 		case "mh":
 			paragraphs.MaxHeight = readFloat(value)
-		case "ct":
-			paragraphs.ClampTop = readBool(value)
-		case "cl":
-			paragraphs.ClampLeft = readBool(value)
+		case "cx":
+			paragraphs.ClipShowX = readClipShow(value)
+		case "cy":
+			paragraphs.ClipShowY = readClipShow(value)
 		}
 		if err != nil {
 			return

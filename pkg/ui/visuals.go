@@ -137,8 +137,11 @@ func (r VisualFrame) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) 
 }
 
 type VisualText struct {
-	Paragraphs Paragraphs
+	Paragraphs       Paragraphs
+	VisibleThreshold *GlyphVisibility
+	Clip             bool
 
+	dirty          Dirty
 	theme          *Theme
 	rendered       RenderedText
 	renderedBounds Bounds
@@ -149,7 +152,28 @@ func (s *VisualText) Init(init Init) {
 }
 
 func (s *VisualText) Update(update Update) Dirty {
-	return DirtyNone
+	oldDirty := s.dirty
+	s.dirty.Clear()
+	return oldDirty
+}
+
+func (s *VisualText) Clipped() *VisualText {
+	partial := GlyphVisibilityPartial
+	s.Clip = true
+	s.VisibleThreshold = &partial
+	s.dirty = DirtyVisual
+	return s
+}
+
+func (s *VisualText) Visibility(threshold GlyphVisibility) *VisualText {
+	s.VisibleThreshold = &threshold
+	s.renderedBounds = Bounds{}
+	s.dirty = DirtyVisual
+	return s
+}
+
+func (s *VisualText) WillClip() bool {
+	return s.Clip && (s.VisibleThreshold == nil || *s.VisibleThreshold != GlyphVisibilityVisible)
 }
 
 func (s *VisualText) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
@@ -158,14 +182,27 @@ func (s *VisualText) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) 
 		s.rendered = s.Paragraphs.Render(s.theme, ctx.AmountContext)
 		s.rendered.Translate(b.Left, b.Top)
 		s.renderedBounds = b
+
+		if s.VisibleThreshold != nil {
+			s.rendered.UpdateVisibility(b)
+		}
 	}
-	buffer := out.Buffer()
-	for _, g := range s.rendered.Glyphs {
-		buffer.AddQuad(
-			Vertex{X: g.Bounds.Left, Y: g.Bounds.Top, Coord: g.Coord(0, 0), HasCoord: true, Color: g.Color, HasColor: true},
-			Vertex{X: g.Bounds.Right, Y: g.Bounds.Top, Coord: g.Coord(1, 0), HasCoord: true, Color: g.Color, HasColor: true},
-			Vertex{X: g.Bounds.Right, Y: g.Bounds.Bottom, Coord: g.Coord(1, 1), HasCoord: true, Color: g.Color, HasColor: true},
-			Vertex{X: g.Bounds.Left, Y: g.Bounds.Bottom, Coord: g.Coord(0, 1), HasCoord: true, Color: g.Color, HasColor: true},
-		)
+	clipBounds := Bounds{}
+	if s.WillClip() {
+		clipBounds = b
 	}
+	out.ClipMaybe(clipBounds, func(vb *VertexBuffers) {
+		buffer := vb.Buffer()
+		for _, g := range s.rendered.Glyphs {
+			if s.VisibleThreshold != nil && g.Visibility > *s.VisibleThreshold {
+				continue
+			}
+			buffer.AddQuad(
+				Vertex{X: g.Bounds.Left, Y: g.Bounds.Top, Coord: g.Coord(0, 0), HasCoord: true, Color: g.Color, HasColor: true},
+				Vertex{X: g.Bounds.Right, Y: g.Bounds.Top, Coord: g.Coord(1, 0), HasCoord: true, Color: g.Color, HasColor: true},
+				Vertex{X: g.Bounds.Right, Y: g.Bounds.Bottom, Coord: g.Coord(1, 1), HasCoord: true, Color: g.Color, HasColor: true},
+				Vertex{X: g.Bounds.Left, Y: g.Bounds.Bottom, Coord: g.Coord(0, 1), HasCoord: true, Color: g.Color, HasColor: true},
+			)
+		}
+	})
 }

@@ -211,19 +211,6 @@ func (c *Base) PostProcess(ctx RenderContext, iter VertexIterator) {
 			v.Color.A *= alphaMultiplier
 		}
 	}
-
-	/*
-		states := c.States
-		for one := states.Take(); one != 0; one = states.Take() {
-			modifier := ctx.Theme.StateModifier[one]
-			if modifier != nil {
-				for iter.HasNext() {
-					modifier(iter.Next())
-				}
-				iter.Reset()
-			}
-		}
-	*/
 }
 
 func (c *Base) Parent() Component {
@@ -234,7 +221,7 @@ func (c *Base) Parent() Component {
 }
 
 func (c *Base) At(pt Coord) Component {
-	if !c.Bounds.Contains(pt) {
+	if !c.Bounds.Inside(pt) {
 		return nil
 	}
 

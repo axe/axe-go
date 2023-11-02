@@ -116,15 +116,24 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 		Draggable: true,
 		Events: ui.Events{
 			OnDrag: func(ev *ui.DragEvent) {
+				if ev.Capture {
+					return
+				}
 				switch ev.Type {
 				case ui.DragEventStart:
 					frame.Transparency.Set(0.2)
 				case ui.DragEventMove:
-					frame.SetPlacement(frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y))
+					shifted := frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y)
+					// shifted.Constrain(frame.Parent())
+					frame.SetPlacement(shifted)
 				case ui.DragEventEnd:
 					frame.Transparency.Set(0)
 				}
 			},
+		},
+		Children: []*ui.Base{
+			newWindowClose(frame),
+			newWindowMinimizeMaximize(frame),
 		},
 	}
 
@@ -141,16 +150,132 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 		"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
 	}
 	text := &ui.Base{
-		Placement: ui.MaximizeOffset(10, 34, 10, 10),
-		Clip:      ui.Maximized(),
+		Placement: ui.MaximizeOffset(10, 34, -10, -10),
 		Children: []*ui.Base{{
 			Layers: []ui.Layer{{
-				Visual: ui.MustTextToVisual(strings.Join(lines, "\n")),
+				Visual: ui.MustTextToVisual(strings.Join(lines, "\n")).Clipped(),
 			}},
 		}},
 	}
 
-	frame.Children = append(frame.Children, bar, text)
+	frame.Children = append(frame.Children, bar, text, newWindowResize(frame))
 
 	return frame
+}
+
+func newWindowClose(win *ui.Base) *ui.Base {
+	return &ui.Base{
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: -24, Delta: 1},
+			Right:  ui.Anchor{Delta: 1},
+			Bottom: ui.Anchor{Base: 24},
+		},
+		Layers: []ui.Layer{{
+			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
+			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
+			States:     ui.StateHover.Is,
+		}, {
+			Placement: ui.Maximized().Shrink(4),
+			Visual: ui.VisualFilled{
+				Shape: ui.ShapePolygon{
+					Points: []ui.Coord{
+						{X: 0, Y: 0}, {X: 0.1, Y: 0}, {X: 0.5, Y: 0.4}, {X: 0.9, Y: 0},
+						{X: 1, Y: 0}, {X: 1.0, Y: 0.1}, {X: 0.6, Y: 0.5}, {X: 1, Y: 0.9},
+						{X: 1, Y: 1}, {X: 0.9, Y: 1}, {X: 0.5, Y: 0.6}, {X: 0.1, Y: 1},
+						{X: 0, Y: 1}, {X: 0, Y: 0.9}, {X: 0.4, Y: 0.5}, {X: 0, Y: 0.1},
+					},
+				},
+			},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+		}},
+		Events: ui.Events{
+			OnPointer: func(ev *ui.PointerEvent) {
+				if !ev.Capture && ev.Type == ui.PointerEventDown {
+					win.Transparency.Set(1)
+				}
+			},
+		},
+	}
+}
+
+func newWindowMinimizeMaximize(win *ui.Base) *ui.Base {
+	minimized := win.Placement
+	maximized := false
+
+	return &ui.Base{
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: -48, Delta: 1},
+			Right:  ui.Anchor{Base: -24, Delta: 1},
+			Bottom: ui.Anchor{Base: 24},
+		},
+		Layers: []ui.Layer{{
+			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
+			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
+			States:     ui.StateHover.Is,
+		}, {
+			Placement: ui.Maximized().Shrink(6),
+			Visual: ui.VisualBordered{
+				Width: 3,
+				Shape: ui.ShapeRectangle{},
+			},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+		}},
+		Events: ui.Events{
+			OnPointer: func(ev *ui.PointerEvent) {
+				if !ev.Capture && ev.Type == ui.PointerEventDown {
+					if maximized {
+						win.SetPlacement(minimized)
+					} else {
+						minimized = win.Placement
+						win.SetPlacement(ui.Maximized())
+					}
+					maximized = !maximized
+				}
+			},
+		},
+	}
+}
+
+func newWindowResize(win *ui.Base) *ui.Base {
+	start := win.Placement
+
+	return &ui.Base{
+		Draggable: true,
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: -8, Delta: 1},
+			Right:  ui.Anchor{Base: 0, Delta: 1},
+			Top:    ui.Anchor{Base: -8, Delta: 1},
+			Bottom: ui.Anchor{Base: 0, Delta: 1},
+		},
+		Layers: []ui.Layer{{
+			Background: ui.BackgroundColor{Color: ui.ColorDarkSlateGray},
+			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
+			States:     ui.StateHover.Is,
+		}, {
+			Background: ui.BackgroundColor{Color: ui.ColorDarkSlateGray.Alpha(0.3)},
+			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
+			States:     ui.StateHover.Not,
+		}},
+		Events: ui.Events{
+			OnDrag: func(ev *ui.DragEvent) {
+				if !ev.Capture {
+					ev.Stop = true
+					switch ev.Type {
+					case ui.DragEventStart:
+						win.Transparency.Set(0.2)
+						start = win.Placement
+					case ui.DragEventMove:
+						current := win.Placement
+						current.Right.Base += ev.DeltaMove.X
+						current.Bottom.Base += ev.DeltaMove.Y
+						win.SetPlacement(current)
+					case ui.DragEventCancel:
+						win.SetPlacement(start)
+					case ui.DragEventEnd:
+						win.Transparency.Set(0)
+					}
+				}
+			},
+		},
+	}
 }

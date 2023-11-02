@@ -38,6 +38,20 @@ func collinear(a, b, c Coord) bool {
 		equal((b.Y-a.Y)*(c.X-b.X), (c.Y-b.Y)*(b.X-a.X))
 }
 
+func min(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func clamp(v, min, max float32) float32 {
 	if v < min {
 		return min
