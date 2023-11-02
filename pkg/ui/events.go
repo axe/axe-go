@@ -7,8 +7,8 @@ import (
 type Events struct {
 	OnPointer func(ev *PointerEvent)
 	OnKey     func(ev *KeyEvent)
-	OnFocus   func(ev *ComponentEvent)
-	OnBlur    func(ev *ComponentEvent)
+	OnFocus   func(ev *Event)
+	OnBlur    func(ev *Event)
 	OnDrag    func(ev *DragEvent)
 }
 
@@ -17,6 +17,12 @@ type Event struct {
 	Stop    bool
 	Capture bool
 	Cancel  bool
+	Target  Component
+}
+
+func (e Event) withTarget(target Component) Event {
+	e.Target = target
+	return e
 }
 
 type DragEventType string
@@ -71,6 +77,11 @@ func (ev PointerEvent) as(eventType PointerEventType) PointerEvent {
 	return ev
 }
 
+func (e PointerEvent) withTarget(target Component) PointerEvent {
+	e.Target = target
+	return e
+}
+
 type PointerButtons struct {
 	Down     bool
 	DownTime int64
@@ -89,9 +100,4 @@ type KeyEvent struct {
 	Key  string
 	Char rune
 	Type KeyEventType
-}
-
-type ComponentEvent struct {
-	Event
-	Target Component
 }

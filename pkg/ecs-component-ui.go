@@ -20,6 +20,7 @@ func NewUserInterface() UserInterface {
 		UI: ui.UI{
 			Theme: &ui.Theme{
 				Fonts:            make(map[string]*ui.Font),
+				StateModifier:    make(map[ui.Flags]ui.VertexModifier),
 				DefaultFontSize:  16,
 				DefaultFontColor: ui.ColorBlack,
 			},

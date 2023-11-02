@@ -34,7 +34,7 @@ func main() {
 		Windows: []axe.StageWindow{{
 			Title:      "Test GLFW Main Window",
 			Placement:  ui.Centered(720, 480),
-			ClearColor: ui.ColorGray,
+			ClearColor: ui.ColorCornflowerBlue,
 		}},
 		Stages: []axe.Stage{{
 			Name: "cube",
@@ -147,7 +147,15 @@ func main() {
 				Load: func(scene *axe.Scene2f, game *axe.Game) {
 					e := ecs.New()
 
+					disabled := func(v *ui.Vertex) {
+						// v.Color.A *= 0.7
+						v.Color.R += (0.5 - v.Color.R) * 0.5
+						v.Color.G += (0.5 - v.Color.G) * 0.5
+						v.Color.B += (0.5 - v.Color.B) * 0.5
+					}
+
 					userInterface := axe.NewUserInterface()
+					userInterface.Theme.StateModifier[ui.StateDisabled] = disabled
 
 					// userInterface.UI.Root = ui.NewBuilder().
 					// 	Place(ui.Absolute(20, 20, 200, 50)).
@@ -181,115 +189,18 @@ func main() {
 					// 	}).
 					// 	End()
 
-					shape := ui.ShapeRounded{
-						Radius: ui.AmountCorners{
-							TopLeft:     ui.Amount{Value: 8},
-							TopRight:    ui.Amount{Value: 8},
-							BottomLeft:  ui.Amount{Value: 8},
-							BottomRight: ui.Amount{Value: 8},
-						},
-						UnitToPoints: 0.5,
-					}
+					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}{c:cornflowerblue}Press me", nil)
+					btnToggle := newButton(ui.Absolute(20, 100, 200, 50), "{f:roboto}{s:18}{h:0.5}{pv:0.5}TOGGLE DISABLED", func() {
+						btnPress.SetDisabled(!btnPress.IsDisabled())
+
+						// fmt.Printf("Click! is disabled: %v, new state: %d\n", btnPress.IsDisabled(), btnPress.States)
+					})
 
 					userInterface.Root = &ui.Base{
 						Children: []*ui.Base{
 							newDraggable(),
-							{
-								Placement: ui.Absolute(20, 20, 200, 50),
-								// Events: ui.Events{
-								// 	OnPointer: func(ev *ui.PointerEvent) {
-								// 		fmt.Printf("OnPointer: %+v\n", *ev)
-								// 	},
-								// 	OnKey: func(ev *ui.KeyEvent) {
-								// 		fmt.Printf("OnKey: %+v\n", *ev)
-								// 	},
-								// 	OnFocus: func(ev *ui.ComponentEvent) {
-								// 		fmt.Printf("OnFocus: %+v\n", *ev)
-								// 	},
-								// 	OnBlur: func(ev *ui.ComponentEvent) {
-								// 		fmt.Printf("OnBlur: %+v\n", *ev)
-								// 	},
-								// },
-								Layers: []ui.Layer{{
-									// Shadow filled
-									Placement: ui.Maximized().Shift(1, 4),
-									Visual: ui.VisualFilled{
-										Shape: shape,
-									},
-									Background: ui.BackgroundColor{
-										Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
-									},
-									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
-								}, {
-									// Shadow blur
-									Placement: ui.Maximized().Shift(1, 4),
-									Visual: ui.VisualBordered{
-										Width:         4,
-										OuterColor:    ui.ColorTransparent,
-										HasOuterColor: true,
-										InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
-										HasInnerColor: true,
-										Shape:         shape,
-									},
-									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
-								}, {
-									// Shadow filled (default)
-									Placement: ui.Maximized().Shift(1, 4),
-									Visual: ui.VisualFilled{
-										Shape: shape,
-									},
-									Background: ui.BackgroundColor{
-										Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3),
-									},
-									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
-								}, {
-									// Shadow blur (default)
-									Placement: ui.Maximized().Shift(1, 4),
-									Visual: ui.VisualBordered{
-										Width:         4,
-										OuterColor:    ui.ColorTransparent,
-										HasOuterColor: true,
-										InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3),
-										HasInnerColor: true,
-										Shape:         shape,
-									},
-									States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
-								}, {
-									// Background
-									Placement: ui.Maximized(),
-									Visual: ui.VisualFilled{
-										Shape: shape,
-									},
-									Background: ui.BackgroundColor{
-										Color: ui.ColorFromHex("#008080"),
-									},
-									States: (ui.StateHover | ui.StatePressed).Not,
-								}, {
-									// Background on hover
-									Placement: ui.Maximized(),
-									Visual: ui.VisualFilled{
-										Shape: shape,
-									},
-									Background: ui.BackgroundColor{
-										Color: ui.ColorFromHex("#008080").Lighten(0.1),
-									},
-									States: ui.StateHover.Is,
-								}, {
-									// Background on press
-									Placement: ui.Maximized(),
-									Visual: ui.VisualFilled{
-										Shape: shape,
-									},
-									Background: ui.BackgroundColor{
-										Color: ui.ColorFromHex("#008080").Darken(0.1),
-									},
-									States: ui.StatePressed.Is,
-								}, {
-									// Text content
-									Placement: ui.Maximized().Shrink(10),
-									Visual:    ui.MustTextToVisual("{f:warror}{s:24}{h:0.5}{pv:0.5}Press me"),
-								}},
-							},
+							btnPress,
+							btnToggle,
 						},
 					}
 
@@ -341,4 +252,121 @@ func newDraggable() *ui.Base {
 	}
 
 	return draggable
+}
+
+func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
+	shape := ui.ShapeRounded{
+		Radius: ui.AmountCorners{
+			TopLeft:     ui.Amount{Value: 8},
+			TopRight:    ui.Amount{Value: 8},
+			BottomLeft:  ui.Amount{Value: 8},
+			BottomRight: ui.Amount{Value: 8},
+		},
+		UnitToPoints: 0.5,
+	}
+
+	var button *ui.Base
+
+	button = &ui.Base{
+		Placement: place,
+		Events: ui.Events{
+			OnPointer: func(ev *ui.PointerEvent) {
+				// fmt.Printf("OnPointer: %+v\n", *ev)
+				if !ev.Capture && ev.Type == ui.PointerEventDown && onClick != nil {
+					// fmt.Printf("event: %+v\n", *ev)
+					onClick()
+				}
+			},
+			OnKey: func(ev *ui.KeyEvent) {
+				// fmt.Printf("OnKey: %+v\n", *ev)
+			},
+			OnFocus: func(ev *ui.Event) {
+				// fmt.Printf("OnFocus: %+v\n", *ev)
+			},
+			OnBlur: func(ev *ui.Event) {
+				// fmt.Printf("OnBlur: %+v\n", *ev)
+			},
+		},
+		Layers: []ui.Layer{{
+			// Shadow filled
+			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
+			Visual: ui.VisualFilled{
+				Shape: shape,
+			},
+			Background: ui.BackgroundColor{
+				Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
+			},
+			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
+		}, {
+			// Shadow blur
+			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
+			Visual: ui.VisualBordered{
+				Width:         8,
+				OuterColor:    ui.ColorTransparent,
+				HasOuterColor: true,
+				InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
+				HasInnerColor: true,
+				Shape:         shape,
+			},
+			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
+		}, {
+			// Shadow filled (default)
+			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
+			Visual: ui.VisualFilled{
+				Shape: shape,
+			},
+			Background: ui.BackgroundColor{
+				Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.2),
+			},
+			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
+		}, {
+			// Shadow blur (default)
+			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
+			Visual: ui.VisualBordered{
+				Width:         8,
+				OuterColor:    ui.ColorTransparent,
+				HasOuterColor: true,
+				InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.2),
+				HasInnerColor: true,
+				Shape:         shape,
+			},
+			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
+		}, {
+			// Background
+			Placement: ui.Maximized(),
+			Visual: ui.VisualFilled{
+				Shape: shape,
+			},
+			Background: ui.BackgroundColor{
+				Color: ui.ColorFromHex("#008080"),
+			},
+			States: (ui.StateHover | ui.StatePressed).Not,
+		}, {
+			// Background on hover
+			Placement: ui.Maximized(),
+			Visual: ui.VisualFilled{
+				Shape: shape,
+			},
+			Background: ui.BackgroundColor{
+				Color: ui.ColorFromHex("#008080").Lighten(0.1),
+			},
+			States: ui.StateHover.Is,
+		}, {
+			// Background on press
+			Placement: ui.Maximized(),
+			Visual: ui.VisualFilled{
+				Shape: shape,
+			},
+			Background: ui.BackgroundColor{
+				Color: ui.ColorFromHex("#008080").Darken(0.1),
+			},
+			States: ui.StatePressed.Is,
+		}, {
+			// Text content
+			Placement: ui.Maximized().Shrink(10),
+			Visual:    ui.MustTextToVisual(text),
+		}},
+	}
+
+	return button
 }

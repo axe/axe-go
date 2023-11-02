@@ -187,16 +187,16 @@ func (b Builder) AddPointerEvent(handler func(ev *PointerEvent)) Builder {
 	}
 	return b
 }
-func (b Builder) OnFocus(handle func(ev *ComponentEvent)) Builder {
-	b.base.Events.OnFocus = func(ev *ComponentEvent) {
+func (b Builder) OnFocus(handle func(ev *Event)) Builder {
+	b.base.Events.OnFocus = func(ev *Event) {
 		if !ev.Capture {
 			handle(ev)
 		}
 	}
 	return b
 }
-func (b Builder) OnBlur(handle func(ev *ComponentEvent)) Builder {
-	b.base.Events.OnBlur = func(ev *ComponentEvent) {
+func (b Builder) OnBlur(handle func(ev *Event)) Builder {
+	b.base.Events.OnBlur = func(ev *Event) {
 		if !ev.Capture {
 			handle(ev)
 		}

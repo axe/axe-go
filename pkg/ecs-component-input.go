@@ -123,6 +123,10 @@ func (sys InputEventsSystem) OnLive(data *InputEvents, e *ecs.Entity, ctx ecs.Co
 func (sys InputEventsSystem) OnRemove(data *InputEvents, e *ecs.Entity, ctx ecs.Context) {
 }
 func (sys *InputEventsSystem) Init(ctx ecs.Context) error {
+	if sys.off != nil {
+		return nil
+	}
+
 	sys.off = ActiveGame().Input.Events().On(input.SystemEvents{
 		DeviceConnected: func(newDevice input.Device) {
 			sys.connectedDevices.Push(newDevice)

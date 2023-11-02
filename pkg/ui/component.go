@@ -36,8 +36,8 @@ type Component interface {
 
 	OnPointer(ev *PointerEvent)
 	OnKey(ev *KeyEvent)
-	OnFocus(ev *ComponentEvent)
-	OnBlur(ev *ComponentEvent)
+	OnFocus(ev *Event)
+	OnBlur(ev *Event)
 	OnDrag(ev *DragEvent)
 }
 

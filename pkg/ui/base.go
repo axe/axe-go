@@ -14,7 +14,7 @@ type Base struct {
 
 	dirty  Dirty
 	parent *Base
-	root   *Base
+	ui     *UI
 }
 
 var _ Component = &Base{}
@@ -27,7 +27,7 @@ func (c *Base) Dirty(dirty Dirty) {
 	if (dirty | c.dirty) != c.dirty {
 		c.dirty.Add(dirty)
 
-		if c.root != nil {
+		if c.ui != nil {
 			rootDirty := DirtyNone
 			if dirty.Is(DirtyPlacement) {
 				rootDirty.Add(DirtyDeepPlacement)
@@ -35,22 +35,36 @@ func (c *Base) Dirty(dirty Dirty) {
 			if dirty.Is(DirtyVisual) {
 				rootDirty.Add(DirtyVisual)
 			}
-			c.root.Dirty(rootDirty)
+			c.ui.Root.Dirty(rootDirty)
 		}
 	}
 }
 
 func (c *Base) SetState(state State) {
-	if !c.dirty.Is(DirtyVisual) {
-		for _, layer := range c.Layers {
-			if layer.ForStates(state) != layer.ForStates(c.States) {
-				c.Dirty(DirtyVisual)
-				break
-			}
-		}
+	state.Remove(StateDefault)
+	if state.None() {
+		state.Add(StateDefault)
+	}
+
+	if c.isDirtyForState(state) {
+		c.Dirty(DirtyVisual)
 	}
 
 	c.States = state
+}
+
+func (c *Base) isDirtyForState(state State) bool {
+	if !c.dirty.Is(DirtyVisual) {
+		for _, layer := range c.Layers {
+			if layer.ForStates(state) != layer.ForStates(c.States) {
+				return true
+			}
+		}
+		if c.ui != nil && c.ui.Theme.StateModifier[state] != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Base) RemoveStates(state State) {
@@ -69,9 +83,6 @@ func (c *Base) SetPlacement(placement Placement) {
 }
 
 func (c *Base) Init(init Init) {
-	if c.root == nil {
-		c.root = c
-	}
 	c.Placement.Init(Maximized())
 	if c.States == 0 {
 		c.States = StateDefault
@@ -81,7 +92,7 @@ func (c *Base) Init(init Init) {
 	}
 	for _, child := range c.Children {
 		child.parent = c
-		child.root = c.root
+		child.ui = c.ui
 		child.Init(init)
 	}
 	c.Dirty(DirtyPlacement)
@@ -152,16 +163,23 @@ func (c *Base) PostProcess(ctx RenderContext, iter VertexIterator) {
 		return
 	}
 
-	states := c.States
-	for one := states.Take(); one != 0; one = states.Take() {
-		modifier := ctx.Theme.StateModifier[one]
-		if modifier != nil {
-			for iter.HasNext() {
-				modifier(iter.Next())
-			}
-			iter.Reset()
+	modifier := ctx.Theme.StateModifier[c.States]
+	if modifier != nil {
+		for iter.HasNext() {
 		}
 	}
+	/*
+		states := c.States
+		for one := states.Take(); one != 0; one = states.Take() {
+			modifier := ctx.Theme.StateModifier[one]
+			if modifier != nil {
+				for iter.HasNext() {
+					modifier(iter.Next())
+				}
+				iter.Reset()
+			}
+		}
+	*/
 }
 
 func (c *Base) Parent() Component {
@@ -239,7 +257,7 @@ func (c *Base) OnKey(ev *KeyEvent) {
 	}
 }
 
-func (c *Base) OnFocus(ev *ComponentEvent) {
+func (c *Base) OnFocus(ev *Event) {
 	if c.IsDisabled() {
 		return
 	}
@@ -251,7 +269,7 @@ func (c *Base) OnFocus(ev *ComponentEvent) {
 	}
 }
 
-func (c Base) OnBlur(ev *ComponentEvent) {
+func (c Base) OnBlur(ev *Event) {
 	if c.IsDisabled() {
 		return
 	}

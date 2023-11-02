@@ -18,6 +18,9 @@ type UI struct {
 }
 
 func (ui *UI) Init(init Init) {
+	if base, ok := ui.Root.(*Base); ok {
+		base.ui = ui
+	}
 	ui.Root.Init(init)
 }
 
@@ -65,6 +68,7 @@ func (ui *UI) ProcessKeyEvent(ev KeyEvent) error {
 			Point: ui.PointerPoint,
 			Type:  PointerEventLeave,
 		}
+		pointer.Target = ui.Focused
 		ui.Dragging.OnDrag(ui.dragEvent(pointer, DragEventCancel))
 		ui.Dragging = nil
 	}
@@ -84,7 +88,7 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 	if ev.Type == PointerEventLeave {
 		// For every component in ui.MouseOver trigger leave
 		if ui.PointerOver != nil {
-			triggerPointerEvent(getPath(ui.PointerOver), ev)
+			triggerPointerEvent(getPath(ui.PointerOver), ev.withTarget(ui.PointerOver))
 			ui.PointerOver = nil
 		}
 
@@ -99,6 +103,7 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 	// Handle mouse moving & enter/leave/move events
 	if !ui.PointerPoint.Equals(ev.Point) {
 		over := ui.Root.At(ev.Point)
+		ev.Target = over
 
 		if ui.Dragging != nil {
 			// Trigger move event
@@ -147,7 +152,7 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 
 	// Handle down/up/wheel event
 	if (ev.Type == PointerEventDown || ev.Type == PointerEventUp || ev.Type == PointerEventWheel) && ui.PointerOver != nil {
-		triggerPointerEvent(getPath(ui.PointerOver), ev)
+		triggerPointerEvent(getPath(ui.PointerOver), ev.withTarget(ui.PointerOver))
 	}
 
 	// Handle drag end/drop
@@ -171,7 +176,7 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 			newMap.AddMany(new)
 
 			ui.Focused = ui.PointerOver
-			ev := ComponentEvent{Target: ui.Focused}
+			ev := ev.Event.withTarget(ui.Focused)
 
 			inOld, _, inNew := oldMap.Compare(newMap)
 			triggerBlurEvent(inOld, ev)
@@ -195,7 +200,7 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 
 func (ui UI) dragEvent(ev PointerEvent, dragType DragEventType) *DragEvent {
 	return &DragEvent{
-		Event:    ev.Event,
+		Event:    ev.Event.withTarget(ui.PointerOver),
 		Point:    ev.Point,
 		Start:    ui.DragStart,
 		Type:     dragType,
@@ -252,14 +257,14 @@ func triggerKeyEvent(path []Component, ev KeyEvent) {
 	})
 }
 
-func triggerFocusEvent(path []Component, ev ComponentEvent) {
-	triggerEvent(path, &ev.Event, func(c Component) {
+func triggerFocusEvent(path []Component, ev Event) {
+	triggerEvent(path, &ev, func(c Component) {
 		c.OnFocus(&ev)
 	})
 }
 
-func triggerBlurEvent(path []Component, ev ComponentEvent) {
-	triggerEvent(path, &ev.Event, func(c Component) {
+func triggerBlurEvent(path []Component, ev Event) {
+	triggerEvent(path, &ev, func(c Component) {
 		c.OnBlur(&ev)
 	})
 }
