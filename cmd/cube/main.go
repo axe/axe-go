@@ -189,11 +189,10 @@ func main() {
 					// 	}).
 					// 	End()
 
-					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}{c:cornflowerblue}Press me", nil)
+					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}Press me", nil)
+
 					btnToggle := newButton(ui.Absolute(20, 100, 200, 50), "{f:roboto}{s:18}{h:0.5}{pv:0.5}TOGGLE DISABLED", func() {
 						btnPress.SetDisabled(!btnPress.IsDisabled())
-
-						// fmt.Printf("Click! is disabled: %v, new state: %d\n", btnPress.IsDisabled(), btnPress.States)
 					})
 
 					userInterface.Root = &ui.Base{
@@ -229,6 +228,7 @@ func newDraggable() *ui.Base {
 			OnDrag: func(ev *ui.DragEvent) {
 				if ev.Type == ui.DragEventMove {
 					draggable.SetPlacement(draggable.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y))
+					draggable.BringToFront()
 				}
 			},
 		},

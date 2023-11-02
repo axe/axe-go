@@ -203,6 +203,34 @@ func (c *Base) At(pt Coord) Component {
 	return c
 }
 
+func (c *Base) Order() int {
+	if c.parent == nil {
+		return -1
+	}
+	return sliceIndexOf(c.parent.Children, c)
+}
+
+func (c *Base) SetOrder(order int) {
+	currentOrder := c.Order()
+	if currentOrder == -1 || order == currentOrder {
+		return
+	}
+	sliceMove(c.parent.Children, currentOrder, order)
+	c.Dirty(DirtyVisual)
+}
+
+func (c *Base) BringToFront() {
+	if c.parent != nil {
+		c.SetOrder(len(c.parent.Children) - 1)
+	}
+}
+
+func (c *Base) SendToBack() {
+	if c.parent != nil {
+		c.SetOrder(0)
+	}
+}
+
 func (c Base) IsFocusable() bool {
 	return c.Focusable && !c.IsDisabled()
 }

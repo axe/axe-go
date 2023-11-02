@@ -51,3 +51,27 @@ func clamp(v, min, max float32) float32 {
 func toPtr(x any) uintptr {
 	return reflect.ValueOf(x).Pointer()
 }
+
+func sliceIndexOf[V comparable](slice []V, value V) int {
+	for i := range slice {
+		if slice[i] == value {
+			return i
+		}
+	}
+	return -1
+}
+
+func sliceMove[V any](slice []V, from, to int) {
+	if from == to || to < 0 || from < 0 || from >= len(slice) || to >= len(slice) {
+		return
+	}
+	if from < to {
+		value := slice[from]
+		copy(slice[from:to], slice[from+1:to+1])
+		slice[to] = value
+	} else {
+		value := slice[to]
+		copy(slice[to+1:from+1], slice[to:from])
+		slice[from] = value
+	}
+}
