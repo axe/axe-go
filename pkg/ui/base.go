@@ -166,6 +166,7 @@ func (c *Base) PostProcess(ctx RenderContext, iter VertexIterator) {
 	modifier := ctx.Theme.StateModifier[c.States]
 	if modifier != nil {
 		for iter.HasNext() {
+			modifier(iter.Next())
 		}
 	}
 	/*
