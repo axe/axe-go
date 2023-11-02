@@ -3,7 +3,7 @@ package ui
 type Visual interface {
 	Init(init Init)
 	Update(update Update) Dirty
-	Visualize(b Bounds, ctx AmountContext, out *VertexBuffer)
+	Visualize(b Bounds, ctx RenderContext, out *VertexBuffers)
 }
 
 var _ Visual = VisualFilled{}
@@ -23,7 +23,7 @@ func (s VisualFilled) Update(update Update) Dirty {
 	return DirtyNone
 }
 
-func (s VisualFilled) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer) {
+func (s VisualFilled) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
 	points := s.Outline.Outlinify(b, ctx)
 	center := Coord{}
 	for _, p := range points {
@@ -36,15 +36,15 @@ func (s VisualFilled) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer) 
 	// TODO improvement to check for one of the points existing on a line between two others and producing a single triangle
 	last := len(points) - 1
 	prev := last
+	buffer := out.Buffer()
 	for next := 0; next <= last; next++ {
 		prevPoint := points[prev]
 		nextPoint := points[next]
-		i := out.Add(
+		buffer.AddIndexed(
 			Vertex{X: prevPoint.X, Y: prevPoint.Y},
 			Vertex{X: nextPoint.X, Y: nextPoint.Y},
 			Vertex{X: center.X, Y: center.Y},
 		)
-		out.AddIndex(i, i+1, i+2)
 		prev = next
 	}
 }
@@ -66,7 +66,7 @@ func (s VisualBordered) Update(update Update) Dirty {
 	return DirtyNone
 }
 
-func (s VisualBordered) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer) {
+func (s VisualBordered) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
 	inner := s.Outline.Outlinify(b, ctx)
 	outer := make([]Coord, len(inner))
 	last := len(inner) - 1
@@ -88,12 +88,14 @@ func (s VisualBordered) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer
 	}
 
 	prev := last
+	buffer := out.Buffer()
 	for next := 0; next <= last; next++ {
 		prevOuter := outer[prev]
 		nextOuter := outer[next]
 		prevInner := inner[prev]
 		nextInner := inner[next]
-		out.AddQuad(
+
+		buffer.AddQuad(
 			Vertex{X: prevOuter.X, Y: prevOuter.Y, Color: s.OuterColor, HasColor: s.HasOuterColor},
 			Vertex{X: nextOuter.X, Y: nextOuter.Y, Color: s.OuterColor, HasColor: s.HasOuterColor},
 			Vertex{X: nextInner.X, Y: nextInner.Y, Color: s.InnerColor, HasColor: s.HasInnerColor},
@@ -116,14 +118,16 @@ func (r VisualFrame) Update(update Update) Dirty {
 	return DirtyNone
 }
 
-func (r VisualFrame) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer) {
-	sizes := r.Sizes.GetBounds(ctx)
+func (r VisualFrame) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
+	sizes := r.Sizes.GetBounds(ctx.AmountContext)
 	axisX := []float32{b.Left, b.Left + sizes.Left, b.Right - sizes.Right, b.Right}
 	axisY := []float32{b.Top, b.Top + sizes.Top, b.Bottom - sizes.Bottom, b.Bottom}
+
+	buffer := out.Buffer()
 	for i, tile := range r.Tile {
 		indexX := i % 3
 		indexY := i / 3
-		out.AddQuad(
+		buffer.AddQuad(
 			Vertex{X: axisX[indexX+0], Y: axisY[indexY+0], Coord: tile.Coord(0, 0), HasCoord: true},
 			Vertex{X: axisX[indexX+1], Y: axisY[indexY+0], Coord: tile.Coord(1, 0), HasCoord: true},
 			Vertex{X: axisX[indexX+1], Y: axisY[indexY+1], Coord: tile.Coord(1, 1), HasCoord: true},
@@ -148,15 +152,16 @@ func (s *VisualText) Update(update Update) Dirty {
 	return DirtyNone
 }
 
-func (s *VisualText) Visualize(b Bounds, ctx AmountContext, out *VertexBuffer) {
+func (s *VisualText) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
 	if s.renderedBounds != b {
 		s.Glyphs.MaxWidth, s.Glyphs.MaxHeight = b.Dimensions()
-		s.rendered = s.Glyphs.Render(s.theme, ctx)
+		s.rendered = s.Glyphs.Render(s.theme, ctx.AmountContext)
 		s.rendered.Translate(b.Left, b.Top)
 		s.renderedBounds = b
 	}
+	buffer := out.Buffer()
 	for _, g := range s.rendered.Glyphs {
-		out.AddQuad(
+		buffer.AddQuad(
 			Vertex{X: g.Bounds.Left, Y: g.Bounds.Top, Coord: g.Coord(0, 0), HasCoord: true, Color: g.Color, HasColor: true},
 			Vertex{X: g.Bounds.Right, Y: g.Bounds.Top, Coord: g.Coord(1, 0), HasCoord: true, Color: g.Color, HasColor: true},
 			Vertex{X: g.Bounds.Right, Y: g.Bounds.Bottom, Coord: g.Coord(1, 1), HasCoord: true, Color: g.Color, HasColor: true},

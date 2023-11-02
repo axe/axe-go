@@ -10,6 +10,7 @@ type Base struct {
 	Droppable bool
 	Events    Events
 	States    State
+	Clip      Placement
 
 	dirty  Dirty
 	parent *Base
@@ -114,20 +115,53 @@ func (c *Base) Update(update Update) {
 	}
 }
 
-func (c *Base) Render(ctx AmountContext, out *VertexBuffer) {
-	baseCtx := ctx.WithParent(c.Bounds.Width(), c.Bounds.Height())
+func (c *Base) Render(ctx RenderContext, out *VertexBuffers) {
+	baseCtx := ctx.WithBounds(c.Bounds)
 
-	for _, layer := range c.Layers {
-		if layer.ForStates(c.States) {
-			layer.Render(baseCtx, out)
+	if len(c.Layers) > 0 {
+		rendered := NewVertexIterator(out)
+
+		for _, layer := range c.Layers {
+			if layer.ForStates(c.States) {
+				layer.Render(baseCtx, out)
+			}
 		}
+
+		c.PostProcess(ctx, rendered)
 	}
 
-	for _, child := range c.Children {
-		child.Render(baseCtx, out)
+	if len(c.Children) > 0 {
+		clipBounds := c.Clip.GetBoundsIn(c.Bounds)
+
+		out.ClipMaybe(clipBounds, func(inner *VertexBuffers) {
+			renderedChildren := NewVertexIterator(inner)
+
+			for _, child := range c.Children {
+				child.Render(baseCtx, inner)
+			}
+
+			c.PostProcess(ctx, renderedChildren)
+		})
 	}
 
 	c.dirty.Remove(DirtyVisual)
+}
+
+func (c *Base) PostProcess(ctx RenderContext, iter VertexIterator) {
+	if len(ctx.Theme.StateModifier) == 0 {
+		return
+	}
+
+	states := c.States
+	for one := states.Take(); one != 0; one = states.Take() {
+		modifier := ctx.Theme.StateModifier[one]
+		if modifier != nil {
+			for iter.HasNext() {
+				modifier(iter.Next())
+			}
+			iter.Reset()
+		}
+	}
 }
 
 func (c *Base) Parent() Component {
@@ -164,6 +198,14 @@ func (c Base) IsDroppable() bool {
 
 func (c Base) IsDisabled() bool {
 	return c.States.Is(StateDisabled)
+}
+
+func (c *Base) SetDisabled(disabled bool) {
+	if disabled {
+		c.AddStates(StateDisabled)
+	} else {
+		c.RemoveStates(StateDisabled)
+	}
 }
 
 func (c *Base) OnPointer(ev *PointerEvent) {

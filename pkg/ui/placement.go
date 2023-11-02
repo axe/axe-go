@@ -34,6 +34,15 @@ func Absolute(left, top, width, height float32) Placement {
 	return p
 }
 
+func MaximizeOffset(left, top, right, bottom float32) Placement {
+	p := Placement{}
+	p.Left.Set(left, 0)
+	p.Top.Set(top, 0)
+	p.Right.Set(right, 1)
+	p.Bottom.Set(bottom, 1)
+	return p
+}
+
 func (p *Placement) Init(defaultPlacement Placement) {
 	if !p.Defined() {
 		*p = defaultPlacement

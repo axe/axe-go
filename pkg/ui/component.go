@@ -10,11 +10,21 @@ type Update struct {
 	DeltaTime time.Duration
 }
 
+type RenderContext struct {
+	AmountContext
+	Theme *Theme
+}
+
+func (ctx RenderContext) WithBounds(parent Bounds) RenderContext {
+	ctx.AmountContext = ctx.AmountContext.WithParent(parent.Width(), parent.Height())
+	return ctx
+}
+
 type Component interface {
 	Init(init Init)
 	Place(parent Bounds, force bool)
 	Update(update Update)
-	Render(ctx AmountContext, out *VertexBuffer)
+	Render(ctx RenderContext, out *VertexBuffers)
 	GetDirty() Dirty
 	Dirty(dirty Dirty)
 	Parent() Component

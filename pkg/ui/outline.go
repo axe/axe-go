@@ -4,7 +4,7 @@ import "math"
 
 type Outline interface {
 	Init(init Init)
-	Outlinify(b Bounds, ctx AmountContext) []Coord
+	Outlinify(b Bounds, ctx RenderContext) []Coord
 }
 
 var _ Outline = OutlineRectangle{}
@@ -14,7 +14,7 @@ var _ Outline = OutlineSharpen{}
 type OutlineRectangle struct{}
 
 func (o OutlineRectangle) Init(init Init) {}
-func (o OutlineRectangle) Outlinify(b Bounds, ctx AmountContext) []Coord {
+func (o OutlineRectangle) Outlinify(b Bounds, ctx RenderContext) []Coord {
 	return []Coord{
 		{X: b.Left, Y: b.Top},
 		{X: b.Right, Y: b.Top},
@@ -32,7 +32,7 @@ var OutlineRoundedAngles = [][]float32{{math.Pi, math.Pi * 0.5}, {math.Pi * 0.5,
 var OutlineRoundedPlacements = [][]float32{{0, 0}, {1, 0}, {1, 1}, {0, 1}} // 0=1, 1=-1     *2 (0,2) -1 (-1,1)
 
 func (o OutlineRounded) Init(init Init) {}
-func (o OutlineRounded) Outlinify(b Bounds, ctx AmountContext) []Coord {
+func (o OutlineRounded) Outlinify(b Bounds, ctx RenderContext) []Coord {
 	amounts := []Amount{o.Radius.TopLeft, o.Radius.TopRight, o.Radius.BottomRight, o.Radius.BottomLeft}
 	coords := make([]Coord, 0, 16)
 	for i := 0; i < 4; i++ {
@@ -65,7 +65,7 @@ type OutlineSharpen struct {
 func (o OutlineSharpen) Init(init Init) {
 	o.Outline.Init(init)
 }
-func (o OutlineSharpen) Outlinify(b Bounds, ctx AmountContext) []Coord {
+func (o OutlineSharpen) Outlinify(b Bounds, ctx RenderContext) []Coord {
 	points := o.Outline.Outlinify(b, ctx)
 	times := o.Times + 1
 	sharpened := make([]Coord, len(points)*times)

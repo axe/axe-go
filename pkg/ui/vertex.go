@@ -68,8 +68,24 @@ func (v *Vertex) SetCoord(texture string, x, y float32) {
 	v.HasCoord = true
 }
 
+type VertexIterator = buf.DataIterator[Vertex, VertexBuffer]
+
+func NewVertexIterator(vb *VertexBuffers) VertexIterator {
+	return buf.NewDataIterator(&vb.Buffers)
+}
+
+func InitVertexBuffer(vb *VertexBuffer, capacity int) {
+	vb.Init(capacity)
+}
+
+func NewVertexBuffers(capacity int, buffers int) *VertexBuffers {
+	return &VertexBuffers{
+		Buffers: *buf.NewBuffers[Vertex](4096, 4, InitVertexBuffer),
+	}
+}
+
 type VertexBuffers struct {
-	buf.Buffers[*VertexBuffer]
+	buf.Buffers[Vertex, VertexBuffer]
 }
 
 func (vb *VertexBuffers) ClipStart(bounds Bounds) *VertexBuffer {
@@ -96,12 +112,12 @@ func (vb *VertexBuffers) ClipEnd() *VertexBuffer {
 //	    u.postProcess(span)
 //	  })
 //	}
-func (vb *VertexBuffers) ClipMaybe(bounds Bounds, render func(vb *VertexBuffer)) {
+func (vb *VertexBuffers) ClipMaybe(bounds Bounds, render func(vb *VertexBuffers)) {
 	if bounds.IsZero() {
-		render(vb.Buffer())
+		render(vb)
 	} else {
-		start := vb.ClipStart(bounds)
-		render(start)
+		vb.ClipStart(bounds)
+		render(vb)
 		vb.ClipEnd()
 	}
 }
@@ -112,19 +128,13 @@ type VertexBuffer struct {
 }
 
 func (b *VertexBuffer) Init(capacity int) {
-	if b == nil {
-		*b = VertexBuffer{}
-	}
 	b.Buffer.Init(capacity)
 	b.clip = Bounds{}
 }
-func (b *VertexBuffer) Empty() bool {
-	return b == nil || b.Buffer.Empty()
+func (b VertexBuffer) Empty() bool {
+	return b.Buffer.Empty()
 }
-func (b *VertexBuffer) Remaining() int {
-	if b == nil {
-		return 0
-	}
+func (b VertexBuffer) Remaining() int {
 	return b.Buffer.Remaining()
 }
 func (b *VertexBuffer) AddIndexQuad(i int) {

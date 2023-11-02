@@ -44,8 +44,12 @@ func (ui *UI) Update(update Update) {
 	ui.Root.Update(update)
 }
 
-func (ui *UI) Render(out *VertexBuffer) {
-	ui.Root.Render(ui.context, out)
+func (ui *UI) Render(out *VertexBuffers) {
+	ctx := RenderContext{
+		AmountContext: ui.context,
+		Theme:         ui.Theme,
+	}
+	ui.Root.Render(ctx, out)
 }
 
 func (ui *UI) ProcessKeyEvent(ev KeyEvent) error {

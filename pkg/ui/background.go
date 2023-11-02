@@ -3,7 +3,7 @@ package ui
 type Background interface {
 	Init(init Init)
 	Update(update Update) Dirty
-	Backgroundify(b Bounds, ctx AmountContext, out *Vertex)
+	Backgroundify(b Bounds, ctx RenderContext, out *Vertex)
 }
 
 var _ Background = BackgroundColor{}
@@ -17,7 +17,7 @@ type BackgroundColor struct {
 
 func (bc BackgroundColor) Init(init Init)             {}
 func (bc BackgroundColor) Update(update Update) Dirty { return DirtyNone }
-func (bc BackgroundColor) Backgroundify(b Bounds, ctx AmountContext, out *Vertex) {
+func (bc BackgroundColor) Backgroundify(b Bounds, ctx RenderContext, out *Vertex) {
 	out.AddColor(bc.Color.R, bc.Color.G, bc.Color.B, bc.Color.A)
 }
 
@@ -30,7 +30,7 @@ type BackgroundLinearGradient struct {
 
 func (bc BackgroundLinearGradient) Init(init Init)             {}
 func (bc BackgroundLinearGradient) Update(update Update) Dirty { return DirtyNone }
-func (bg BackgroundLinearGradient) Backgroundify(b Bounds, ctx AmountContext, out *Vertex) {
+func (bg BackgroundLinearGradient) Backgroundify(b Bounds, ctx RenderContext, out *Vertex) {
 	dx := bg.End.X - bg.Start.X
 	dy := bg.End.Y - bg.Start.Y
 	lenSq := dx*dx + dy*dy
@@ -51,7 +51,7 @@ type BackgroundImage struct {
 
 func (bi BackgroundImage) Init(init Init)             {}
 func (bc BackgroundImage) Update(update Update) Dirty { return DirtyNone }
-func (bi BackgroundImage) Backgroundify(b Bounds, ctx AmountContext, out *Vertex) {
+func (bi BackgroundImage) Backgroundify(b Bounds, ctx RenderContext, out *Vertex) {
 	out.SetCoord(
 		bi.Tile.Texture,
 		lerp(bi.Tile.Coords.Left, bi.Tile.Coords.Right, b.Dx(out.X)),
@@ -68,11 +68,11 @@ type BackgroundRadialGradient struct {
 
 func (bg BackgroundRadialGradient) Init(init Init)             {}
 func (bc BackgroundRadialGradient) Update(update Update) Dirty { return DirtyNone }
-func (bg BackgroundRadialGradient) Backgroundify(b Bounds, ctx AmountContext, out *Vertex) {
-	offX, offY := bg.Offset.Get(ctx)
+func (bg BackgroundRadialGradient) Backgroundify(b Bounds, ctx RenderContext, out *Vertex) {
+	offX, offY := bg.Offset.Get(ctx.AmountContext)
 	cx := b.Dx(0.5) + offX
 	cy := b.Dy(0.5) + offY
-	rx, ry := bg.Radius.Get(ctx)
+	rx, ry := bg.Radius.Get(ctx.AmountContext)
 	dx := out.X - cx
 	dy := out.Y - cy
 	len := length(dx, dy)

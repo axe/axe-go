@@ -33,13 +33,16 @@ func (l *Layer) Update(update Update) Dirty {
 	return dirty
 }
 
-func (l Layer) Render(ctx AmountContext, out *VertexBuffer) {
-	layerCtx := ctx.WithParent(l.Bounds.Width(), l.Bounds.Height())
-	span := out.DataSpan()
+func (l Layer) Render(ctx RenderContext, out *VertexBuffers) {
+	layerCtx := ctx.WithBounds(l.Bounds)
+
+	iter := NewVertexIterator(out)
+
 	l.Visual.Visualize(l.Bounds, layerCtx, out)
+
 	if l.Background != nil {
-		for i := 0; i < span.Len(); i++ {
-			l.Background.Backgroundify(l.Bounds, layerCtx, span.At(i))
+		for iter.HasNext() {
+			l.Background.Backgroundify(l.Bounds, layerCtx, iter.Next())
 		}
 	}
 }

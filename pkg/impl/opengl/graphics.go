@@ -275,11 +275,7 @@ func initView2(view axe.View2f, game *axe.Game) {
 	gl.LoadIdentity()
 }
 
-var vb = &ui.VertexBuffer{}
-
-func init() {
-	vb.Init(4096)
-}
+var vertexBuffers = ui.NewVertexBuffers(4096, 4)
 
 func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 	bounds := placementWindowBounds(view.Placement, game)
@@ -301,61 +297,91 @@ func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 
 		ctx.FontSize = u.Theme.DefaultFontSize
 
-		span := vb.IndexSpanAt(0)
-
 		u.SetContext(ctx)
 		u.Place(bounds)
 
 		if u.NeedsRender() {
-			vb.Clear()
-			u.Render(vb)
+			vertexBuffers.Clear()
+			u.Render(vertexBuffers)
 		}
 
-		indices := span.Len()
-		if indices > 0 {
+		if !vertexBuffers.Empty() {
 			gl.Enable(gl.BLEND)
 			gl.Disable(gl.LIGHTING)
 			gl.Disable(gl.TEXTURE_2D)
 			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-			// fmt.Printf("VB: %+v\n", vb)
-
 			began := false
+			clipping := false
 			lastTexture := ""
-			for i := 0; i < indices; i++ {
-				v := span.At(i)
-				if v.Coord.Texture != lastTexture {
+			for b := 0; b < vertexBuffers.Len(); b++ {
+				vb := vertexBuffers.At(b)
+				vbClip := vb.Clip()
+
+				if vbClip.IsZero() {
+					if clipping {
+						if began {
+							gl.End()
+							began = false
+						}
+						gl.Disable(gl.SCISSOR_TEST)
+						clipping = false
+					}
+				} else {
 					if began {
 						gl.End()
 						began = false
 					}
-					if v.Coord.Texture == "" {
-						gl.Disable(gl.TEXTURE_2D)
-					} else {
-						textureAsset := game.Assets.GetEither(v.Coord.Texture)
-						if textureAsset == nil {
-							break
-						}
-						texture := textureAsset.Data.(*texture)
-						gl.Enable(gl.TEXTURE_2D)
-						gl.BindTexture(gl.TEXTURE_2D, texture.id)
+					if !clipping {
+						gl.Enable(gl.SCISSOR_TEST)
+						clipping = true
 					}
-					lastTexture = v.Coord.Texture
+					gl.Scissor(int32(vbClip.Left), windowSize.Y-int32(vbClip.Bottom), int32(vbClip.Width()), int32(vbClip.Height()))
 				}
-				if !began {
-					gl.Begin(gl.TRIANGLES)
-					began = true
+
+				span := vertexBuffers.At(b).IndexSpanAt(0)
+				indices := span.Len()
+
+				for i := 0; i < indices; i++ {
+					v := span.At(i)
+
+					if v.Coord.Texture != lastTexture {
+						if began {
+							gl.End()
+							began = false
+						}
+						if v.Coord.Texture == "" {
+							gl.Disable(gl.TEXTURE_2D)
+						} else {
+							textureAsset := game.Assets.GetEither(v.Coord.Texture)
+							if textureAsset == nil {
+								break
+							}
+							texture := textureAsset.Data.(*texture)
+							gl.Enable(gl.TEXTURE_2D)
+							gl.BindTexture(gl.TEXTURE_2D, texture.id)
+						}
+						lastTexture = v.Coord.Texture
+					}
+					if !began {
+						gl.Begin(gl.TRIANGLES)
+						began = true
+					}
+					if v.HasColor {
+						gl.Color4f(v.Color.R, v.Color.G, v.Color.B, v.Color.A)
+					}
+					if v.HasCoord {
+						gl.TexCoord2f(v.Coord.X, v.Coord.Y)
+					}
+					gl.Vertex2f(v.X, v.Y)
 				}
-				if v.HasColor {
-					gl.Color4f(v.Color.R, v.Color.G, v.Color.B, v.Color.A)
-				}
-				if v.HasCoord {
-					gl.TexCoord2f(v.Coord.X, v.Coord.Y)
-				}
-				gl.Vertex2f(v.X, v.Y)
 			}
+
 			if began {
 				gl.End()
+			}
+			if clipping {
+				gl.Disable(gl.SCISSOR_TEST)
 			}
 
 			gl.Disable(gl.BLEND)

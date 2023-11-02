@@ -2,6 +2,7 @@ package main
 
 import (
 	"runtime"
+	"strings"
 	"time"
 
 	axe "github.com/axe/axe-go/pkg"
@@ -105,7 +106,7 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 			Visual: ui.VisualFilled{Outline: barOutline},
 			Background: ui.BackgroundLinearGradient{
 				StartColor: ui.ColorCornflowerBlue,
-				EndColor:   ui.ColorCornflowerBlue.Lighten(0.1),
+				EndColor:   ui.ColorCornflowerBlue.Lighten(0.2),
 				End:        ui.Coord{X: 0, Y: 1},
 			},
 		}, {
@@ -122,7 +123,29 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 		},
 	}
 
-	frame.Children = append(frame.Children, bar)
+	lines := []string{
+		"{c:white}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
+		"{p}{h:0.5}This is centered.",
+		"{v:0.5}And {s:300%f}{f:warrior}THIS{s:150%f}{f} is big!",
+		"{v:1}This is bottom & center {s:300%f}aligned?",
+		"{p}{h:0}{v:0}Top{s:150%f} and left aligned.",
+		"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
+		"{p}{h:1}{c:white}Right aligned!",
+		"{p}{h:0.25}25% aligned?",
+		"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
+		"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
+	}
+	text := &ui.Base{
+		Placement: ui.MaximizeOffset(10, 34, 10, 10),
+		Clip:      ui.Maximized(),
+		Children: []*ui.Base{{
+			Layers: []ui.Layer{{
+				Visual: ui.MustTextToVisual(strings.Join(lines, "\n")),
+			}},
+		}},
+	}
+
+	frame.Children = append(frame.Children, bar, text)
 
 	return frame
 }
