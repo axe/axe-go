@@ -12,9 +12,33 @@ type Base struct {
 	States    State
 	Clip      Placement
 
+	Transparency Watch[float32]
+
 	dirty  Dirty
 	parent *Base
 	ui     *UI
+}
+
+type Watch[V comparable] struct {
+	value   V
+	changed bool
+}
+
+func NewWatch[V comparable](value V) Watch[V] { return Watch[V]{value: value} }
+
+func (w Watch[V]) Get() V      { return w.value }
+func (w Watch[V]) Dirty() bool { return w.changed }
+func (w *Watch[V]) Clean()     { w.changed = false }
+func (w *Watch[V]) Cleaned() bool {
+	cleaned := w.changed
+	w.changed = false
+	return cleaned
+}
+func (w *Watch[V]) Set(value V) {
+	if w.value != value {
+		w.changed = true
+		w.value = value
+	}
 }
 
 var _ Component = &Base{}
@@ -124,9 +148,21 @@ func (c *Base) Update(update Update) {
 	for _, child := range c.Children {
 		child.Update(update)
 	}
+
+	c.CheckForChanges()
+}
+
+func (c *Base) CheckForChanges() {
+	if c.Transparency.Cleaned() {
+		c.Dirty(DirtyVisual)
+	}
 }
 
 func (c *Base) Render(ctx RenderContext, out *VertexBuffers) {
+	if c.Transparency.Get() == 1 {
+		return
+	}
+
 	baseCtx := ctx.WithBounds(c.Bounds)
 
 	if len(c.Layers) > 0 {
@@ -159,16 +195,22 @@ func (c *Base) Render(ctx RenderContext, out *VertexBuffers) {
 }
 
 func (c *Base) PostProcess(ctx RenderContext, iter VertexIterator) {
-	if len(ctx.Theme.StateModifier) == 0 {
-		return
-	}
-
 	modifier := ctx.Theme.StateModifier[c.States]
 	if modifier != nil {
 		for iter.HasNext() {
 			modifier(iter.Next())
 		}
 	}
+
+	if c.Transparency.Get() > 0 {
+		iter.Reset()
+		alphaMultiplier := 1 - c.Transparency.Get()
+		for iter.HasNext() {
+			v := iter.Next()
+			v.Color.A *= alphaMultiplier
+		}
+	}
+
 	/*
 		states := c.States
 		for one := states.Take(); one != 0; one = states.Take() {

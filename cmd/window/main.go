@@ -116,15 +116,20 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 		Draggable: true,
 		Events: ui.Events{
 			OnDrag: func(ev *ui.DragEvent) {
-				if ev.Type == ui.DragEventMove {
+				switch ev.Type {
+				case ui.DragEventStart:
+					frame.Transparency.Set(0.2)
+				case ui.DragEventMove:
 					frame.SetPlacement(frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y))
+				case ui.DragEventEnd:
+					frame.Transparency.Set(0)
 				}
 			},
 		},
 	}
 
 	lines := []string{
-		"{c:white}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
+		"{c:black}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
 		"{p}{h:0.5}This is centered.",
 		"{v:0.5}And {s:300%f}{f:warrior}THIS{s:150%f}{f} is big!",
 		"{v:1}This is bottom & center {s:300%f}aligned?",
