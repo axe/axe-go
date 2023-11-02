@@ -1,6 +1,11 @@
 package ui
 
-import "github.com/axe/axe-go/pkg/ds"
+import (
+	"github.com/axe/axe-go/pkg/ds"
+	"github.com/axe/axe-go/pkg/id"
+)
+
+var Area = id.NewArea[uint32, uint16]()
 
 type UI struct {
 	PointerButtons []PointerButtons
@@ -15,6 +20,20 @@ type UI struct {
 
 	context AmountContext
 	bounds  Bounds
+	Named   id.DenseMap[Component, uint16, uint16]
+}
+
+func NewUI() *UI {
+	return &UI{
+		Theme: &Theme{
+			Fonts:            make(map[string]*Font),
+			StateModifier:    make(map[State]VertexModifier),
+			DefaultFontSize:  16,
+			DefaultFontColor: ColorBlack,
+		},
+		PointerButtons: make([]PointerButtons, 3),
+		Named:          id.NewDenseMap[Component, uint16, uint16]( /*id.WithArea(Area)*/ ),
+	}
 }
 
 func (ui *UI) Init(init Init) {

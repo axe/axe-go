@@ -179,7 +179,7 @@ func (s *VisualText) WillClip() bool {
 func (s *VisualText) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
 	if s.renderedBounds != b {
 		s.Paragraphs.MaxWidth, s.Paragraphs.MaxHeight = b.Dimensions()
-		s.rendered = s.Paragraphs.Render(s.theme, ctx.AmountContext)
+		s.rendered = s.Paragraphs.Render(ctx)
 		s.rendered.Translate(b.Left, b.Top)
 		s.renderedBounds = b
 

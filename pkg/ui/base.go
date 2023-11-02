@@ -1,6 +1,9 @@
 package ui
 
+import "github.com/axe/axe-go/pkg/id"
+
 type Base struct {
+	Name      id.Identifier
 	Layers    []Layer
 	Placement Placement
 	Bounds    Bounds
@@ -20,29 +23,11 @@ type Base struct {
 	ui     *UI
 }
 
-type Watch[V comparable] struct {
-	value   V
-	changed bool
-}
-
-func NewWatch[V comparable](value V) Watch[V] { return Watch[V]{value: value} }
-
-func (w Watch[V]) Get() V      { return w.value }
-func (w Watch[V]) Dirty() bool { return w.changed }
-func (w *Watch[V]) Clean()     { w.changed = false }
-func (w *Watch[V]) Cleaned() bool {
-	cleaned := w.changed
-	w.changed = false
-	return cleaned
-}
-func (w *Watch[V]) Set(value V) {
-	if w.value != value {
-		w.changed = true
-		w.value = value
-	}
-}
-
 var _ Component = &Base{}
+
+func (c *Base) UI() *UI {
+	return c.ui
+}
 
 func (c *Base) GetDirty() Dirty {
 	return c.dirty
@@ -108,6 +93,9 @@ func (c *Base) SetPlacement(placement Placement) {
 }
 
 func (c *Base) Init(init Init) {
+	if c.ui != nil && !c.Name.Empty() {
+		c.ui.Named.Set(c.Name, c)
+	}
 	c.Placement.Init(Maximized())
 	if c.States == 0 {
 		c.States = StateDefault
@@ -175,7 +163,7 @@ func (c *Base) Render(ctx RenderContext, out *VertexBuffers) {
 			}
 		}
 
-		c.PostProcess(ctx, rendered)
+		c.PostProcess(rendered)
 	}
 
 	if len(c.Children) > 0 {
@@ -188,15 +176,15 @@ func (c *Base) Render(ctx RenderContext, out *VertexBuffers) {
 				child.Render(baseCtx, inner)
 			}
 
-			c.PostProcess(ctx, renderedChildren)
+			c.PostProcess(renderedChildren)
 		})
 	}
 
 	c.dirty.Remove(DirtyVisual)
 }
 
-func (c *Base) PostProcess(ctx RenderContext, iter VertexIterator) {
-	modifier := ctx.Theme.StateModifier[c.States]
+func (c *Base) PostProcess(iter VertexIterator) {
+	modifier := c.ui.Theme.StateModifier[c.States]
 	if modifier != nil {
 		for iter.HasNext() {
 			modifier(iter.Next())

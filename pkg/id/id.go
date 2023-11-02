@@ -7,6 +7,7 @@ import (
 type Identifier int32
 
 func (i Identifier) Exists() bool   { return i >= 0 }
+func (i Identifier) Empty() bool    { return i <= 0 }
 func (i Identifier) String() string { return getString(i) }
 
 const (
@@ -54,6 +55,10 @@ func Get(s string) Identifier {
 		mapping[s] = nextId
 		return Identifier(nextId)
 	}
+}
+
+func init() {
+	Get("")
 }
 
 func Maybe(s string) Identifier {

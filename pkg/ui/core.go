@@ -94,3 +94,25 @@ const (
 	DirtyDeepPlacement
 	DirtyVisual
 )
+
+type Watch[V comparable] struct {
+	value   V
+	changed bool
+}
+
+func NewWatch[V comparable](value V) Watch[V] { return Watch[V]{value: value} }
+
+func (w Watch[V]) Get() V      { return w.value }
+func (w Watch[V]) Dirty() bool { return w.changed }
+func (w *Watch[V]) Clean()     { w.changed = false }
+func (w *Watch[V]) Cleaned() bool {
+	cleaned := w.changed
+	w.changed = false
+	return cleaned
+}
+func (w *Watch[V]) Set(value V) {
+	if w.value != value {
+		w.changed = true
+		w.value = value
+	}
+}

@@ -17,15 +17,7 @@ type UserInterface struct {
 
 func NewUserInterface() UserInterface {
 	return UserInterface{
-		UI: ui.UI{
-			Theme: &ui.Theme{
-				Fonts:            make(map[string]*ui.Font),
-				StateModifier:    make(map[ui.Flags]ui.VertexModifier),
-				DefaultFontSize:  16,
-				DefaultFontColor: ui.ColorBlack,
-			},
-			PointerButtons: make([]ui.PointerButtons, 3),
-		},
+		UI: *ui.NewUI(),
 	}
 }
 

@@ -20,6 +20,13 @@ func (ctx RenderContext) WithBounds(parent Bounds) RenderContext {
 	return ctx
 }
 
+func (ctx RenderContext) WithParent(width, height float32) RenderContext {
+	ctx.Parent.Value = width
+	ctx.Parent.Width = width
+	ctx.Parent.Height = height
+	return ctx
+}
+
 type Component interface {
 	Init(init Init)
 	Place(parent Bounds, force bool)
