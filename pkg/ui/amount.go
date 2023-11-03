@@ -26,8 +26,8 @@ const (
 	UnitScreenHeight             // %sh sh
 )
 
-func (a Unit) Get(value float32, ctx AmountContext) float32 {
-	return ctx.GetScalar(a) * value
+func (a Unit) Get(value float32, ctx *AmountContext, widthRelative bool) float32 {
+	return ctx.GetScalar(a, widthRelative) * value
 }
 
 func (a Unit) SupportsPercent() bool {
@@ -73,8 +73,8 @@ func (a Amount) IsZero() bool {
 	return a.Value == 0 && a.Unit == UnitConstant
 }
 
-func (a Amount) Get(ctx AmountContext) float32 {
-	return a.Unit.Get(a.Value, ctx)
+func (a Amount) Get(ctx *AmountContext, widthRelative bool) float32 {
+	return a.Unit.Get(a.Value, ctx, widthRelative)
 }
 
 func (a *Amount) Set(value float32, unit Unit) {
@@ -119,9 +119,15 @@ func (a *Amount) UnmarshalText(text []byte) error {
 }
 
 type UnitContext struct {
-	Value  float32
 	Width  float32
 	Height float32
+}
+
+func (c UnitContext) Get(widthRelative bool) float32 {
+	if widthRelative {
+		return c.Width
+	}
+	return c.Height
 }
 
 type AmountContext struct {
@@ -132,53 +138,55 @@ type AmountContext struct {
 	Screen   UnitContext
 }
 
-func (c AmountContext) WithParent(width, height float32) AmountContext {
-	c.Parent.Value = width
-	c.Parent.Width = width
-	c.Parent.Height = height
-	return c
+func (c *AmountContext) Resize(width, height float32, fontSize Amount) *AmountContext {
+	if c.IsSameSize(width, height, fontSize) {
+		return c
+	}
+	copy := *c
+	copy.Parent.Width = width
+	copy.Parent.Height = height
+	copy.FontSize = fontSize.Get(&copy, true)
+	return &copy
 }
 
-func (c AmountContext) ForWidth() AmountContext {
-	c.Parent.Value = c.Parent.Width
-	c.View.Value = c.View.Width
-	c.Window.Value = c.Window.Width
-	c.Screen.Value = c.Screen.Width
-	return c
+func (c *AmountContext) IsSameSize(width, height float32, fontSize Amount) bool {
+	return c.Parent.Width == width && c.Parent.Height == height && fontSize.Get(c, true) == c.FontSize
 }
 
-func (c AmountContext) ForHeight() AmountContext {
-	c.Parent.Value = c.Parent.Height
-	c.View.Value = c.View.Height
-	c.Window.Value = c.Window.Height
-	c.Screen.Value = c.Screen.Height
-	return c
+func (c *AmountContext) ForFont(font Amount) *AmountContext {
+	computed := font.Get(c, true)
+	if computed == c.FontSize {
+		return c
+	}
+	copy := *c
+	copy.FontSize = computed
+	return &copy
 }
 
-func (c AmountContext) GetScalar(unit Unit) float32 {
+func (c AmountContext) GetScalar(unit Unit, widthRelative bool) float32 {
 	switch unit {
 	case UnitConstant:
 		return 1
 	case UnitParent:
-		return c.Parent.Value
+		return c.Parent.Get(widthRelative)
 	case UnitParentWidth:
 		return c.Parent.Width
 	case UnitParentHeight:
 		return c.Parent.Height
 	case UnitView:
-		return c.View.Value
+		return c.View.Get(widthRelative)
 	case UnitViewWidth:
 		return c.View.Width
 	case UnitViewHeight:
 		return c.View.Height
 	case UnitWindow:
-		return c.Window.Value
+		return c.Window.Get(widthRelative)
 	case UnitWindowWidth:
 		return c.Window.Width
 	case UnitWindowHeight:
 		return c.Window.Height
 	case UnitScreen:
-		return c.Screen.Value
+		return c.Screen.Get(widthRelative)
 	case UnitScreenWidth:
 		return c.Screen.Width
 	case UnitScreenHeight:
@@ -196,15 +204,12 @@ type AmountBounds struct {
 	Bottom Amount
 }
 
-func (a AmountBounds) GetBounds(ctx AmountContext) Bounds {
-	widthCtx := ctx.ForWidth()
-	heightCtx := ctx.ForHeight()
-
+func (a AmountBounds) GetBounds(ctx *AmountContext) Bounds {
 	return Bounds{
-		Left:   a.Left.Get(widthCtx),
-		Top:    a.Top.Get(heightCtx),
-		Right:  a.Right.Get(widthCtx),
-		Bottom: a.Bottom.Get(heightCtx),
+		Left:   a.Left.Get(ctx, true),
+		Top:    a.Top.Get(ctx, false),
+		Right:  a.Right.Get(ctx, true),
+		Bottom: a.Bottom.Get(ctx, false),
 	}
 }
 
@@ -241,11 +246,8 @@ type AmountPoint struct {
 	Y Amount
 }
 
-func (a AmountPoint) Get(ctx AmountContext) (float32, float32) {
-	widthCtx := ctx.ForWidth()
-	heightCtx := ctx.ForHeight()
-
-	return a.X.Get(widthCtx), a.Y.Get(heightCtx)
+func (a AmountPoint) Get(ctx *AmountContext) (float32, float32) {
+	return a.X.Get(ctx, true), a.Y.Get(ctx, false)
 }
 
 func (a *AmountPoint) Set(value float32, unit Unit) {

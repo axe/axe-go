@@ -51,11 +51,11 @@ func main() {
 					e := ecs.New()
 
 					lines := []string{
-						"{c:white}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
+						"Dear Reader,",
 						"{p}{h:0.5}This is centered.",
-						"{v:0.5}And {s:300%f}{f:warrior}THIS{s:150%f}{f} is big!",
-						"{v:1}This is bottom & center {s:300%f}aligned?",
-						"{p}{h:0}{v:0}Top{s:150%f} and left aligned.",
+						"{p}{v:0.5}And {s:2f}{f:warrior}THIS{s}{f} is big!",
+						"{p}{v:1}This is bottom & center {s:2f}aligned?",
+						"{p}{h:0}{v:0}Top{s} and left aligned.",
 						"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
 						"{p}{h:1}{c:white}Right aligned!",
 						"{p}{h:0.25}25% aligned?",
@@ -64,8 +64,19 @@ func main() {
 					}
 
 					userInterface := axe.NewUserInterface()
-					userInterface.Theme.DefaultFont = "roboto"
+					userInterface.Theme.TextStyles.Font = "roboto"
 					userInterface.Root = &ui.Base{
+						TextStyles: &ui.TextStylesOverride{
+							Color:    &ui.ColorWhite,
+							FontSize: &ui.Amount{Value: 24},
+							ParagraphStylesOverride: &ui.ParagraphStylesOverride{
+								LineSpacing:           &ui.Amount{Value: 1.0, Unit: ui.UnitFont},
+								LineVerticalAlignment: ui.Override(ui.AlignmentMiddle),
+							},
+							ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
+								ParagraphSpacing: &ui.Amount{Value: 1.0, Unit: ui.UnitFont},
+							},
+						},
 						Layers: []ui.Layer{{
 							Placement: ui.Maximized().Shrink(10),
 							Visual:    ui.MustTextToVisual(strings.Join(lines, "\n")),

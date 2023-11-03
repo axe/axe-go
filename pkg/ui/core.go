@@ -62,10 +62,8 @@ func (b Bounds) Contains(a Bounds) bool {
 }
 
 type Theme struct {
-	DefaultFontSize  float32
-	DefaultFontColor Color
-	DefaultFont      string
-	StateModifier    map[State]VertexModifier
+	TextStyles    TextStyles
+	StateModifier map[State]VertexModifier
 
 	// Components map[string]*ComponentTheme
 	Fonts map[string]*Font
@@ -116,3 +114,14 @@ func (w *Watch[V]) Set(value V) {
 		w.value = value
 	}
 }
+
+func Override[V any](value V) *V {
+	return &value
+}
+
+type Optional[V any] struct {
+	value V
+	set   bool
+}
+
+func NewOptional[V any](value V) Optional[V] { return Optional[V]{value: value, set: true} }

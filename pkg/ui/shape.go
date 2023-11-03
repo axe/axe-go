@@ -4,7 +4,7 @@ import "math"
 
 type Shape interface {
 	Init(init Init)
-	Shapify(b Bounds, ctx RenderContext) []Coord
+	Shapify(b Bounds, ctx *RenderContext) []Coord
 }
 
 var _ Shape = ShapeRectangle{}
@@ -15,7 +15,7 @@ var _ Shape = ShapePolygon{}
 type ShapeRectangle struct{}
 
 func (o ShapeRectangle) Init(init Init) {}
-func (o ShapeRectangle) Shapify(b Bounds, ctx RenderContext) []Coord {
+func (o ShapeRectangle) Shapify(b Bounds, ctx *RenderContext) []Coord {
 	return []Coord{
 		{X: b.Left, Y: b.Top},
 		{X: b.Right, Y: b.Top},
@@ -33,15 +33,15 @@ var ShapeRoundedAngles = [][]float32{{math.Pi, math.Pi * 0.5}, {math.Pi * 0.5, 0
 var ShapeRoundedPlacements = [][]float32{{0, 0}, {1, 0}, {1, 1}, {0, 1}} // 0=1, 1=-1     *2 (0,2) -1 (-1,1)
 
 func (o ShapeRounded) Init(init Init) {}
-func (o ShapeRounded) Shapify(b Bounds, ctx RenderContext) []Coord {
+func (o ShapeRounded) Shapify(b Bounds, ctx *RenderContext) []Coord {
 	amounts := []Amount{o.Radius.TopLeft, o.Radius.TopRight, o.Radius.BottomRight, o.Radius.BottomLeft}
 	coords := make([]Coord, 0, 16)
 	for i := 0; i < 4; i++ {
 		amount := amounts[i]
 		angles := ShapeRoundedAngles[i]
 		placements := ShapeRoundedPlacements[i]
-		radiusW := amount.Get(ctx.ForWidth())
-		radiusH := amount.Get(ctx.ForHeight())
+		radiusW := amount.Get(ctx.AmountContext, true)
+		radiusH := amount.Get(ctx.AmountContext, false)
 		points := int((radiusW+radiusH)*0.5*o.UnitToPoints) + 1
 		originX := lerp(b.Left, b.Right, placements[0]) - (radiusW * ((placements[0] * 2) - 1))
 		originY := lerp(b.Top, b.Bottom, placements[1]) - (radiusH * ((placements[1] * 2) - 1))
@@ -66,7 +66,7 @@ type ShapeSharpen struct {
 func (o ShapeSharpen) Init(init Init) {
 	o.Shape.Init(init)
 }
-func (o ShapeSharpen) Shapify(b Bounds, ctx RenderContext) []Coord {
+func (o ShapeSharpen) Shapify(b Bounds, ctx *RenderContext) []Coord {
 	points := o.Shape.Shapify(b, ctx)
 	times := o.Times + 1
 	sharpened := make([]Coord, len(points)*times)
@@ -92,7 +92,7 @@ type ShapePolygon struct {
 func (o ShapePolygon) Init(init Init) {
 
 }
-func (o ShapePolygon) Shapify(b Bounds, ctx RenderContext) []Coord {
+func (o ShapePolygon) Shapify(b Bounds, ctx *RenderContext) []Coord {
 	n := len(o.Points)
 	points := make([]Coord, n)
 	for i := 0; i < n; i++ {

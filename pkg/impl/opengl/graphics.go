@@ -284,18 +284,16 @@ func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 	windowSize := window.Size()
 	screenSize := window.Screen().Size()
 
-	ctx := ui.AmountContext{
-		Parent: ui.UnitContext{Value: width, Width: width, Height: height},
-		View:   ui.UnitContext{Value: width, Width: width, Height: height},
-		Window: ui.UnitContext{Value: float32(windowSize.X), Width: float32(windowSize.X), Height: float32(windowSize.Y)},
-		Screen: ui.UnitContext{Value: float32(screenSize.X), Width: float32(screenSize.X), Height: float32(screenSize.Y)},
+	ctx := &ui.AmountContext{
+		Parent: ui.UnitContext{Width: width, Height: height},
+		View:   ui.UnitContext{Width: width, Height: height},
+		Window: ui.UnitContext{Width: float32(windowSize.X), Height: float32(windowSize.Y)},
+		Screen: ui.UnitContext{Width: float32(screenSize.X), Height: float32(screenSize.Y)},
 	}
 
 	uis := axe.UI.Iterable().Iterator()
 	for uis.HasNext() {
 		u := uis.Next().Data
-
-		ctx.FontSize = u.Theme.DefaultFontSize
 
 		u.SetContext(ctx)
 		u.Place(bounds)

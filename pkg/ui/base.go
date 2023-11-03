@@ -15,6 +15,8 @@ type Base struct {
 	States    State
 	Clip      Placement
 
+	TextStyles *TextStylesOverride
+
 	OverShape    []Coord
 	Transparency Watch[float32]
 
@@ -147,12 +149,12 @@ func (c *Base) CheckForChanges() {
 	}
 }
 
-func (c *Base) Render(ctx RenderContext, out *VertexBuffers) {
+func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 	if c.Transparency.Get() == 1 {
 		return
 	}
 
-	baseCtx := ctx.WithBounds(c.Bounds)
+	baseCtx := ctx.WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
 
 	if len(c.Layers) > 0 {
 		rendered := NewVertexIterator(out)

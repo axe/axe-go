@@ -103,8 +103,8 @@ func (sys UserInterfaceSystem) OnLive(data *UserInterface, e *ecs.Entity, ctx ec
 		if font, ok := a.Data.(*ui.Font); ok {
 			data.Theme.Fonts[font.Name] = font
 
-			if data.Theme.DefaultFont == "" {
-				data.Theme.DefaultFont = font.Name
+			if data.Theme.TextStyles.Font == "" {
+				data.Theme.TextStyles.Font = font.Name
 			}
 		}
 	}

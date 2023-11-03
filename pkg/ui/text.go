@@ -108,17 +108,6 @@ func (a *Alignment) UnmarshalText(text []byte) error {
 	return nil
 }
 
-type ParagraphStyles struct {
-	Spacing               Amount       // extra space between glyphs
-	LineSpacing           Amount       // extra space between lines
-	LineHeight            Amount       // 0=calculated per line
-	LineVerticalAlignment Alignment    // 0=top, 0.5=middle, 1=bottom
-	Indent                Amount       // shift first line in a wrappable line
-	HorizontalAlignment   Alignment    // 0=left, 0.5=middle, 1=right
-	Wrap                  TextWrap     // when we are going beyond the width, how do we decide to wrap
-	ParagraphPadding      AmountBounds // padding around the paragraph
-}
-
 type ClipShow int
 
 const (
@@ -161,6 +150,68 @@ func (c *ClipShow) UnmarshalText(text []byte) error {
 	return fmt.Errorf("invalid clip show %s", string(text))
 }
 
+type ParagraphStyles struct {
+	Spacing               Amount       // extra space between glyphs
+	LineSpacing           Amount       // extra space between lines
+	LineHeight            Amount       // 0=calculated per line
+	LineVerticalAlignment Alignment    // 0=top, 0.5=middle, 1=bottom
+	Indent                Amount       // shift first line in a wrappable line
+	HorizontalAlignment   Alignment    // 0=left, 0.5=middle, 1=right
+	Wrap                  TextWrap     // when we are going beyond the width, how do we decide to wrap
+	ParagraphPadding      AmountBounds // padding around the paragraph
+}
+
+func (s *ParagraphStyles) Override(o *ParagraphStylesOverride) *ParagraphStyles {
+	if !o.HasOverride() {
+		return s
+	}
+	return &ParagraphStyles{
+		Spacing:               coalesce(o.Spacing, s.Spacing),
+		LineSpacing:           coalesce(o.LineSpacing, s.LineSpacing),
+		LineHeight:            coalesce(o.LineHeight, s.LineHeight),
+		LineVerticalAlignment: coalesce(o.LineVerticalAlignment, s.LineVerticalAlignment),
+		Indent:                coalesce(o.Indent, s.Indent),
+		HorizontalAlignment:   coalesce(o.HorizontalAlignment, s.HorizontalAlignment),
+		Wrap:                  coalesce(o.Wrap, s.Wrap),
+		ParagraphPadding:      coalesce(o.ParagraphPadding, s.ParagraphPadding),
+	}
+}
+
+type ParagraphStylesOverride struct {
+	Spacing               *Amount       // extra space between glyphs
+	LineSpacing           *Amount       // extra space between lines
+	LineHeight            *Amount       // 0=calculated per line
+	LineVerticalAlignment *Alignment    // 0=top, 0.5=middle, 1=bottom
+	Indent                *Amount       // shift first line in a wrappable line
+	HorizontalAlignment   *Alignment    // 0=left, 0.5=middle, 1=right
+	Wrap                  *TextWrap     // when we are going beyond the width, how do we decide to wrap
+	ParagraphPadding      *AmountBounds // padding around the paragraph
+}
+
+func (o *ParagraphStylesOverride) HasOverride() bool {
+	if o == nil {
+		return false
+	}
+	return o.Spacing != nil || o.LineSpacing != nil || o.LineHeight != nil || o.LineVerticalAlignment != nil ||
+		o.Indent != nil || o.HorizontalAlignment != nil || o.Wrap != nil || o.ParagraphPadding != nil
+}
+
+func (o *ParagraphStylesOverride) Clone() *ParagraphStylesOverride {
+	if o == nil {
+		return nil
+	}
+	return &ParagraphStylesOverride{
+		Spacing:               clone(o.Spacing),
+		LineSpacing:           clone(o.LineSpacing),
+		LineHeight:            clone(o.LineHeight),
+		LineVerticalAlignment: clone(o.LineVerticalAlignment),
+		Indent:                clone(o.Indent),
+		HorizontalAlignment:   clone(o.HorizontalAlignment),
+		Wrap:                  clone(o.Wrap),
+		ParagraphPadding:      clone(o.ParagraphPadding),
+	}
+}
+
 type ParagraphsStyles struct {
 	ParagraphSpacing  Amount    // how much space between paragraphs
 	VerticalAlignment Alignment // how to align all paragraphs in an area
@@ -168,18 +219,76 @@ type ParagraphsStyles struct {
 	ClipShowY         ClipShow  // when text cannot fit in the area height, which side should we prefer to show (top, bottom, none)
 }
 
+func (s *ParagraphsStyles) Override(o *ParagraphsStylesOverride) *ParagraphsStyles {
+	if !o.HasOverride() {
+		return s
+	}
+	return &ParagraphsStyles{
+		ParagraphSpacing:  coalesce(o.ParagraphSpacing, s.ParagraphSpacing),
+		VerticalAlignment: coalesce(o.VerticalAlignment, s.VerticalAlignment),
+		ClipShowX:         coalesce(o.ClipShowX, s.ClipShowX),
+		ClipShowY:         coalesce(o.ClipShowY, s.ClipShowY),
+	}
+}
+
+type ParagraphsStylesOverride struct {
+	ParagraphSpacing  *Amount    // how much space between paragraphs
+	VerticalAlignment *Alignment // how to align all paragraphs in an area
+	ClipShowX         *ClipShow  // when text cannot fit in the area width, which side should we prefer to show (left, right, none)
+	ClipShowY         *ClipShow  // when text cannot fit in the area height, which side should we prefer to show (top, bottom, none)
+}
+
+func (o *ParagraphsStylesOverride) HasOverride() bool {
+	if o == nil {
+		return false
+	}
+	return o != nil || o.ParagraphSpacing != nil || o.VerticalAlignment != nil || o.ClipShowX != nil || o.ClipShowY != nil
+}
+
 type TextStyles struct {
 	ParagraphStyles
 	ParagraphsStyles
+	Color    Color
+	Font     string
+	FontSize Amount
+}
+
+func (s *TextStyles) Override(o *TextStylesOverride) *TextStyles {
+	if !o.HasOverride() {
+		return s
+	}
+	return &TextStyles{
+		ParagraphStyles:  *s.ParagraphStyles.Override(o.ParagraphStylesOverride),
+		ParagraphsStyles: *s.ParagraphsStyles.Override(o.ParagraphsStylesOverride),
+		Color:            coalesce(o.Color, s.Color),
+		Font:             coalesce(o.Font, s.Font),
+		FontSize:         coalesce(o.FontSize, s.FontSize),
+	}
+}
+
+type TextStylesOverride struct {
+	ParagraphStylesOverride  *ParagraphStylesOverride
+	ParagraphsStylesOverride *ParagraphsStylesOverride
+	Color                    *Color
+	Font                     *string
+	FontSize                 *Amount
+}
+
+func (o *TextStylesOverride) HasOverride() bool {
+	if o == nil {
+		return false
+	}
+	return o.ParagraphStylesOverride.HasOverride() || o.ParagraphStylesOverride.HasOverride() ||
+		o.Color != nil || o.Font != nil || o.FontSize != nil
 }
 
 type Paragraph struct {
-	ParagraphStyles
+	Styles *ParagraphStylesOverride
 	Glyphs []Glyph
 }
 
 type Paragraphs struct {
-	ParagraphsStyles
+	Styles     *ParagraphsStylesOverride
 	Paragraphs []Paragraph
 	MaxWidth   float32
 	MaxHeight  float32
@@ -219,8 +328,8 @@ const (
 )
 
 type Glyph interface {
-	GetState(ctx RenderContext, wrap TextWrap, prev Glyph) GlyphState
-	Render(ctx RenderContext, start Coord) RenderedGlyph
+	GetState(ctx *RenderContext, wrap TextWrap, prev Glyph) GlyphState
+	Render(ctx *RenderContext, start Coord) RenderedGlyph
 }
 
 type GlyphState struct {
@@ -230,30 +339,31 @@ type GlyphState struct {
 	Empty       bool
 }
 
-func (paragraph Paragraph) GetLineHeight(ctx RenderContext, actualLineHeight float32) float32 {
-	if paragraph.LineHeight.IsZero() {
+func (paragraph Paragraph) GetLineHeight(ctx *RenderContext, style *ParagraphStyles, actualLineHeight float32) float32 {
+	if style.LineHeight.IsZero() {
 		return actualLineHeight
 	} else {
-		return paragraph.LineHeight.Get(ctx.AmountContext)
+		return style.LineHeight.Get(ctx.AmountContext, false)
 	}
 }
 
-func (paragraph Paragraph) GetStates(ctx RenderContext) []GlyphState {
+func (paragraph Paragraph) GetStates(ctx *RenderContext, style *ParagraphStyles) []GlyphState {
 	states := make([]GlyphState, len(paragraph.Glyphs))
 	var prev Glyph
 	for i, g := range paragraph.Glyphs {
-		states[i] = g.GetState(ctx, paragraph.Wrap, prev)
+		states[i] = g.GetState(ctx, style.Wrap, prev)
 		prev = paragraph.Glyphs[i]
 	}
 	return states
 }
 
-func (paragraph Paragraph) UnwrappedSize(ctx RenderContext, scale Coord, paragraphs Paragraphs) Coord {
-	states := paragraph.GetStates(ctx)
+func (paragraph Paragraph) UnwrappedSize(ctx *RenderContext, scale Coord, paragraphs Paragraphs) Coord {
+	style := ctx.TextStyles.ParagraphStyles.Override(paragraph.Styles)
+	states := paragraph.GetStates(ctx, style)
 
 	lineCount := 0
-	lineSpacing := paragraph.LineSpacing.Get(ctx.AmountContext)
-	lineIndent := paragraph.Indent.Get(ctx.AmountContext)
+	lineSpacing := style.LineSpacing.Get(ctx.AmountContext, false)
+	lineIndent := style.Indent.Get(ctx.AmountContext, true)
 	lineWidth := lineIndent
 	lineHeight := float32(0)
 	size := Coord{}
@@ -267,7 +377,7 @@ func (paragraph Paragraph) UnwrappedSize(ctx RenderContext, scale Coord, paragra
 			if lineCount > 0 {
 				size.Y += lineSpacing
 			}
-			size.Y += paragraph.GetLineHeight(ctx, lineHeight) * scale.Y
+			size.Y += paragraph.GetLineHeight(ctx, style, lineHeight) * scale.Y
 			lineCount++
 			lineWidth = 0
 			lineHeight = 0
@@ -279,7 +389,7 @@ func (paragraph Paragraph) UnwrappedSize(ctx RenderContext, scale Coord, paragra
 		}
 	}
 
-	padding := paragraph.ParagraphPadding.GetBounds(ctx.AmountContext)
+	padding := style.ParagraphPadding.GetBounds(ctx.AmountContext)
 
 	size.Y += padding.Top
 	size.Y += padding.Bottom
@@ -289,8 +399,9 @@ func (paragraph Paragraph) UnwrappedSize(ctx RenderContext, scale Coord, paragra
 	return size
 }
 
-func (paragraph Paragraph) Render(ctx RenderContext, paragraphs Paragraphs) RenderedText {
-	states := paragraph.GetStates(ctx)
+func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs) RenderedText {
+	style := ctx.TextStyles.ParagraphStyles.Override(paragraph.Styles)
+	states := paragraph.GetStates(ctx, style)
 
 	type line struct {
 		width  float32
@@ -298,8 +409,8 @@ func (paragraph Paragraph) Render(ctx RenderContext, paragraphs Paragraphs) Rend
 		glyphs []int
 	}
 
-	lineIndent := paragraph.Indent.Get(ctx.AmountContext)
-	padding := paragraph.ParagraphPadding.GetBounds(ctx.AmountContext)
+	lineIndent := style.Indent.Get(ctx.AmountContext, true)
+	padding := style.ParagraphPadding.GetBounds(ctx.AmountContext)
 	paddingWidth := padding.Left + padding.Right
 
 	lines := make([]line, 0, 8)
@@ -345,7 +456,7 @@ func (paragraph Paragraph) Render(ctx RenderContext, paragraphs Paragraphs) Rend
 	if len(currentLine.glyphs) > 0 {
 		lines = append(lines, currentLine)
 	}
-	lineSpacing := paragraph.LineSpacing.Get(ctx.AmountContext)
+	lineSpacing := style.LineSpacing.Get(ctx.AmountContext, false)
 
 	bounds := Bounds{
 		Left:   0,
@@ -367,7 +478,7 @@ func (paragraph Paragraph) Render(ctx RenderContext, paragraphs Paragraphs) Rend
 				actualLineHeight = state.Size.Y
 			}
 		}
-		line.height = paragraph.GetLineHeight(ctx, actualLineHeight)
+		line.height = paragraph.GetLineHeight(ctx, style, actualLineHeight)
 		bounds.Bottom += line.height
 	}
 
@@ -376,7 +487,7 @@ func (paragraph Paragraph) Render(ctx RenderContext, paragraphs Paragraphs) Rend
 
 	for lineIndex, line := range lines {
 		start := Coord{
-			X: paragraph.HorizontalAlignment.Compute(paragraphs.MaxWidth - line.width),
+			X: style.HorizontalAlignment.Compute(paragraphs.MaxWidth - line.width),
 			Y: offsetY,
 		}
 		if start.X < bounds.Left {
@@ -394,7 +505,7 @@ func (paragraph Paragraph) Render(ctx RenderContext, paragraphs Paragraphs) Rend
 		for _, glyphIndex := range line.glyphs {
 			g := paragraph.Glyphs[glyphIndex]
 			s := states[glyphIndex]
-			start.Y = offsetY + paragraph.LineVerticalAlignment.Compute(line.height-s.Size.Y)
+			start.Y = offsetY + style.LineVerticalAlignment.Compute(line.height-s.Size.Y)
 			render := g.Render(ctx, start)
 			if render.Bounds.Width() > 0 {
 				rendered = append(rendered, render)
@@ -419,9 +530,10 @@ func (paragraphs Paragraphs) Wrap(lineWidth float32) bool {
 }
 
 func (paragraphs Paragraphs) UnwrappedSize(ctx RenderContext, scale Coord) Coord {
+	style := ctx.TextStyles.ParagraphsStyles.Override(paragraphs.Styles)
 	size := Coord{}
 	paragraphCtx := ctx.WithParent(paragraphs.MaxWidth, paragraphs.MaxHeight)
-	paragraphSpacing := paragraphs.ParagraphSpacing.Get(paragraphCtx.AmountContext)
+	paragraphSpacing := style.ParagraphSpacing.Get(paragraphCtx.AmountContext, false)
 	for i, paragraph := range paragraphs.Paragraphs {
 		paragraphSize := paragraph.UnwrappedSize(paragraphCtx, scale, paragraphs)
 		if i > 0 {
@@ -435,12 +547,13 @@ func (paragraphs Paragraphs) UnwrappedSize(ctx RenderContext, scale Coord) Coord
 	return size
 }
 
-func (paragraphs Paragraphs) Render(ctx RenderContext) RenderedText {
+func (paragraphs Paragraphs) Render(ctx *RenderContext) RenderedText {
+	style := ctx.TextStyles.ParagraphsStyles.Override(paragraphs.Styles)
 	rendered := make([]RenderedText, len(paragraphs.Paragraphs))
 	totalHeight := float32(0)
 	totalGlyphs := 0
 	paragraphCtx := ctx.WithParent(paragraphs.MaxWidth, paragraphs.MaxHeight)
-	paragraphSpacing := paragraphs.ParagraphSpacing.Get(paragraphCtx.AmountContext)
+	paragraphSpacing := style.ParagraphSpacing.Get(paragraphCtx.AmountContext, false)
 	for i, paragraph := range paragraphs.Paragraphs {
 		rendered[i] = paragraph.Render(paragraphCtx, paragraphs)
 		totalHeight += rendered[i].Bounds.Height()
@@ -449,9 +562,9 @@ func (paragraphs Paragraphs) Render(ctx RenderContext) RenderedText {
 		}
 		totalGlyphs += len(rendered[i].Glyphs)
 	}
-	offsetY := paragraphs.VerticalAlignment.Compute(paragraphs.MaxHeight - totalHeight)
+	offsetY := style.VerticalAlignment.Compute(paragraphs.MaxHeight - totalHeight)
 
-	switch paragraphs.ClipShowY {
+	switch style.ClipShowY {
 	case ClipShowTop:
 		if offsetY < 0 {
 			offsetY = 0
@@ -468,7 +581,7 @@ func (paragraphs Paragraphs) Render(ctx RenderContext) RenderedText {
 		paragraph := &rendered[i]
 
 		offsetX := float32(0)
-		switch paragraphs.ClipShowX {
+		switch style.ClipShowX {
 		case ClipShowLeft:
 			if paragraph.Bounds.Left < 0 {
 				offsetX = paragraph.Bounds.Left
@@ -511,11 +624,11 @@ type BaseGlyph struct {
 
 var _ Glyph = &BaseGlyph{}
 
-func (g *BaseGlyph) init(theme *Theme) {
+func (g *BaseGlyph) init(ctx *RenderContext) {
 	if !g.initialized {
-		font := theme.Fonts[g.Font]
+		font := ctx.Theme.Fonts[g.Font]
 		if font == nil {
-			font = theme.Fonts[theme.DefaultFont]
+			font = ctx.Theme.Fonts[ctx.TextStyles.Font]
 		}
 		if font != nil {
 			fontRune := font.Runes[g.Text]
@@ -528,23 +641,23 @@ func (g *BaseGlyph) init(theme *Theme) {
 	}
 }
 
-func (g BaseGlyph) getColor(theme *Theme) Color {
+func (g BaseGlyph) getColor(ctx *RenderContext) Color {
 	if g.Color.IsZero() {
-		return theme.DefaultFontColor
+		return ctx.TextStyles.Color
 	} else {
 		return g.Color
 	}
 }
 
-func (g BaseGlyph) getSize(ctx AmountContext) float32 {
+func (g BaseGlyph) getSize(ctx *RenderContext) float32 {
 	if g.Size.Value == 0 {
-		return ctx.FontSize
+		return ctx.TextStyles.FontSize.Get(ctx.AmountContext, true)
 	} else {
-		return g.Size.Get(ctx)
+		return g.Size.Get(ctx.AmountContext, true)
 	}
 }
 
-func (g *BaseGlyph) GetState(ctx RenderContext, wrap TextWrap, prev Glyph) GlyphState {
+func (g *BaseGlyph) GetState(ctx *RenderContext, wrap TextWrap, prev Glyph) GlyphState {
 	space := unicode.IsSpace(g.Text)
 	state := GlyphState{
 		CanBreak:    wrap == TextWrapChar || (wrap == TextWrapWord && space),
@@ -552,7 +665,7 @@ func (g *BaseGlyph) GetState(ctx RenderContext, wrap TextWrap, prev Glyph) Glyph
 		Empty:       space,
 	}
 
-	g.init(ctx.Theme)
+	g.init(ctx)
 	if g.font == nil {
 		state.Empty = true
 		return state
@@ -565,20 +678,20 @@ func (g *BaseGlyph) GetState(ctx RenderContext, wrap TextWrap, prev Glyph) Glyph
 		}
 	}
 
-	size := g.getSize(ctx.AmountContext)
+	size := g.getSize(ctx)
 	state.Size.X = (size * g.fontRune.Width) + offset*size
 	state.Size.Y = size * g.font.LineHeight
 
 	return state
 }
 
-func (g *BaseGlyph) Render(ctx RenderContext, topLeft Coord) RenderedGlyph {
-	g.init(ctx.Theme)
+func (g *BaseGlyph) Render(ctx *RenderContext, topLeft Coord) RenderedGlyph {
+	g.init(ctx)
 	if g.font == nil {
 		return RenderedGlyph{}
 	}
-	color := g.getColor(ctx.Theme)
-	size := g.getSize(ctx.AmountContext)
+	color := g.getColor(ctx)
+	size := g.getSize(ctx)
 	extents := g.fontRune.Extent
 	baselineOffset := g.font.Baseline * size
 
@@ -601,7 +714,7 @@ var TextFormatRegex = regexp.MustCompile(`\\{|\{([^:}]+):?([^}]*)\}|.|\s`)
 // - font = {f:name} or {f:} to reset to default
 // - color = {c:#RRGGBB} or {c:#RRGGBBAA} or {c:red} or {c:} to reset to default
 // - size = {s:12} or {s:50%} or {s:} to reset to default
-// - new paragraph = {p}
+// - new paragraph = {p} or {p:reset} to reset paragraph style
 // - set kerning to paragraph = {k:5}
 // - set horizontal alignment in paragraph = {h:0.5}
 // - set vertical alignment within a line in paragraph = {v:0}
@@ -622,12 +735,16 @@ func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
 	paragraph := Paragraph{}
 	glyph := BaseGlyph{}
 
-	readAmount := func(s string) Amount {
-		amt := Amount{}
-		if s != "" {
-			err = amt.UnmarshalText([]byte(s))
+	readAmount := func(s string, required bool) *Amount {
+		if s == "" {
+			if required {
+				return &Amount{}
+			}
+			return nil
 		}
-		return amt
+		amt := Amount{}
+		err = amt.UnmarshalText([]byte(s))
+		return &amt
 	}
 	readFloat := func(s string) float32 {
 		f := float64(0)
@@ -636,24 +753,29 @@ func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
 		}
 		return float32(f)
 	}
-	readAlignment := func(s string) Alignment {
+	readAlignment := func(s string) *Alignment {
+		if s == "" {
+			return nil
+		}
 		align := Alignment(0)
-		if s != "" {
-			err = align.UnmarshalText([]byte(s))
-		}
-		return align
+		err = align.UnmarshalText([]byte(s))
+		return &align
 	}
-	readClipShow := func(s string) ClipShow {
+	readClipShow := func(s string) *ClipShow {
+		if s == "" {
+			return nil
+		}
 		show := ClipShow(0)
-		if s != "" {
-			err = show.UnmarshalText([]byte(s))
-		}
-		return show
+		err = show.UnmarshalText([]byte(s))
+		return &show
 	}
-	readWrap := func(s string) TextWrap {
+	readWrap := func(s string) *TextWrap {
+		if s == "" {
+			return nil
+		}
 		wrap := TextWrap("")
 		err = wrap.UnmarshalText([]byte(s))
-		return wrap
+		return &wrap
 	}
 	readColor := func(s string) Color {
 		color := Color{}
@@ -661,6 +783,25 @@ func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
 			err = color.UnmarshalText([]byte(s))
 		}
 		return color
+	}
+	getParagraphStyles := func() *ParagraphStylesOverride {
+		if paragraph.Styles == nil {
+			paragraph.Styles = &ParagraphStylesOverride{}
+		}
+		return paragraph.Styles
+	}
+	getParagraphPadding := func() *AmountBounds {
+		style := getParagraphStyles()
+		if style.ParagraphPadding == nil {
+			style.ParagraphPadding = &AmountBounds{}
+		}
+		return style.ParagraphPadding
+	}
+	getParagraphsStyles := func() *ParagraphsStylesOverride {
+		if paragraphs.Styles == nil {
+			paragraphs.Styles = &ParagraphsStylesOverride{}
+		}
+		return paragraphs.Styles
 	}
 
 	pieces := TextFormatRegex.FindAllStringSubmatch(text, -1)
@@ -677,48 +818,51 @@ func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
 		case "f": // Glyph commands
 			glyph.Font = value
 		case "s":
-			glyph.Size = readAmount(value)
+			glyph.Size = *readAmount(value, true)
 		case "c":
 			glyph.Color = readColor(value)
 		case "k": // Paragraph commands
-			paragraph.Spacing = readAmount(value)
+			getParagraphStyles().Spacing = readAmount(value, false)
 		case "h":
-			paragraph.HorizontalAlignment = readAlignment(value)
+			getParagraphStyles().HorizontalAlignment = readAlignment(value)
 		case "v":
-			paragraph.LineVerticalAlignment = readAlignment(value)
+			getParagraphStyles().LineVerticalAlignment = readAlignment(value)
 		case "w":
-			paragraph.Wrap = readWrap(value)
+			getParagraphStyles().Wrap = readWrap(value)
 		case "ls":
-			paragraph.LineSpacing = readAmount(value)
+			getParagraphStyles().LineSpacing = readAmount(value, false)
 		case "lh":
-			paragraph.LineHeight = readAmount(value)
+			getParagraphStyles().LineHeight = readAmount(value, false)
 		case "pa":
-			paragraph.ParagraphPadding.SetAmount(readAmount(value))
+			getParagraphPadding().SetAmount(*readAmount(value, true))
 		case "pl":
-			paragraph.ParagraphPadding.Left = readAmount(value)
+			getParagraphPadding().Left = *readAmount(value, true)
 		case "pt":
-			paragraph.ParagraphPadding.Top = readAmount(value)
+			getParagraphPadding().Top = *readAmount(value, true)
 		case "pr":
-			paragraph.ParagraphPadding.Right = readAmount(value)
+			getParagraphPadding().Right = *readAmount(value, true)
 		case "pb":
-			paragraph.ParagraphPadding.Bottom = readAmount(value)
+			getParagraphPadding().Bottom = *readAmount(value, true)
 		case "i":
-			paragraph.Indent = readAmount(value)
+			getParagraphStyles().Indent = readAmount(value, false)
 		case "p": // Paragraphs commands
 			paragraphs.Paragraphs = append(paragraphs.Paragraphs, paragraph)
 			paragraph.Glyphs = make([]Glyph, 0)
+			if value != "reset" {
+				paragraph.Styles = paragraph.Styles.Clone()
+			}
 		case "ps":
-			paragraphs.ParagraphSpacing = readAmount(value)
+			getParagraphsStyles().ParagraphSpacing = readAmount(value, false)
 		case "pv":
-			paragraphs.VerticalAlignment = readAlignment(value)
+			getParagraphsStyles().VerticalAlignment = readAlignment(value)
 		case "mw":
 			paragraphs.MaxWidth = readFloat(value)
 		case "mh":
 			paragraphs.MaxHeight = readFloat(value)
 		case "cx":
-			paragraphs.ClipShowX = readClipShow(value)
+			getParagraphsStyles().ClipShowX = readClipShow(value)
 		case "cy":
-			paragraphs.ClipShowY = readClipShow(value)
+			getParagraphsStyles().ClipShowY = readClipShow(value)
 		}
 		if err != nil {
 			return

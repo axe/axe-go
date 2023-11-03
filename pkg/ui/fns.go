@@ -66,6 +66,21 @@ func toPtr(x any) uintptr {
 	return reflect.ValueOf(x).Pointer()
 }
 
+func coalesce[V any](nilable *V, nonNil V) V {
+	if nilable != nil {
+		return *nilable
+	}
+	return nonNil
+}
+
+func clone[V any](nilable *V) *V {
+	if nilable == nil {
+		return nil
+	}
+	copy := *nilable
+	return &copy
+}
+
 func inPolygon(polygon []Coord, pt Coord) bool {
 	in := false
 	n := len(polygon)

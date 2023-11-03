@@ -33,7 +33,7 @@ func (l *Layer) Update(update Update) Dirty {
 	return dirty
 }
 
-func (l Layer) Render(ctx RenderContext, out *VertexBuffers) {
+func (l Layer) Render(ctx *RenderContext, out *VertexBuffers) {
 	layerCtx := ctx.WithBounds(l.Bounds)
 
 	iter := NewVertexIterator(out)

@@ -3,7 +3,7 @@ package ui
 type Visual interface {
 	Init(init Init)
 	Update(update Update) Dirty
-	Visualize(b Bounds, ctx RenderContext, out *VertexBuffers)
+	Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers)
 }
 
 var _ Visual = VisualFilled{}
@@ -23,7 +23,7 @@ func (s VisualFilled) Update(update Update) Dirty {
 	return DirtyNone
 }
 
-func (s VisualFilled) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
+func (s VisualFilled) Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers) {
 	points := s.Shape.Shapify(b, ctx)
 	center := Coord{}
 	for _, p := range points {
@@ -66,7 +66,7 @@ func (s VisualBordered) Update(update Update) Dirty {
 	return DirtyNone
 }
 
-func (s VisualBordered) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
+func (s VisualBordered) Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers) {
 	inner := s.Shape.Shapify(b, ctx)
 	outer := make([]Coord, len(inner))
 	last := len(inner) - 1
@@ -118,7 +118,7 @@ func (r VisualFrame) Update(update Update) Dirty {
 	return DirtyNone
 }
 
-func (r VisualFrame) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
+func (r VisualFrame) Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers) {
 	sizes := r.Sizes.GetBounds(ctx.AmountContext)
 	axisX := []float32{b.Left, b.Left + sizes.Left, b.Right - sizes.Right, b.Right}
 	axisY := []float32{b.Top, b.Top + sizes.Top, b.Bottom - sizes.Bottom, b.Bottom}
@@ -176,7 +176,7 @@ func (s *VisualText) WillClip() bool {
 	return s.Clip && (s.VisibleThreshold == nil || *s.VisibleThreshold != GlyphVisibilityVisible)
 }
 
-func (s *VisualText) Visualize(b Bounds, ctx RenderContext, out *VertexBuffers) {
+func (s *VisualText) Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers) {
 	if s.renderedBounds != b {
 		s.Paragraphs.MaxWidth, s.Paragraphs.MaxHeight = b.Dimensions()
 		s.rendered = s.Paragraphs.Render(ctx)

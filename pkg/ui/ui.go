@@ -26,10 +26,20 @@ type UI struct {
 func NewUI() *UI {
 	return &UI{
 		Theme: &Theme{
-			Fonts:            make(map[string]*Font),
-			StateModifier:    make(map[State]VertexModifier),
-			DefaultFontSize:  16,
-			DefaultFontColor: ColorBlack,
+			Fonts:         make(map[string]*Font),
+			StateModifier: make(map[State]VertexModifier),
+			TextStyles: TextStyles{
+				ParagraphStyles: ParagraphStyles{
+					LineVerticalAlignment: AlignmentBottom,
+					Wrap:                  TextWrapWord,
+				},
+				ParagraphsStyles: ParagraphsStyles{
+					ClipShowX: ClipShowLeft,
+					ClipShowY: ClipShowTop,
+				},
+				Color:    ColorBlack,
+				FontSize: Amount{Value: 16},
+			},
 		},
 		PointerButtons: make([]PointerButtons, 3),
 		Named:          id.NewDenseMap[Component, uint16, uint16]( /*id.WithArea(Area)*/ ),
@@ -51,10 +61,10 @@ func (ui *UI) Place(newBounds Bounds) {
 	}
 }
 
-func (ui *UI) SetContext(ctx AmountContext) {
-	if ui.context != ctx {
+func (ui *UI) SetContext(ctx *AmountContext) {
+	if ctx != nil && ui.context != *ctx {
 		ui.Root.Dirty(DirtyVisual)
-		ui.context = ctx
+		ui.context = *ctx
 	}
 }
 
@@ -67,9 +77,10 @@ func (ui *UI) Update(update Update) {
 }
 
 func (ui *UI) Render(out *VertexBuffers) {
-	ctx := RenderContext{
-		AmountContext: ui.context,
+	ctx := &RenderContext{
+		AmountContext: ui.context.ForFont(ui.Theme.TextStyles.FontSize),
 		Theme:         ui.Theme,
+		TextStyles:    &ui.Theme.TextStyles,
 	}
 	ui.Root.Render(ctx, out)
 }

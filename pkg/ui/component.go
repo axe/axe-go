@@ -11,27 +11,54 @@ type Update struct {
 }
 
 type RenderContext struct {
-	AmountContext
-	Theme *Theme
+	AmountContext *AmountContext
+	Theme         *Theme
+	TextStyles    *TextStyles
 }
 
-func (ctx RenderContext) WithBounds(parent Bounds) RenderContext {
-	ctx.AmountContext = ctx.AmountContext.WithParent(parent.Width(), parent.Height())
-	return ctx
+func (ctx *RenderContext) WithAmountContext(amt *AmountContext) *RenderContext {
+	copy := *ctx
+	copy.AmountContext = amt
+	return &copy
 }
 
-func (ctx RenderContext) WithParent(width, height float32) RenderContext {
-	ctx.Parent.Value = width
-	ctx.Parent.Width = width
-	ctx.Parent.Height = height
-	return ctx
+func (ctx *RenderContext) WithTextStyles(styles *TextStyles) *RenderContext {
+	copy := *ctx
+	copy.TextStyles = styles
+	return &copy
+}
+
+func (ctx *RenderContext) WithParent(width, height float32) *RenderContext {
+	if ctx.AmountContext.IsSameSize(width, height, ctx.TextStyles.FontSize) {
+		return ctx
+	}
+	return ctx.WithAmountContext(ctx.AmountContext.Resize(width, height, ctx.TextStyles.FontSize))
+}
+
+func (ctx *RenderContext) WithBounds(parent Bounds) *RenderContext {
+	return ctx.WithParent(parent.Width(), parent.Height())
+}
+
+func (ctx *RenderContext) WithBoundsAndTextStyles(parent Bounds, styles *TextStylesOverride) *RenderContext {
+	width, height := parent.Dimensions()
+	fontSize := ctx.TextStyles.FontSize
+	if styles != nil && styles.FontSize != nil {
+		fontSize = *styles.FontSize
+	}
+	if ctx.AmountContext.IsSameSize(width, height, fontSize) && !styles.HasOverride() {
+		return ctx
+	}
+	copy := *ctx
+	copy.TextStyles = ctx.TextStyles.Override(styles)
+	copy.AmountContext = ctx.AmountContext.Resize(width, height, copy.TextStyles.FontSize)
+	return &copy
 }
 
 type Component interface {
 	Init(init Init)
 	Place(parent Bounds, force bool)
 	Update(update Update)
-	Render(ctx RenderContext, out *VertexBuffers)
+	Render(ctx *RenderContext, out *VertexBuffers)
 	GetDirty() Dirty
 	Dirty(dirty Dirty)
 	Parent() Component
