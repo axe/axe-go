@@ -108,6 +108,45 @@ func WithArea[A any](area *A) Option[HasArea[A]] {
 	}
 }
 
+type KeyValue[V any] struct {
+	Key   Identifier
+	Value V
+}
+
+type HasKeyValues[V any] interface{ setKeyValues(kv []KeyValue[V]) }
+
+func WithKeyValues[V any](kv []KeyValue[V]) Option[HasKeyValues[V]] {
+	return func(optionable HasKeyValues[V]) {
+		optionable.setKeyValues(kv)
+	}
+}
+
+func WithStringMap[V any](m map[string]V) Option[HasKeyValues[V]] {
+	return func(optionable HasKeyValues[V]) {
+		kv := make([]KeyValue[V], 0, len(m))
+		for k, v := range m {
+			kv = append(kv, KeyValue[V]{
+				Key:   Get(k),
+				Value: v,
+			})
+		}
+		optionable.setKeyValues(kv)
+	}
+}
+
+func WithIdentifierMap[V any](m map[Identifier]V) Option[HasKeyValues[V]] {
+	return func(optionable HasKeyValues[V]) {
+		kv := make([]KeyValue[V], 0, len(m))
+		for k, v := range m {
+			kv = append(kv, KeyValue[V]{
+				Key:   k,
+				Value: v,
+			})
+		}
+		optionable.setKeyValues(kv)
+	}
+}
+
 type Area[From constraints.Unsigned, To constraints.Unsigned] struct {
 	tos          []To
 	next         To
@@ -230,6 +269,12 @@ func (m *SparseMap[V, SID]) setArea(area *Area[uint32, SID]) {
 	m.area = area
 }
 
+func (m *SparseMap[V, SID]) setKeyValues(kv []KeyValue[V]) {
+	for _, pair := range kv {
+		m.Set(pair.Key, pair.Value)
+	}
+}
+
 func (m SparseMap[V, SID]) Values() []V {
 	return m.values
 }
@@ -308,6 +353,12 @@ func (m *DenseMap[V, A, L]) setCapacity(capacity int) {
 
 func (m *DenseMap[V, A, L]) setArea(area *Area[uint32, A]) {
 	m.area = area
+}
+
+func (m *DenseMap[V, A, L]) setKeyValues(kv []KeyValue[V]) {
+	for _, pair := range kv {
+		m.Set(pair.Key, pair.Value)
+	}
 }
 
 func (m *DenseMap[V, A, L]) indexOf(key Identifier) int {
@@ -420,6 +471,11 @@ func (m *DenseKeyMap[V, A, L]) setCapacity(capacity int) {
 
 func (m *DenseKeyMap[V, A, L]) setArea(area *Area[uint32, A]) {
 	m.area = area
+}
+func (m *DenseKeyMap[V, A, L]) setKeyValues(kv []KeyValue[V]) {
+	for _, pair := range kv {
+		m.Set(pair.Key, pair.Value)
+	}
 }
 
 func (m *DenseKeyMap[V, A, L]) indexOf(key Identifier) int {

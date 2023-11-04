@@ -40,6 +40,10 @@ func NewUI() *UI {
 				Color:    ColorBlack,
 				FontSize: Amount{Value: 16},
 			},
+			Animations: Animations{
+				ForEvent: make(map[AnimationEvent]AnimationFactory),
+				Named:    id.NewDenseMap[AnimationFactory, uint16, uint8](),
+			},
 		},
 		PointerButtons: make([]PointerButtons, 3),
 		Named:          id.NewDenseMap[Component, uint16, uint16]( /*id.WithArea(Area)*/ ),

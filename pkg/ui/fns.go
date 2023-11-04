@@ -9,6 +9,10 @@ func lerp(s, e, d float32) float32 {
 	return (e-s)*d + s
 }
 
+func delta(s, e, v float32) float32 {
+	return (v - s) / (e - s)
+}
+
 func normal(a, b Coord) (nx, ny float32) {
 	dx := b.X - a.X
 	dy := b.Y - a.Y
@@ -66,21 +70,6 @@ func toPtr(x any) uintptr {
 	return reflect.ValueOf(x).Pointer()
 }
 
-func coalesce[V any](nilable *V, nonNil V) V {
-	if nilable != nil {
-		return *nilable
-	}
-	return nonNil
-}
-
-func clone[V any](nilable *V) *V {
-	if nilable == nil {
-		return nil
-	}
-	copy := *nilable
-	return &copy
-}
-
 func inPolygon(polygon []Coord, pt Coord) bool {
 	in := false
 	n := len(polygon)
@@ -96,6 +85,48 @@ func inPolygon(polygon []Coord, pt Coord) bool {
 		i++
 	}
 	return in
+}
+
+func cos(rad float32) float32 {
+	return float32(math.Cos(float64(rad)))
+}
+
+func sin(rad float32) float32 {
+	return float32(math.Sin(float64(rad)))
+}
+
+func cossin(rad float32) (cos float32, sin float32) {
+	rad64 := float64(rad)
+	cos = float32(math.Cos(rad64))
+	sin = float32(math.Sin(rad64))
+	return
+}
+
+func atan2(y, x float32) float32 {
+	return float32(math.Atan2(float64(y), float64(x)))
+}
+
+func ease(delta float32, easing func(float32) float32) float32 {
+	if easing == nil {
+		return delta
+	} else {
+		return easing(delta)
+	}
+}
+
+func coalesce[V any](nilable *V, nonNil V) V {
+	if nilable != nil {
+		return *nilable
+	}
+	return nonNil
+}
+
+func clone[V any](nilable *V) *V {
+	if nilable == nil {
+		return nil
+	}
+	copy := *nilable
+	return &copy
 }
 
 func sliceIndexOf[V comparable](slice []V, value V) int {

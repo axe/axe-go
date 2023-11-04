@@ -74,6 +74,12 @@ func NewVertexIterator(vb *VertexBuffers) VertexIterator {
 	return buf.NewDataIterator(&vb.Buffers)
 }
 
+type IndexIterator = buf.IndexIterator[Vertex, VertexBuffer]
+
+func NewIndexIterator(vb *VertexBuffers) IndexIterator {
+	return buf.NewIndexIterator(&vb.Buffers)
+}
+
 func InitVertexBuffer(vb *VertexBuffer, capacity int) {
 	vb.Init(capacity)
 }
@@ -103,15 +109,6 @@ func (vb *VertexBuffers) ClipEnd() *VertexBuffer {
 	return ended
 }
 
-// Usage:
-//
-//	func (u) Render(out *VertexBuffers) {
-//	  out.ClipMaybe(u.clipBounds, func(vb *VertexBuffer) {
-//	    span := vb.Span()
-//	    u.renderTo(vb)
-//	    u.postProcess(span)
-//	  })
-//	}
 func (vb *VertexBuffers) ClipMaybe(bounds Bounds, render func(vb *VertexBuffers)) {
 	if bounds.IsZero() {
 		render(vb)
@@ -131,12 +128,15 @@ func (b *VertexBuffer) Init(capacity int) {
 	b.Buffer.Init(capacity)
 	b.clip = Bounds{}
 }
+
 func (b VertexBuffer) Empty() bool {
 	return b.Buffer.Empty()
 }
+
 func (b VertexBuffer) Remaining() int {
 	return b.Buffer.Remaining()
 }
+
 func (b *VertexBuffer) AddIndexQuad(i int) {
 	b.AddIndex(i, i+1, i+2, i+2, i+3, i)
 }
@@ -146,10 +146,12 @@ var relativeQuad = []int{0, 1, 2, 2, 3, 0}
 func (b *VertexBuffer) AddQuad(v ...Vertex) {
 	b.AddRelative(v, relativeQuad)
 }
+
 func (b *VertexBuffer) Clear() {
 	b.Buffer.Clear()
 	b.clip = Bounds{}
 }
+
 func (b *VertexBuffer) Clip() Bounds {
 	return b.clip
 }

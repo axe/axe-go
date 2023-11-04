@@ -16,6 +16,9 @@ func (b Bounds) Height() float32 {
 func (b Bounds) Dimensions() (float32, float32) {
 	return b.Width(), b.Height()
 }
+func (b Bounds) Center() (float32, float32) {
+	return (b.Left + b.Right) * 0.5, (b.Top + b.Bottom) * 0.5
+}
 func (b *Bounds) Translate(x, y float32) {
 	b.Left += x
 	b.Right += x
@@ -66,7 +69,8 @@ type Theme struct {
 	StateModifier map[State]VertexModifier
 
 	// Components map[string]*ComponentTheme
-	Fonts map[string]*Font
+	Fonts      map[string]*Font
+	Animations Animations
 }
 
 type State = Flags

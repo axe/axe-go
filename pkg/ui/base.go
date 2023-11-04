@@ -3,22 +3,22 @@ package ui
 import "github.com/axe/axe-go/pkg/id"
 
 type Base struct {
-	Name      id.Identifier
-	Layers    []Layer
-	Placement Placement
-	Bounds    Bounds
-	Children  []*Base
-	Focusable bool
-	Draggable bool
-	Droppable bool
-	Events    Events
-	States    State
-	Clip      Placement
-
-	TextStyles *TextStylesOverride
-
+	Name         id.Identifier
+	Layers       []Layer
+	Placement    Placement
+	Bounds       Bounds
+	Children     []*Base
+	Focusable    bool
+	Draggable    bool
+	Droppable    bool
+	Events       Events
+	States       State
+	Clip         Placement
+	Transform    Transform
+	TextStyles   *TextStylesOverride
 	OverShape    []Coord
 	Transparency Watch[float32]
+	Animation    AnimationState
 
 	dirty  Dirty
 	parent *Base
@@ -111,6 +111,7 @@ func (c *Base) Init(init Init) {
 		child.Init(init)
 	}
 	c.Dirty(DirtyPlacement)
+	c.PlayEvent(AnimationEventShow)
 }
 
 func (c *Base) Place(parent Bounds, force bool) {
@@ -140,6 +141,7 @@ func (c *Base) Update(update Update) {
 		child.Update(update)
 	}
 
+	c.Dirty(c.Animation.Update(c, update))
 	c.CheckForChanges()
 }
 
@@ -158,6 +160,7 @@ func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 
 	if len(c.Layers) > 0 {
 		rendered := NewVertexIterator(out)
+		renderedIndex := NewIndexIterator(out)
 
 		for _, layer := range c.Layers {
 			if layer.ForStates(c.States) {
@@ -165,7 +168,7 @@ func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 			}
 		}
 
-		c.PostProcess(rendered)
+		c.PostProcess(baseCtx, out, renderedIndex, rendered)
 	}
 
 	if len(c.Children) > 0 {
@@ -173,32 +176,44 @@ func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 
 		out.ClipMaybe(clipBounds, func(inner *VertexBuffers) {
 			renderedChildren := NewVertexIterator(inner)
+			renderedIndex := NewIndexIterator(inner)
 
 			for _, child := range c.Children {
 				child.Render(baseCtx, inner)
 			}
 
-			c.PostProcess(renderedChildren)
+			c.PostProcess(baseCtx, inner, renderedIndex, renderedChildren)
 		})
 	}
 
 	c.dirty.Remove(DirtyVisual)
 }
 
-func (c *Base) PostProcess(iter VertexIterator) {
+func (c *Base) PostProcess(ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
 	modifier := c.ui.Theme.StateModifier[c.States]
 	if modifier != nil {
-		for iter.HasNext() {
-			modifier(iter.Next())
+		for vertex.HasNext() {
+			modifier(vertex.Next())
 		}
+		vertex.Reset()
 	}
 
+	c.Animation.Render(c, ctx, out, index, vertex)
+
 	if c.Transparency.Get() > 0 {
-		iter.Reset()
 		alphaMultiplier := 1 - c.Transparency.Get()
-		for iter.HasNext() {
-			v := iter.Next()
+		for vertex.HasNext() {
+			v := vertex.Next()
 			v.Color.A *= alphaMultiplier
+		}
+		vertex.Reset()
+	}
+
+	transform := &c.Transform
+	if transform.HasAffect() {
+		for vertex.HasNext() {
+			v := vertex.Next()
+			v.X, v.Y = transform.Transform(v.X, v.Y)
 		}
 	}
 }
@@ -209,10 +224,9 @@ func (c *Base) Parent() Component {
 	}
 	return c.parent
 }
-
-func (c *Base) At(pt Coord) Component {
+func (c *Base) IsInside(pt Coord) bool {
 	if !c.Bounds.Inside(pt) {
-		return nil
+		return false
 	}
 
 	if len(c.OverShape) > 0 {
@@ -221,8 +235,16 @@ func (c *Base) At(pt Coord) Component {
 			Y: c.Bounds.Dy(pt.Y),
 		}
 		if !inPolygon(c.OverShape, normalized) {
-			return nil
+			return false
 		}
+	}
+
+	return true
+}
+
+func (c *Base) At(pt Coord) Component {
+	if !c.IsInside(pt) {
+		return nil
 	}
 
 	last := len(c.Children) - 1
@@ -281,10 +303,15 @@ func (c Base) IsDisabled() bool {
 }
 
 func (c *Base) SetDisabled(disabled bool) {
+	if disabled == c.IsDisabled() {
+		return
+	}
 	if disabled {
 		c.AddStates(StateDisabled)
+		c.PlayEvent(AnimationEventDisabled)
 	} else {
 		c.RemoveStates(StateDisabled)
+		c.PlayEvent(AnimationEventEnabled)
 	}
 }
 
@@ -293,19 +320,27 @@ func (c *Base) OnPointer(ev *PointerEvent) {
 		return
 	}
 
+	if c.Events.OnPointer != nil {
+		c.Events.OnPointer(ev)
+	}
+
+	if ev.Cancel {
+		return
+	}
+
 	switch ev.Type {
 	case PointerEventEnter:
 		c.AddStates(StateHover)
+		c.PlayEvent(AnimationEventPointerEnter)
 	case PointerEventDown:
 		c.AddStates(StatePressed)
+		c.PlayEvent(AnimationEventPointerDown)
 	case PointerEventLeave:
 		c.RemoveStates(StateHover | StateDragOver)
+		c.PlayEvent(AnimationEventPointerLeave)
 	case PointerEventUp:
 		c.RemoveStates(StatePressed | StateDragOver)
-	}
-
-	if c.Events.OnPointer != nil {
-		c.Events.OnPointer(ev)
+		c.PlayEvent(AnimationEventPointerUp)
 	}
 }
 
@@ -324,11 +359,16 @@ func (c *Base) OnFocus(ev *Event) {
 		return
 	}
 
-	c.AddStates(StateFocused)
-
 	if c.Events.OnFocus != nil {
 		c.Events.OnFocus(ev)
 	}
+
+	if ev.Cancel {
+		return
+	}
+
+	c.AddStates(StateFocused)
+	c.PlayEvent(AnimationEventFocus)
 }
 
 func (c Base) OnBlur(ev *Event) {
@@ -336,11 +376,16 @@ func (c Base) OnBlur(ev *Event) {
 		return
 	}
 
-	c.RemoveStates(StateFocused)
-
 	if c.Events.OnBlur != nil {
 		c.Events.OnBlur(ev)
 	}
+
+	if ev.Cancel {
+		return
+	}
+
+	c.RemoveStates(StateFocused)
+	c.PlayEvent(AnimationEventBlur)
 }
 
 func (c Base) OnDrag(ev *DragEvent) {
@@ -348,16 +393,29 @@ func (c Base) OnDrag(ev *DragEvent) {
 		return
 	}
 
+	if c.Events.OnDrag != nil {
+		c.Events.OnDrag(ev)
+	}
+
+	if ev.Cancel {
+		return
+	}
+
 	switch ev.Type {
 	case DragEventStart:
 		c.AddStates(StateDragging)
+		c.PlayEvent(AnimationEventDragStart)
 	case DragEventEnd:
 		c.RemoveStates(StateDragging)
+		c.PlayEvent(AnimationEventDragStop)
 	case DragEventOver:
+		if !c.States.Is(StateDragOver) {
+			c.PlayEvent(AnimationEventDragEnter)
+		}
 		c.AddStates(StateDragOver)
-	}
-
-	if c.Events.OnDrag != nil {
-		c.Events.OnDrag(ev)
+	case DragEventCancel:
+		c.PlayEvent(AnimationEventDragCancel)
+	case DragEventDrop:
+		c.PlayEvent(AnimationEventDrop)
 	}
 }

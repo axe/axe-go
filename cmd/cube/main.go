@@ -156,38 +156,7 @@ func main() {
 
 					userInterface := axe.NewUserInterface()
 					userInterface.Theme.StateModifier[ui.StateDisabled] = disabled
-
-					// userInterface.UI.Root = ui.NewBuilder().
-					// 	Place(ui.Absolute(20, 20, 200, 50)).
-					// 	Radius(4).
-					// 	ShapeRounded().
-					// 	Shrink(4).Shift(1, 4).
-					// 	Filled().
-					// 	States(ui.StateAny(ui.StateHover|ui.StatePressed|ui.StateFocused|ui.StateSelected)).
-					// 	BackgroundColor(ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3)).
-					// 	Layer().
-					// 	Bordered(4, ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.3), ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.1).Ptr()).
-					// 	Layer().
-					// 	States(ui.StateNot(ui.StateHover|ui.StatePressed|ui.StateFocused|ui.StateSelected)).
-					// 	BackgroundColor(ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.1)).
-					// 	Layer().
-					// 	Bordered(4, ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.1), ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.0).Ptr()).
-					// 	Layer().
-					// 	Maximized().
-					// 	BackgroundColor(ui.ColorFromHex("#008080")).
-					// 	States(ui.StateNot(ui.StateHover | ui.StatePressed)).
-					// 	Layer().
-					// 	BackgroundColor(ui.ColorFromHex("#008080").Lighten(0.1)).
-					// 	States(ui.StateAll(ui.StateHover)).
-					// 	Layer().
-					// 	BackgroundColor(ui.ColorFromHex("#008080").Darken(0.1)).
-					// 	States(ui.StateAll(ui.StatePressed)).
-					// 	Layer().
-					// 	Shrink(10).
-					// 	Visual(&ui.VisualText{
-					// 		Glyphs: simpleTextGlyphs("Press me", "roboto", 16, ui.ColorWhite),
-					// 	}).
-					// 	End()
+					userInterface.Theme.Animations.ForEvent[ui.AnimationEventEnabled] = ui.StatelessAnimationFactory(WiggleAnimation)
 
 					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}Press me", nil)
 
@@ -271,6 +240,13 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 
 	button = &ui.Base{
 		Placement: place,
+		Animation: ui.AnimationState{
+			Animations: &ui.Animations{
+				ForEvent: map[ui.AnimationEvent]ui.AnimationFactory{
+					ui.AnimationEventShow: ui.StatelessAnimationFactory(RevealAnimation),
+				},
+			},
+		},
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				// fmt.Printf("OnPointer: %+v\n", *ev)
@@ -371,4 +347,33 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 	}
 
 	return button
+}
+
+// Animations
+
+var OriginCenter = ui.AmountPoint{
+	X: ui.Amount{Value: 0.5, Unit: ui.UnitParent},
+	Y: ui.Amount{Value: 0.5, Unit: ui.UnitParent},
+}
+
+var WiggleAnimation = ui.BasicAnimation{
+	Duration: 1.0,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Rotate: 0, Origin: OriginCenter},
+		{Time: .125, Rotate: -45, Origin: OriginCenter},
+		{Time: .375, Rotate: 45, Origin: OriginCenter},
+		{Time: .583, Rotate: -30, Origin: OriginCenter},
+		{Time: .75, Rotate: 30, Origin: OriginCenter},
+		{Time: .875, Rotate: -15, Origin: OriginCenter},
+		{Time: .9583, Rotate: 15, Origin: OriginCenter},
+		{Time: 1, Rotate: 0, Origin: OriginCenter},
+	},
+}
+
+var RevealAnimation = ui.BasicAnimation{
+	Duration: 1.0,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Scale: &ui.Coord{X: 1}, Origin: OriginCenter},
+		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
+	},
 }
