@@ -5,7 +5,10 @@ import (
 	"github.com/axe/axe-go/pkg/id"
 )
 
-var Area = id.NewArea[uint32, uint16]()
+var Area = id.NewArea[uint32, uint16](
+	id.WithCapacity(1024),
+	id.WithResizeBuffer(24),
+)
 
 type UI struct {
 	PointerButtons []PointerButtons
@@ -17,17 +20,25 @@ type UI struct {
 	DragStart      Coord
 	DragCancels    ds.Set[string]
 	Theme          *Theme
+	Cursor         id.Identifier
+	Named          id.DenseMap[Component, uint16, uint16]
 
 	context AmountContext
 	bounds  Bounds
-	Named   id.DenseMap[Component, uint16, uint16]
 }
 
 func NewUI() *UI {
 	return &UI{
 		Theme: &Theme{
-			Fonts:         make(map[string]*Font),
+			Fonts: id.NewDenseMap[*Font, uint16, uint8](
+				id.WithArea(Area),
+				id.WithCapacity(16),
+			),
 			StateModifier: make(map[State]VertexModifier),
+			Cursors: id.NewDenseMap[ExtentTile, uint16, uint8](
+				id.WithArea(Area),
+				id.WithCapacity(16),
+			),
 			TextStyles: TextStyles{
 				ParagraphStyles: ParagraphStyles{
 					LineVerticalAlignment: AlignmentBottom,
@@ -41,12 +52,16 @@ func NewUI() *UI {
 				FontSize: Amount{Value: 16},
 			},
 			Animations: Animations{
-				ForEvent: make(map[AnimationEvent]AnimationFactory),
+				ForEvent: ds.EnumMap[AnimationEvent, AnimationFactory]{},
 				Named:    id.NewDenseMap[AnimationFactory, uint16, uint8](),
 			},
 		},
 		PointerButtons: make([]PointerButtons, 3),
-		Named:          id.NewDenseMap[Component, uint16, uint16]( /*id.WithArea(Area)*/ ),
+		PointerPoint:   Coord{X: -1, Y: -1},
+		Named: id.NewDenseMap[Component, uint16, uint16](
+			id.WithArea(Area),
+			id.WithCapacity(128),
+		),
 	}
 }
 
@@ -89,6 +104,34 @@ func (ui *UI) Render(out *VertexBuffers) {
 	ui.Root.Render(ctx, out)
 }
 
+func (ui *UI) IsPointerOver() bool {
+	return ui.PointerPoint.X != -1 && ui.PointerPoint.Y != -1
+}
+
+func (ui *UI) GetCursor() (cursorVertex []Vertex) {
+	if !ui.IsPointerOver() {
+		return
+	}
+	cursorName := ui.Cursor
+	if cursorName.Empty() {
+		cursorName = ui.Theme.DefaultCursor
+	}
+	if !cursorName.Empty() {
+		cursor := ui.Theme.Cursors.Get(cursorName)
+		if cursor.Texture != "" {
+			e := cursor.Extent
+			p := ui.PointerPoint
+			cursorVertex = []Vertex{
+				{X: e.Left + p.X, Y: e.Top + p.Y, Coord: cursor.Coord(0, 0), HasCoord: true},
+				{X: e.Right + p.X, Y: e.Top + p.Y, Coord: cursor.Coord(1, 0), HasCoord: true},
+				{X: e.Right + p.X, Y: e.Bottom + p.Y, Coord: cursor.Coord(1, 1), HasCoord: true},
+				{X: e.Left + p.X, Y: e.Bottom + p.Y, Coord: cursor.Coord(0, 1), HasCoord: true},
+			}
+		}
+	}
+	return cursorVertex
+}
+
 func (ui *UI) ProcessKeyEvent(ev KeyEvent) error {
 	// If a focused component exists send the key event
 	if ui.Focused != nil {
@@ -115,6 +158,9 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 		return nil
 	}
 
+	// Set to current cursor
+	ev.HasCursor = &HasCursor{Cursor: &ui.Cursor}
+
 	// Cached drag event with accurate deltas
 	dragEvent := ui.dragEvent(ev, DragEventCancel)
 
@@ -128,9 +174,11 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 
 		// For the component that's being dragged, cancel it
 		if ui.Dragging != nil {
-			ui.Dragging.OnDrag(dragEvent.as(DragEventCancel))
-			ui.Dragging = nil
+			ui.triggerDrag(dragEvent.as(DragEventCancel), true)
 		}
+
+		ui.PointerPoint.X = -1
+		ui.PointerPoint.Y = -1
 		return nil
 	}
 
@@ -141,8 +189,7 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 
 		if ui.Dragging != nil {
 			// Trigger move event
-			dragMove := dragEvent.as(DragEventMove)
-			ui.Dragging.OnDrag(dragMove)
+			dragMove := ui.triggerDrag(dragEvent.as(DragEventMove), false)
 			// If cancel requested, stop dragging
 			if dragMove.Cancel {
 				ui.Dragging = nil
@@ -151,8 +198,7 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 				triggerDragEvent(getDroppablePath(over), dragOver)
 				// If cancel requested, stop dragging
 				if dragOver.Cancel {
-					ui.Dragging.OnDrag(ui.dragEvent(ev, DragEventCancel))
-					ui.Dragging = nil
+					ui.triggerDrag(dragEvent.as(DragEventCancel), true)
 				}
 			}
 		}
@@ -194,8 +240,7 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 		if ui.PointerOver != nil {
 			triggerDragEvent(getDroppablePath(ui.PointerOver), dragEvent.as(DragEventDrop))
 		}
-		ui.Dragging.OnDrag(dragEvent.as(DragEventEnd))
-		ui.Dragging = nil
+		ui.triggerDrag(dragEvent.as(DragEventEnd), true)
 	}
 
 	// Change focus on down
@@ -247,7 +292,16 @@ func (ui UI) dragEvent(ev PointerEvent, dragType DragEventType) *DragEvent {
 			X: ev.Point.X - ui.PointerPoint.X,
 			Y: ev.Point.Y - ui.PointerPoint.Y,
 		},
+		HasCursor: ev.HasCursor,
 	}
+}
+
+func (ui *UI) triggerDrag(ev *DragEvent, clear bool) *DragEvent {
+	ui.Dragging.OnDrag(ev)
+	if clear {
+		ui.Dragging = nil
+	}
+	return ev
 }
 
 func getPath(c Component) []Component {

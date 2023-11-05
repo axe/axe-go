@@ -4,12 +4,54 @@ import (
 	"time"
 )
 
+type CanStop interface {
+	Stopped() bool
+}
+
+type Listener[E CanStop] func(ev E)
+
+func (l Listener[E]) Trigger(ev E) {
+	if l != nil {
+		l(ev)
+	}
+}
+
+func (a *Listener[E]) Add(b Listener[E], before bool) {
+	if *a == nil {
+		*a = b
+	} else if b != nil {
+		var first, second Listener[E]
+		if before {
+			first = b
+			second = *a
+		} else {
+			first = *a
+			second = b
+		}
+
+		*a = func(ev E) {
+			first(ev)
+			if !ev.Stopped() {
+				second(ev)
+			}
+		}
+	}
+}
+
 type Events struct {
-	OnPointer func(ev *PointerEvent)
-	OnKey     func(ev *KeyEvent)
-	OnFocus   func(ev *Event)
-	OnBlur    func(ev *Event)
-	OnDrag    func(ev *DragEvent)
+	OnPointer Listener[*PointerEvent]
+	OnKey     Listener[*KeyEvent]
+	OnFocus   Listener[*Event]
+	OnBlur    Listener[*Event]
+	OnDrag    Listener[*DragEvent]
+}
+
+func (e *Events) Add(add Events, before bool) {
+	e.OnPointer.Add(add.OnPointer, before)
+	e.OnKey.Add(add.OnKey, before)
+	e.OnFocus.Add(add.OnFocus, before)
+	e.OnBlur.Add(add.OnBlur, before)
+	e.OnDrag.Add(add.OnDrag, before)
 }
 
 type Event struct {
@@ -20,20 +62,34 @@ type Event struct {
 	Target  Component
 }
 
+var _ CanStop = &Event{}
+
 func (e Event) withTarget(target Component) Event {
 	e.Target = target
 	return e
 }
 
-type DragEventType string
+func (e *Event) StopPropagation() {
+	e.Stop = true
+}
+
+func (e *Event) PreventDefault() {
+	e.Cancel = true
+}
+
+func (e *Event) Stopped() bool {
+	return e.Stop
+}
+
+type DragEventType int
 
 const (
-	DragEventStart  DragEventType = "start"
-	DragEventMove   DragEventType = "move"
-	DragEventEnd    DragEventType = "end"
-	DragEventCancel DragEventType = "cancel"
-	DragEventOver   DragEventType = "over"
-	DragEventDrop   DragEventType = "drop"
+	DragEventStart DragEventType = iota
+	DragEventMove
+	DragEventEnd
+	DragEventCancel
+	DragEventOver
+	DragEventDrop
 )
 
 type DragEvent struct {
@@ -44,6 +100,7 @@ type DragEvent struct {
 	DeltaMove  Coord
 	Type       DragEventType
 	Dragging   Component
+	*HasCursor
 }
 
 func (ev DragEvent) as(dragType DragEventType) *DragEvent {
@@ -52,15 +109,15 @@ func (ev DragEvent) as(dragType DragEventType) *DragEvent {
 	return &ev
 }
 
-type PointerEventType string
+type PointerEventType int
 
 const (
-	PointerEventDown  PointerEventType = "down"
-	PointerEventUp    PointerEventType = "up"
-	PointerEventLeave PointerEventType = "leave"
-	PointerEventEnter PointerEventType = "enter"
-	PointerEventWheel PointerEventType = "wheel"
-	PointerEventMove  PointerEventType = "move"
+	PointerEventDown PointerEventType = iota
+	PointerEventUp
+	PointerEventLeave
+	PointerEventEnter
+	PointerEventWheel
+	PointerEventMove
 )
 
 type PointerEvent struct {
@@ -69,12 +126,13 @@ type PointerEvent struct {
 	Button int
 	Amount int
 	Type   PointerEventType
+	*HasCursor
 }
 
-func (ev PointerEvent) as(eventType PointerEventType) PointerEvent {
-	ev.Event = Event{Capture: true}
-	ev.Type = eventType
-	return ev
+func (e PointerEvent) as(eventType PointerEventType) PointerEvent {
+	e.Event = Event{Capture: true}
+	e.Type = eventType
+	return e
 }
 
 func (e PointerEvent) withTarget(target Component) PointerEvent {
@@ -87,12 +145,12 @@ type PointerButtons struct {
 	DownTime int64
 }
 
-type KeyEventType string
+type KeyEventType int
 
 const (
-	KeyEventDown  KeyEventType = "down"
-	KeyEventUp    KeyEventType = "up"
-	KeyEventPress KeyEventType = "press"
+	KeyEventDown KeyEventType = iota
+	KeyEventUp
+	KeyEventPress
 )
 
 type KeyEvent struct {

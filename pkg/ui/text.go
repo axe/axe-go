@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/axe/axe-go/pkg/id"
 )
 
 type FontRune struct {
@@ -249,7 +251,7 @@ type TextStyles struct {
 	ParagraphStyles
 	ParagraphsStyles
 	Color    Color
-	Font     string
+	Font     id.Identifier
 	FontSize Amount
 }
 
@@ -270,7 +272,7 @@ type TextStylesOverride struct {
 	ParagraphStylesOverride  *ParagraphStylesOverride
 	ParagraphsStylesOverride *ParagraphsStylesOverride
 	Color                    *Color
-	Font                     *string
+	Font                     *id.Identifier
 	FontSize                 *Amount
 }
 
@@ -613,7 +615,7 @@ func (paragraphs Paragraphs) Render(ctx *RenderContext) RenderedText {
 
 type BaseGlyph struct {
 	Text  rune
-	Font  string
+	Font  id.Identifier
 	Size  Amount
 	Color Color
 
@@ -626,9 +628,9 @@ var _ Glyph = &BaseGlyph{}
 
 func (g *BaseGlyph) init(ctx *RenderContext) {
 	if !g.initialized {
-		font := ctx.Theme.Fonts[g.Font]
+		font := ctx.Theme.Fonts.Get(g.Font)
 		if font == nil {
-			font = ctx.Theme.Fonts[ctx.TextStyles.Font]
+			font = ctx.Theme.Fonts.Get(ctx.TextStyles.Font)
 		}
 		if font != nil {
 			fontRune := font.Runes[g.Text]
@@ -816,7 +818,7 @@ func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
 			copy.Text, _ = utf8.DecodeRuneInString(runes)
 			paragraph.Glyphs = append(paragraph.Glyphs, &copy)
 		case "f": // Glyph commands
-			glyph.Font = value
+			glyph.Font = id.Get(value)
 		case "s":
 			glyph.Size = *readAmount(value, true)
 		case "c":

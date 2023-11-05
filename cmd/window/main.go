@@ -56,7 +56,7 @@ func main() {
 					}
 
 					axe.UI.Set(e, userInterface)
-					axe.INPUT.Set(e, userInterface.GetInputEventsHandler())
+					axe.INPUT.Set(e, axe.UserInterfaceInputEventsFor(e))
 				},
 			}},
 		}},

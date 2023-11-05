@@ -5,6 +5,7 @@ import (
 
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/ui"
 )
@@ -12,16 +13,16 @@ import (
 var UI = ecs.DefineComponent("ui", UserInterface{}).SetSystem(NewUserInterfaceSystem())
 
 type UserInterface struct {
-	ui.UI
+	*ui.UI
 }
 
 func NewUserInterface() UserInterface {
 	return UserInterface{
-		UI: *ui.NewUI(),
+		UI: ui.NewUI(),
 	}
 }
 
-func (gui *UserInterface) GetInputEventsHandler() InputEvents {
+func UserInterfaceInputEventsFor(e *ecs.Entity) InputEvents {
 	return InputEvents{
 		InputChange: func(i input.Input) {
 			inputSystem := ActiveGame().Input
@@ -40,6 +41,7 @@ func (gui *UserInterface) GetInputEventsHandler() InputEvents {
 					if i.Value == 0 {
 						keyType = ui.KeyEventUp
 					}
+					gui := UI.Get(e)
 					gui.ProcessKeyEvent(ui.KeyEvent{
 						Event: ui.Event{
 							Time: time.Now(),
@@ -57,6 +59,7 @@ func (gui *UserInterface) GetInputEventsHandler() InputEvents {
 					pointerType = ui.PointerEventUp
 				}
 
+				gui := UI.Get(e)
 				switch i.Name {
 				case "MouseButton0": // left
 					gui.ProcessPointerEvent(newPointerEvent(p, pointerType, 0, 0))
@@ -68,7 +71,16 @@ func (gui *UserInterface) GetInputEventsHandler() InputEvents {
 			}
 		},
 		PointChange: func(p input.Point) {
+			gui := UI.Get(e)
 			gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventMove, 0, 0))
+		},
+		PointLeave: func(p input.Point) {
+			gui := UI.Get(e)
+			gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventLeave, 0, 0))
+		},
+		PointEnter: func(p input.Point) {
+			gui := UI.Get(e)
+			gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventEnter, 0, 0))
 		},
 	}
 }
@@ -101,10 +113,11 @@ func (sys UserInterfaceSystem) OnLive(data *UserInterface, e *ecs.Entity, ctx ec
 
 	for _, a := range game.Assets.Assets.Assets {
 		if font, ok := a.Data.(*ui.Font); ok {
-			data.Theme.Fonts[font.Name] = font
+			fontIdentifier := id.Get(font.Name)
+			data.Theme.Fonts.Set(fontIdentifier, font)
 
-			if data.Theme.TextStyles.Font == "" {
-				data.Theme.TextStyles.Font = font.Name
+			if data.Theme.TextStyles.Font.Empty() {
+				data.Theme.TextStyles.Font = fontIdentifier
 			}
 		}
 	}

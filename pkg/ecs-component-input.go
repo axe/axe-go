@@ -97,6 +97,8 @@ type InputEventsSystem struct {
 	connectedPoint      ds.Stack[input.Point]
 	disconnectedPoint   ds.Stack[input.Point]
 	changedPoint        ds.Stack[input.Point]
+	enterPoint          ds.Stack[input.Point]
+	leavePoint          ds.Stack[input.Point]
 
 	off core.ListenerOff
 }
@@ -113,6 +115,8 @@ func NewInputEventsSystem() ecs.DataSystem[InputEvents] {
 		connectedPoint:      ds.NewStack[input.Point](8),
 		disconnectedPoint:   ds.NewStack[input.Point](8),
 		changedPoint:        ds.NewStack[input.Point](8),
+		enterPoint:          ds.NewStack[input.Point](8),
+		leavePoint:          ds.NewStack[input.Point](8),
 	}
 }
 
@@ -151,6 +155,12 @@ func (sys *InputEventsSystem) Init(ctx ecs.Context) error {
 		},
 		PointChange: func(point input.Point) {
 			sys.changedPoint.Push(point)
+		},
+		PointLeave: func(point input.Point) {
+			sys.leavePoint.Push(point)
+		},
+		PointEnter: func(point input.Point) {
+			sys.enterPoint.Push(point)
 		},
 	})
 	return nil
@@ -200,6 +210,16 @@ func (sys *InputEventsSystem) Update(iter ds.Iterable[ecs.Value[*InputEvents]], 
 				evts.PointChange(sys.changedPoint.Items[i])
 			}
 		}
+		if evts.PointLeave != nil {
+			for i := 0; i < sys.leavePoint.Count; i++ {
+				evts.PointLeave(sys.leavePoint.Items[i])
+			}
+		}
+		if evts.PointEnter != nil {
+			for i := 0; i < sys.enterPoint.Count; i++ {
+				evts.PointEnter(sys.enterPoint.Items[i])
+			}
+		}
 		if evts.InputChangeMap != nil {
 			for i := 0; i < sys.changedInput.Count; i++ {
 				input := sys.changedInput.Items[i]
@@ -218,6 +238,8 @@ func (sys *InputEventsSystem) Update(iter ds.Iterable[ecs.Value[*InputEvents]], 
 	sys.connectedPoint.Clear()
 	sys.disconnectedPoint.Clear()
 	sys.changedPoint.Clear()
+	sys.enterPoint.Clear()
+	sys.leavePoint.Clear()
 }
 func (sys *InputEventsSystem) Destroy(ctx ecs.Context) {
 	sys.off()

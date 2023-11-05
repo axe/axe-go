@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/id"
 )
 
@@ -35,7 +36,7 @@ const (
 )
 
 type Animations struct {
-	ForEvent map[AnimationEvent]AnimationFactory
+	ForEvent ds.EnumMap[AnimationEvent, AnimationFactory]
 	Named    id.DenseMap[AnimationFactory, uint16, uint8]
 }
 
@@ -102,10 +103,10 @@ func (c *Base) PlayEvent(ev AnimationEvent) bool {
 	}
 	var factory AnimationFactory
 	if c.Animation.Animations != nil {
-		factory = c.Animation.Animations.ForEvent[ev]
+		factory = c.Animation.Animations.ForEvent.Get(ev)
 	}
 	if factory == nil {
-		factory = c.ui.Theme.Animations.ForEvent[ev]
+		factory = c.ui.Theme.Animations.ForEvent.Get(ev)
 	}
 	return c.playFactory(factory, ev)
 }

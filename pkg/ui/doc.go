@@ -14,12 +14,8 @@ package ui
 //
 
 // TODO
-// - Dirty and only place & rerender when dirty
-//   - Dirty can happen on resize or when a component is marked dirty (manually or any variable changes)
 // - Add max size to component
 // - Add min size to component
 // - Add margin & padding
-// - Add cursors
 // - Add popovers
 // - Component templates
-// - Styles that trickle down during render (pass Theme, Disabled, etc)

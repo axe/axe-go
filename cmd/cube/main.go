@@ -8,7 +8,9 @@ import (
 
 	axe "github.com/axe/axe-go/pkg"
 	"github.com/axe/axe-go/pkg/asset"
+	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/impl/opengl"
 	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/ui"
@@ -43,6 +45,7 @@ func main() {
 				{Name: "sans-serif", URI: "../assets/sans-serif.fnt"},
 				{Name: "warrior", URI: "../assets/warrior.fnt"},
 				{Name: "roboto", URI: "../assets/roboto.fnt"},
+				{Name: "cursors", URI: "../assets/cursors.png"},
 			},
 			Actions: input.CreateActionSets(input.ActionSetsInput{
 				"main": {
@@ -147,16 +150,30 @@ func main() {
 				Load: func(scene *axe.Scene2f, game *axe.Game) {
 					e := ecs.New()
 
-					disabled := func(v *ui.Vertex) {
+					userInterface := axe.NewUserInterface()
+
+					// Global State effects
+					userInterface.Theme.StateModifier[ui.StateDisabled] = func(v *ui.Vertex) {
 						// v.Color.A *= 0.7
 						v.Color.R += (0.5 - v.Color.R) * 0.5
 						v.Color.G += (0.5 - v.Color.G) * 0.5
 						v.Color.B += (0.5 - v.Color.B) * 0.5
 					}
 
-					userInterface := axe.NewUserInterface()
-					userInterface.Theme.StateModifier[ui.StateDisabled] = disabled
-					userInterface.Theme.Animations.ForEvent[ui.AnimationEventEnabled] = ui.StatelessAnimationFactory(WiggleAnimation)
+					// Global Animations
+					userInterface.Theme.Animations.ForEvent.Set(ui.AnimationEventEnabled, ui.StatelessAnimationFactory(WiggleAnimation))
+
+					// Cursors
+					cursors := ui.TileGrid(10, 8, 56, 56, 559, 449, 0, 0, "cursors")
+					userInterface.Theme.DefaultCursor = id.Get("pointer")
+					userInterface.Theme.Cursors.SetStringMap(map[string]ui.ExtentTile{
+						"pointer":  ui.NewExtentTile(cursors[0][0], ui.NewBounds(-7, -7, 49, 49).Scale(0.75)),
+						"drag":     ui.NewExtentTile(cursors[4][1], ui.NewBounds(-25, -25, 31, 31).Scale(0.75)),
+						"dragging": ui.NewExtentTile(cursors[4][0], ui.NewBounds(-25, -25, 31, 31).Scale(0.75)),
+						"text":     ui.NewExtentTile(cursors[0][9], ui.NewBounds(-23, -23, 33, 33).Scale(0.75)),
+						"click":    ui.NewExtentTile(cursors[1][0], ui.NewBounds(-21, -6, 35, 50).Scale(0.75)),
+						"clicking": ui.NewExtentTile(cursors[1][2], ui.NewBounds(-21, -13, 35, 43).Scale(0.75)),
+					})
 
 					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}Press me", nil)
 
@@ -173,7 +190,7 @@ func main() {
 					}
 
 					axe.UI.Set(e, userInterface)
-					axe.INPUT.Set(e, userInterface.GetInputEventsHandler())
+					axe.INPUT.Set(e, axe.UserInterfaceInputEventsFor(e))
 				},
 			}},
 		}},
@@ -200,6 +217,10 @@ func newDraggable() *ui.Base {
 	draggable = &ui.Base{
 		Placement: ui.Absolute(10, 200, 80, 80),
 		Draggable: true,
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("drag"),
+			ui.CursorEventDrag:  id.Get("dragging"),
+		}),
 		Events: ui.Events{
 			OnDrag: func(ev *ui.DragEvent) {
 				if ev.Type == ui.DragEventMove {
@@ -242,27 +263,21 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 		Placement: place,
 		Animation: ui.AnimationState{
 			Animations: &ui.Animations{
-				ForEvent: map[ui.AnimationEvent]ui.AnimationFactory{
+				ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
 					ui.AnimationEventShow: ui.StatelessAnimationFactory(RevealAnimation),
-				},
+				}),
 			},
 		},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("click"),
+			ui.CursorEventDown:  id.Get("clicking"),
+		}),
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
-				// fmt.Printf("OnPointer: %+v\n", *ev)
 				if !ev.Capture && ev.Type == ui.PointerEventDown && onClick != nil {
-					// fmt.Printf("event: %+v\n", *ev)
 					onClick()
+					ev.Stop = true
 				}
-			},
-			OnKey: func(ev *ui.KeyEvent) {
-				// fmt.Printf("OnKey: %+v\n", *ev)
-			},
-			OnFocus: func(ev *ui.Event) {
-				// fmt.Printf("OnFocus: %+v\n", *ev)
-			},
-			OnBlur: func(ev *ui.Event) {
-				// fmt.Printf("OnBlur: %+v\n", *ev)
 			},
 		},
 		Layers: []ui.Layer{{

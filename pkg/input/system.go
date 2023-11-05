@@ -16,6 +16,8 @@ type SystemEvents struct {
 	PointConnected     func(newPoint Point)
 	PointDisconnected  func(oldPoint Point)
 	PointChange        func(point Point)
+	PointLeave         func(point Point)
+	PointEnter         func(point Point)
 	InputChangeMap     map[string]func(input Input)
 }
 
@@ -171,6 +173,30 @@ func (in *System) SetInputPoint(ia *Point, x int, y int) {
 		in.events.Trigger(func(listener SystemEvents) bool {
 			if listener.PointChange != nil {
 				listener.PointChange(*ia)
+				return true
+			}
+			return false
+		})
+	}
+}
+
+func (in *System) SetInputLeave(ia *Point) {
+	if ia != nil {
+		in.events.Trigger(func(listener SystemEvents) bool {
+			if listener.PointLeave != nil {
+				listener.PointLeave(*ia)
+				return true
+			}
+			return false
+		})
+	}
+}
+
+func (in *System) SetInputEnter(ia *Point) {
+	if ia != nil {
+		in.events.Trigger(func(listener SystemEvents) bool {
+			if listener.PointEnter != nil {
+				listener.PointEnter(*ia)
 				return true
 			}
 			return false

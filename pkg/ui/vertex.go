@@ -31,9 +31,35 @@ func (t Tile) Coord(dx, dy float32) TexCoord {
 	}
 }
 
+func TileGrid(columns, rows, columnWidth, rowHeight, textureWidth, textureHeight, offsetX, offsetY int, texture string) [][]Tile {
+	tiles := make([][]Tile, rows)
+	sx := 1.0 / float32(textureWidth)
+	sy := 1.0 / float32(textureHeight)
+
+	for y := 0; y < rows; y++ {
+		tiles[y] = make([]Tile, columns)
+		for x := 0; x < columns; x++ {
+			tiles[y][x] = Tile{
+				Texture: texture,
+				Coords: Bounds{
+					Left:   float32(x*columnWidth+offsetX) * sx,
+					Right:  float32(x*columnWidth+columnWidth-1+offsetX) * sx,
+					Top:    float32(y*rowHeight+offsetY) * sy,
+					Bottom: float32(y*rowHeight+rowHeight-1+offsetY) * sy,
+				},
+			}
+		}
+	}
+	return tiles
+}
+
 type ExtentTile struct {
 	Tile
 	Extent Bounds
+}
+
+func NewExtentTile(tile Tile, extent Bounds) ExtentTile {
+	return ExtentTile{Tile: tile, Extent: extent}
 }
 
 type Vertex struct {
@@ -86,7 +112,7 @@ func InitVertexBuffer(vb *VertexBuffer, capacity int) {
 
 func NewVertexBuffers(capacity int, buffers int) *VertexBuffers {
 	return &VertexBuffers{
-		Buffers: *buf.NewBuffers[Vertex](4096, 4, InitVertexBuffer),
+		Buffers: *buf.NewBuffers[Vertex](capacity, buffers, InitVertexBuffer),
 	}
 }
 

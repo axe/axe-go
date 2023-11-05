@@ -218,6 +218,13 @@ func (in *inputSystem) listenToWindow(axeWindow axe.Window) {
 		glfwWindow.SetCursorPosCallback(func(w *glfw.Window, xpos, ypos float64) {
 			in.SetInputPoint(in.Points()[0], int(xpos), int(ypos))
 		})
+		glfwWindow.SetCursorEnterCallback(func(w *glfw.Window, entered bool) {
+			if entered {
+				in.SetInputEnter(in.Points()[0])
+			} else {
+				in.SetInputLeave(in.Points()[0])
+			}
+		})
 		for button, buttonInput := range in.buttons {
 			if glfwWindow.GetMouseButton(button) == glfw.Press {
 				buttonInput.Set(1, in.InputTime())
@@ -237,6 +244,7 @@ func (in *inputSystem) unlistenToWindow(w axe.Window) {
 		glfwWindow.SetKeyCallback(nil)
 		glfwWindow.SetMouseButtonCallback(nil)
 		glfwWindow.SetCursorPosCallback(nil)
+		glfwWindow.SetCursorEnterCallback(nil)
 	}
 }
 

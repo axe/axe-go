@@ -1,6 +1,8 @@
 package ui
 
-import "github.com/axe/axe-go/pkg/id"
+import (
+	"github.com/axe/axe-go/pkg/id"
+)
 
 type Base struct {
 	Name         id.Identifier
@@ -19,10 +21,25 @@ type Base struct {
 	OverShape    []Coord
 	Transparency Watch[float32]
 	Animation    AnimationState
+	Cursors      Cursors
 
-	dirty  Dirty
-	parent *Base
-	ui     *UI
+	dirty         Dirty
+	parent        *Base
+	ui            *UI
+	lastTransform Transform
+}
+
+type Template struct {
+	Layers     []Layer
+	Focusable  bool
+	Draggable  bool
+	Droppable  bool
+	Events     Events
+	Clip       Placement
+	TextStyles *TextStylesOverride
+	OverShape  []Coord
+	Animation  AnimationState
+	Cursors    Cursors
 }
 
 var _ Component = &Base{}
@@ -134,21 +151,31 @@ func (c *Base) Place(parent Bounds, force bool) {
 }
 
 func (c *Base) Update(update Update) {
+	dirty := DirtyNone
+
 	for i := range c.Layers {
-		c.Dirty(c.Layers[i].Update(update))
+		dirty.Add(c.Layers[i].Update(update))
 	}
 	for _, child := range c.Children {
 		child.Update(update)
 	}
 
-	c.Dirty(c.Animation.Update(c, update))
-	c.CheckForChanges()
+	dirty.Add(c.Animation.Update(c, update))
+	dirty.Add(c.CheckForChanges())
+
+	c.Dirty(dirty)
 }
 
-func (c *Base) CheckForChanges() {
+func (c *Base) CheckForChanges() Dirty {
+	dirty := DirtyNone
 	if c.Transparency.Cleaned() {
-		c.Dirty(DirtyVisual)
+		dirty.Add(DirtyVisual)
 	}
+	if c.lastTransform != c.Transform {
+		dirty.Add(DirtyVisual)
+		c.lastTransform = c.Transform
+	}
+	return dirty
 }
 
 func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
@@ -320,11 +347,9 @@ func (c *Base) OnPointer(ev *PointerEvent) {
 		return
 	}
 
-	if c.Events.OnPointer != nil {
-		c.Events.OnPointer(ev)
-	}
+	c.Events.OnPointer.Trigger(ev)
 
-	if ev.Cancel {
+	if ev.Cancel || ev.Capture {
 		return
 	}
 
@@ -342,6 +367,8 @@ func (c *Base) OnPointer(ev *PointerEvent) {
 		c.RemoveStates(StatePressed | StateDragOver)
 		c.PlayEvent(AnimationEventPointerUp)
 	}
+
+	c.Cursors.HandlePointer(ev, c)
 }
 
 func (c *Base) OnKey(ev *KeyEvent) {
@@ -349,9 +376,7 @@ func (c *Base) OnKey(ev *KeyEvent) {
 		return
 	}
 
-	if c.Events.OnKey != nil {
-		c.Events.OnKey(ev)
-	}
+	c.Events.OnKey.Trigger(ev)
 }
 
 func (c *Base) OnFocus(ev *Event) {
@@ -359,11 +384,9 @@ func (c *Base) OnFocus(ev *Event) {
 		return
 	}
 
-	if c.Events.OnFocus != nil {
-		c.Events.OnFocus(ev)
-	}
+	c.Events.OnFocus.Trigger(ev)
 
-	if ev.Cancel {
+	if ev.Cancel || ev.Capture {
 		return
 	}
 
@@ -371,16 +394,14 @@ func (c *Base) OnFocus(ev *Event) {
 	c.PlayEvent(AnimationEventFocus)
 }
 
-func (c Base) OnBlur(ev *Event) {
+func (c *Base) OnBlur(ev *Event) {
 	if c.IsDisabled() {
 		return
 	}
 
-	if c.Events.OnBlur != nil {
-		c.Events.OnBlur(ev)
-	}
+	c.Events.OnBlur.Trigger(ev)
 
-	if ev.Cancel {
+	if ev.Cancel || ev.Capture {
 		return
 	}
 
@@ -388,16 +409,14 @@ func (c Base) OnBlur(ev *Event) {
 	c.PlayEvent(AnimationEventBlur)
 }
 
-func (c Base) OnDrag(ev *DragEvent) {
+func (c *Base) OnDrag(ev *DragEvent) {
 	if c.IsDisabled() {
 		return
 	}
 
-	if c.Events.OnDrag != nil {
-		c.Events.OnDrag(ev)
-	}
+	c.Events.OnDrag.Trigger(ev)
 
-	if ev.Cancel {
+	if ev.Cancel || ev.Capture {
 		return
 	}
 
@@ -418,4 +437,6 @@ func (c Base) OnDrag(ev *DragEvent) {
 	case DragEventDrop:
 		c.PlayEvent(AnimationEventDrop)
 	}
+
+	c.Cursors.HandleDrag(ev, c)
 }
