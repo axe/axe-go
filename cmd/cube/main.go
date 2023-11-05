@@ -153,12 +153,12 @@ func main() {
 					userInterface := axe.NewUserInterface()
 
 					// Global State effects
-					userInterface.Theme.StateModifier[ui.StateDisabled] = func(v *ui.Vertex) {
+					userInterface.Theme.StatePostProcess[ui.StateDisabled] = ui.PostProcessVertex(func(v *ui.Vertex) {
 						// v.Color.A *= 0.7
 						v.Color.R += (0.5 - v.Color.R) * 0.5
 						v.Color.G += (0.5 - v.Color.G) * 0.5
 						v.Color.B += (0.5 - v.Color.B) * 0.5
-					}
+					})
 
 					// Global Animations
 					userInterface.Theme.Animations.ForEvent.Set(ui.AnimationEventEnabled, ui.StatelessAnimationFactory(WiggleAnimation))

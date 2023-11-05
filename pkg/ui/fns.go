@@ -114,6 +114,24 @@ func ease(delta float32, easing func(float32) float32) float32 {
 	}
 }
 
+func coalesceJoin[V any](a, b V, swap bool, isNil func(V) bool, join func(V, V) V) V {
+	if isNil(a) {
+		return b
+	} else if !isNil(b) {
+		var first, second V
+		if swap {
+			first = b
+			second = a
+		} else {
+			first = a
+			second = b
+		}
+
+		return join(first, second)
+	}
+	return a
+}
+
 func coalesce[V any](nilable *V, nonNil V) V {
 	if nilable != nil {
 		return *nilable

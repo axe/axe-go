@@ -103,3 +103,7 @@ func (ev *HasCursor) SetCursor(cursor id.Identifier, trigger *Base, force bool) 
 	ev.CursorSet = true
 	ev.CursorTrigger = trigger
 }
+
+func cursorNil(id id.Identifier) bool {
+	return id.Empty()
+}

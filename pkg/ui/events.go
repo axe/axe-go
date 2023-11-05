@@ -16,26 +16,20 @@ func (l Listener[E]) Trigger(ev E) {
 	}
 }
 
-func (a *Listener[E]) Add(b Listener[E], before bool) {
-	if *a == nil {
-		*a = b
-	} else if b != nil {
-		var first, second Listener[E]
-		if before {
-			first = b
-			second = *a
-		} else {
-			first = *a
-			second = b
-		}
-
-		*a = func(ev E) {
-			first(ev)
-			if !ev.Stopped() {
-				second(ev)
-			}
+func listenerNil[E CanStop](a Listener[E]) bool {
+	return a == nil
+}
+func listenerJoin[E CanStop](first Listener[E], second Listener[E]) Listener[E] {
+	return func(ev E) {
+		first(ev)
+		if !ev.Stopped() {
+			second(ev)
 		}
 	}
+}
+
+func (a *Listener[E]) Add(b Listener[E], before bool) {
+	*a = coalesceJoin(*a, b, before, listenerNil[E], listenerJoin[E])
 }
 
 type Events struct {

@@ -22,24 +22,12 @@ type Base struct {
 	Transparency Watch[float32]
 	Animation    AnimationState
 	Cursors      Cursors
+	Hooks        Hooks
 
 	dirty         Dirty
 	parent        *Base
 	ui            *UI
 	lastTransform Transform
-}
-
-type Template struct {
-	Layers     []Layer
-	Focusable  bool
-	Draggable  bool
-	Droppable  bool
-	Events     Events
-	Clip       Placement
-	TextStyles *TextStylesOverride
-	OverShape  []Coord
-	Animation  AnimationState
-	Cursors    Cursors
 }
 
 var _ Component = &Base{}
@@ -89,7 +77,7 @@ func (c *Base) isDirtyForState(state State) bool {
 				return true
 			}
 		}
-		if c.ui != nil && c.ui.Theme.StateModifier[state] != nil {
+		if c.ui != nil && c.ui.Theme.StatePostProcess[state] != nil {
 			return true
 		}
 	}
@@ -129,6 +117,10 @@ func (c *Base) Init(init Init) {
 	}
 	c.Dirty(DirtyPlacement)
 	c.PlayEvent(AnimationEventShow)
+
+	if c.Hooks.OnInit != nil {
+		c.Hooks.OnInit(c, init)
+	}
 }
 
 func (c *Base) Place(parent Bounds, force bool) {
@@ -145,8 +137,13 @@ func (c *Base) Place(parent Bounds, force bool) {
 		}
 		c.dirty.Remove(DirtyPlacement)
 	}
+
 	for _, child := range c.Children {
 		child.Place(c.Bounds, force)
+	}
+
+	if c.Hooks.OnPlace != nil {
+		c.Hooks.OnPlace(c, parent, force)
 	}
 }
 
@@ -163,18 +160,25 @@ func (c *Base) Update(update Update) {
 	dirty.Add(c.Animation.Update(c, update))
 	dirty.Add(c.CheckForChanges())
 
+	if c.Hooks.OnUpdate != nil {
+		dirty.Add(c.Hooks.OnUpdate(c, update))
+	}
+
 	c.Dirty(dirty)
 }
 
 func (c *Base) CheckForChanges() Dirty {
 	dirty := DirtyNone
+
 	if c.Transparency.Cleaned() {
 		dirty.Add(DirtyVisual)
 	}
+
 	if c.lastTransform != c.Transform {
 		dirty.Add(DirtyVisual)
 		c.lastTransform = c.Transform
 	}
+
 	return dirty
 }
 
@@ -196,6 +200,7 @@ func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 		}
 
 		c.PostProcess(baseCtx, out, renderedIndex, rendered)
+		c.Hooks.OnPostProcessLayers.Run(c, ctx, out, renderedIndex, rendered)
 	}
 
 	if len(c.Children) > 0 {
@@ -210,22 +215,22 @@ func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 			}
 
 			c.PostProcess(baseCtx, inner, renderedIndex, renderedChildren)
+			c.Hooks.OnPostProcessChildren.Run(c, ctx, out, renderedIndex, renderedChildren)
 		})
 	}
 
 	c.dirty.Remove(DirtyVisual)
+
+	if c.Hooks.OnRender != nil {
+		c.Hooks.OnRender(c, ctx, out)
+	}
 }
 
 func (c *Base) PostProcess(ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
-	modifier := c.ui.Theme.StateModifier[c.States]
-	if modifier != nil {
-		for vertex.HasNext() {
-			modifier(vertex.Next())
-		}
-		vertex.Reset()
-	}
+	modifier := c.ui.Theme.StatePostProcess[c.States]
+	modifier.Run(c, ctx, out, index, vertex)
 
-	c.Animation.Render(c, ctx, out, index, vertex)
+	c.Animation.PostProcess(c, ctx, out, index, vertex)
 
 	if c.Transparency.Get() > 0 {
 		alphaMultiplier := 1 - c.Transparency.Get()
@@ -243,6 +248,8 @@ func (c *Base) PostProcess(ctx *RenderContext, out *VertexBuffers, index IndexIt
 			v.X, v.Y = transform.Transform(v.X, v.Y)
 		}
 	}
+
+	c.Hooks.OnPostProcess.Run(c, ctx, out, index, vertex)
 }
 
 func (c *Base) Parent() Component {
@@ -251,6 +258,7 @@ func (c *Base) Parent() Component {
 	}
 	return c.parent
 }
+
 func (c *Base) IsInside(pt Coord) bool {
 	if !c.Bounds.Inside(pt) {
 		return false
@@ -439,4 +447,61 @@ func (c *Base) OnDrag(ev *DragEvent) {
 	}
 
 	c.Cursors.HandleDrag(ev, c)
+}
+
+type Template struct {
+	PreLayers       []Layer
+	PostLayers      []Layer
+	Focusable       bool
+	Draggable       bool
+	Droppable       bool
+	PreEvents       Events
+	PostEvents      Events
+	Clip            Placement
+	TextStyles      *TextStylesOverride
+	OverShape       []Coord
+	Animations      *Animations
+	AnimationsMerge bool
+	Cursors         Cursors
+	CursorsMerge    bool
+	PreHooks        Hooks
+	PostHooks       Hooks
+}
+
+func (b *Base) ApplyTemplate(t *Template) {
+	if t == nil {
+		return
+	}
+	if len(t.PreLayers) > 0 {
+		layers := b.Layers
+		b.Layers = append(make([]Layer, 0, len(b.Layers)+len(t.PreLayers)+len(t.PostLayers)))
+		b.Layers = append(b.Layers, t.PreLayers...)
+		b.Layers = append(b.Layers, layers...)
+	}
+	b.Layers = append(t.PostLayers)
+	b.Focusable = t.Focusable || b.Focusable
+	b.Draggable = t.Draggable || b.Draggable
+	b.Droppable = t.Droppable || b.Droppable
+	b.Events.Add(t.PreEvents, true)
+	b.Events.Add(t.PostEvents, false)
+	if !b.Clip.Defined() {
+		b.Clip = t.Clip
+	}
+	if b.TextStyles == nil {
+		b.TextStyles = t.TextStyles
+	}
+	if b.OverShape == nil {
+		b.OverShape = t.OverShape
+	}
+	if t.Animations != nil && (t.AnimationsMerge || b.Animation.Animations == nil) {
+		if b.Animation.Animations == nil {
+			b.Animation.Animations = &Animations{}
+		}
+		b.Animation.Animations.Merge(t.Animations, false)
+	}
+	if !t.Cursors.Empty() && (t.CursorsMerge || b.Cursors.Empty()) {
+		b.Cursors.Merge(t.Cursors.EnumMap, false, cursorNil)
+	}
+	b.Hooks.Add(t.PreHooks, true)
+	b.Hooks.Add(t.PostHooks, false)
 }

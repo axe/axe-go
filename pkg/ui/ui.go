@@ -30,11 +30,11 @@ type UI struct {
 func NewUI() *UI {
 	return &UI{
 		Theme: &Theme{
+			StatePostProcess: make(map[State]PostProcess),
 			Fonts: id.NewDenseMap[*Font, uint16, uint8](
 				id.WithArea(Area),
 				id.WithCapacity(16),
 			),
-			StateModifier: make(map[State]VertexModifier),
 			Cursors: id.NewDenseMap[ExtentTile, uint16, uint8](
 				id.WithArea(Area),
 				id.WithCapacity(16),
@@ -53,7 +53,7 @@ func NewUI() *UI {
 			},
 			Animations: Animations{
 				ForEvent: ds.EnumMap[AnimationEvent, AnimationFactory]{},
-				Named:    id.NewDenseMap[AnimationFactory, uint16, uint8](),
+				Named:    id.NewDenseKeyMap[AnimationFactory, uint16, uint8](),
 			},
 		},
 		PointerButtons: make([]PointerButtons, 3),

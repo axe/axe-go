@@ -3,8 +3,8 @@ package ui
 import "github.com/axe/axe-go/pkg/id"
 
 type Theme struct {
-	TextStyles    TextStyles
-	StateModifier map[State]VertexModifier
+	TextStyles       TextStyles
+	StatePostProcess map[State]PostProcess
 
 	// Components map[string]*ComponentTheme
 	Fonts         id.DenseMap[*Font, uint16, uint8]

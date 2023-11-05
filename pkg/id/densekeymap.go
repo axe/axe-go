@@ -50,6 +50,18 @@ func (s *DenseKeyMap[V, A, L]) SetStringMap(m map[string]V) {
 	setStringMap[V](s, m)
 }
 
+func (m *DenseKeyMap[V, A, L]) Merge(other DenseKeyMap[V, A, L], replace bool, isMissing func(V) bool) {
+	for i, key := range other.keys {
+		value := other.values[i]
+		if !isMissing(value) {
+			k := m.indexOf(key)
+			if replace || k == -1 || isMissing(m.values[k]) {
+				m.Set(key, value)
+			}
+		}
+	}
+}
+
 func (m DenseKeyMap[V, A, L]) Values() []V {
 	return m.values
 }

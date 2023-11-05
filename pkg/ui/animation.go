@@ -9,7 +9,7 @@ type Animation interface {
 	Init(base *Base)
 	Update(base *Base, animationTime float32, update Update) Dirty
 	IsDone(base *Base, animationTime float32) bool
-	Render(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator)
+	PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator)
 }
 
 type AnimationFactory func(base *Base) Animation
@@ -37,7 +37,16 @@ const (
 
 type Animations struct {
 	ForEvent ds.EnumMap[AnimationEvent, AnimationFactory]
-	Named    id.DenseMap[AnimationFactory, uint16, uint8]
+	Named    id.DenseKeyMap[AnimationFactory, uint16, uint8]
+}
+
+func animationFactoryNil(af AnimationFactory) bool {
+	return af == nil
+}
+
+func (a *Animations) Merge(other *Animations, replace bool) {
+	a.ForEvent.Merge(other.ForEvent, replace, animationFactoryNil)
+	a.Named.Merge(other.Named, replace, animationFactoryNil)
 }
 
 type AnimationState struct {
@@ -46,6 +55,10 @@ type AnimationState struct {
 	CurrentEvent AnimationEvent
 
 	Animations *Animations
+}
+
+func (as *AnimationState) Defined() bool {
+	return as.Current != nil || as.Animations != nil
 }
 
 func (as *AnimationState) Set(a Animation, ev AnimationEvent) {
@@ -76,9 +89,9 @@ func (as *AnimationState) Update(base *Base, update Update) Dirty {
 	return dirty
 }
 
-func (as *AnimationState) Render(base *Base, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
+func (as *AnimationState) PostProcess(base *Base, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
 	if as.Current != nil {
-		as.Current.Render(base, as.CurrentTime, ctx, out, index, vertex)
+		as.Current.PostProcess(base, as.CurrentTime, ctx, out, index, vertex)
 	}
 }
 
@@ -152,7 +165,7 @@ func (a BasicAnimation) Update(base *Base, animationTime float32, update Update)
 func (a BasicAnimation) IsDone(base *Base, animationTime float32) bool {
 	return animationTime > a.Duration
 }
-func (a BasicAnimation) Render(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
+func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
 	animationDelta := min(animationTime/a.Duration, 1)
 	animationEasingDelta := ease(animationDelta, a.Easing)
 
