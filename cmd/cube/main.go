@@ -35,8 +35,8 @@ func main() {
 		},
 		Windows: []axe.StageWindow{{
 			Title:      "Test GLFW Main Window",
-			Placement:  ui.Centered(720, 480),
-			ClearColor: ui.ColorCornflowerBlue,
+			Placement:  ui.Centered(720*2, 480*2),
+			ClearColor: ui.ColorWhite,
 		}},
 		Stages: []axe.Stage{{
 			Name: "cube",
@@ -151,13 +151,15 @@ func main() {
 					e := ecs.New()
 
 					userInterface := axe.NewUserInterface()
+					userInterface.Theme.TextStyles.Font = id.Get("roboto")
 
 					// Global State effects
 					userInterface.Theme.StatePostProcess[ui.StateDisabled] = ui.PostProcessVertex(func(v *ui.Vertex) {
 						// v.Color.A *= 0.7
-						v.Color.R += (0.5 - v.Color.R) * 0.5
-						v.Color.G += (0.5 - v.Color.G) * 0.5
-						v.Color.B += (0.5 - v.Color.B) * 0.5
+						v.Color.A *= 0.38 // MD
+						// v.Color.R += (0.5 - v.Color.R) * 0.5
+						// v.Color.G += (0.5 - v.Color.G) * 0.5
+						// v.Color.B += (0.5 - v.Color.B) * 0.5
 					})
 
 					// Global Animations
@@ -173,11 +175,15 @@ func main() {
 						"text":     ui.NewExtentTile(cursors[0][9], ui.NewBounds(-23, -23, 33, 33).Scale(0.75)),
 						"click":    ui.NewExtentTile(cursors[1][0], ui.NewBounds(-21, -6, 35, 50).Scale(0.75)),
 						"clicking": ui.NewExtentTile(cursors[1][2], ui.NewBounds(-21, -13, 35, 43).Scale(0.75)),
+						"resizebr": ui.NewExtentTile(cursors[4][7], ui.NewBounds(-43, -41, 13, 15).Scale(0.75)),
+						"resizer":  ui.NewExtentTile(cursors[4][3], ui.NewBounds(-43, -27, 13, 29).Scale(0.75)),
+						"resizeb":  ui.NewExtentTile(cursors[4][4], ui.NewBounds(-26, -42, 30, 24).Scale(0.75)),
+						"resizebl": ui.NewExtentTile(cursors[4][8], ui.NewBounds(-11, -41, 45, 15).Scale(0.75)),
 					})
 
-					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}Press me", nil)
+					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}Press me", true, nil)
 
-					btnToggle := newButton(ui.Absolute(20, 100, 200, 50), "{f:roboto}{s:18}{h:0.5}{pv:0.5}TOGGLE DISABLED", func() {
+					btnToggle := newButton(ui.Absolute(20, 100, 200, 50), "{f:roboto}{s:18}{h:0.5}{pv:0.5}TOGGLE DISABLED", false, func() {
 						btnPress.SetDisabled(!btnPress.IsDisabled())
 					})
 
@@ -186,6 +192,7 @@ func main() {
 							newDraggable(),
 							btnPress,
 							btnToggle,
+							newWindow("Test Window", ui.Absolute(700, 20, 400, 300)),
 						},
 					}
 
@@ -246,7 +253,7 @@ func newDraggable() *ui.Base {
 	return draggable
 }
 
-func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
+func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.Base {
 	shape := ui.ShapeRounded{
 		Radius: ui.AmountCorners{
 			TopLeft:     ui.Amount{Value: 8},
@@ -256,6 +263,7 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 		},
 		UnitToPoints: 0.5,
 	}
+	color := ui.ColorFromHex("#008080")
 
 	var button *ui.Base
 
@@ -287,7 +295,7 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 				Shape: shape,
 			},
 			Background: ui.BackgroundColor{
-				Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
+				Color: color.Darken(0.5).Alpha(0.5),
 			},
 			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
 		}, {
@@ -297,7 +305,7 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 				Width:         8,
 				OuterColor:    ui.ColorTransparent,
 				HasOuterColor: true,
-				InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.5),
+				InnerColor:    color.Darken(0.5).Alpha(0.5),
 				HasInnerColor: true,
 				Shape:         shape,
 			},
@@ -309,7 +317,7 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 				Shape: shape,
 			},
 			Background: ui.BackgroundColor{
-				Color: ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.2),
+				Color: color.Darken(0.5).Alpha(0.2),
 			},
 			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
 		}, {
@@ -319,7 +327,7 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 				Width:         8,
 				OuterColor:    ui.ColorTransparent,
 				HasOuterColor: true,
-				InnerColor:    ui.ColorFromHex("#008080").Darken(0.5).Alpha(0.2),
+				InnerColor:    color.Darken(0.5).Alpha(0.2),
 				HasInnerColor: true,
 				Shape:         shape,
 			},
@@ -331,7 +339,7 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 				Shape: shape,
 			},
 			Background: ui.BackgroundColor{
-				Color: ui.ColorFromHex("#008080"),
+				Color: color,
 			},
 			States: (ui.StateHover | ui.StatePressed).Not,
 		}, {
@@ -341,7 +349,7 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 				Shape: shape,
 			},
 			Background: ui.BackgroundColor{
-				Color: ui.ColorFromHex("#008080").Lighten(0.1),
+				Color: color.Lighten(0.1),
 			},
 			States: ui.StateHover.Is,
 		}, {
@@ -351,14 +359,37 @@ func newButton(place ui.Placement, text string, onClick func()) *ui.Base {
 				Shape: shape,
 			},
 			Background: ui.BackgroundColor{
-				Color: ui.ColorFromHex("#008080").Darken(0.1),
+				Color: color.Darken(0.1),
 			},
 			States: ui.StatePressed.Is,
+		}, {
+			Placement: ui.Maximized().Shrink(2),
+			Visual: &RippleLayer{
+				StartRadius: ui.Amount{Value: 0},
+				EndRadius:   ui.Amount{Value: 4, Unit: ui.UnitParent},
+				StartColor:  ui.NewColor(1, 1, 1, 0.3),
+				EndColor:    ui.ColorTransparent,
+				Duration:    1,
+			},
 		}, {
 			// Text content
 			Placement: ui.Maximized().Shrink(10),
 			Visual:    ui.MustTextToVisual(text),
 		}},
+	}
+
+	if pulse {
+		button.Layers = append([]ui.Layer{{
+			Visual: &PulseLayer{
+				StartColor: color.Lighten(0.2),
+				EndColor:   ui.ColorTransparent,
+				Duration:   1.5,
+				PulseTime:  0.6,
+				Size:       12,
+				Shape:      shape,
+			},
+			States: ui.StateDefault.Exactly,
+		}}, button.Layers...)
 	}
 
 	return button
@@ -391,4 +422,447 @@ var RevealAnimation = ui.BasicAnimation{
 		{Time: 0, Scale: &ui.Coord{X: 1}, Origin: OriginCenter},
 		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
 	},
+}
+
+type RippleLayer struct {
+	StartRadius, EndRadius ui.Amount
+	StartColor, EndColor   ui.Color
+	Duration               float32
+	Time                   float32
+	Center                 ui.Coord
+	Animating              bool
+}
+
+func (r *RippleLayer) Init(b *ui.Base, init ui.Init) {
+	b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
+		if ev.Capture && ev.Type == ui.PointerEventDown {
+			r.Center.X, r.Center.Y = b.Bounds.Delta(ev.Point.X, ev.Point.Y)
+			r.Animating = true
+			r.Time = 0
+		}
+	}, false)
+}
+func (r *RippleLayer) Update(b *ui.Base, update ui.Update) ui.Dirty {
+	if r.Animating {
+		r.Time += float32(update.DeltaTime.Seconds())
+		if r.Time > r.Duration {
+			r.Animating = false
+		} else {
+			return ui.DirtyVisual
+		}
+	}
+	return ui.DirtyNone
+}
+func (r *RippleLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderContext, out *ui.VertexBuffers) {
+	if r.Animating {
+		centerX, centerY := bounds.Lerp(r.Center.X, r.Center.Y)
+		delta := r.Time / r.Duration
+		radius := ui.Lerp(r.StartRadius.Get(ctx.AmountContext, true), r.EndRadius.Get(ctx.AmountContext, true), delta)
+		color := r.StartColor.Lerp(r.EndColor, delta)
+
+		background := ui.VisualFilled{
+			Shape: ui.ShapeRounded{
+				Radius: ui.AmountCorners{
+					TopLeft:     ui.Amount{Value: radius},
+					TopRight:    ui.Amount{Value: radius},
+					BottomLeft:  ui.Amount{Value: radius},
+					BottomRight: ui.Amount{Value: delta},
+				},
+				UnitToPoints: 0.5,
+			},
+		}
+		rippleBounds := ui.Bounds{
+			Left:   centerX - radius,
+			Right:  centerX + radius,
+			Top:    centerY - radius,
+			Bottom: centerY + radius,
+		}
+		visualized := ui.NewVertexIterator(out)
+		background.Visualize(b, rippleBounds, ctx, out)
+		for visualized.HasNext() {
+			v := visualized.Next()
+			v.X = ui.Clamp(v.X, bounds.Left, bounds.Right)
+			v.Y = ui.Clamp(v.Y, bounds.Top, bounds.Bottom)
+			v.AddColor(color.R, color.G, color.B, color.A)
+		}
+	}
+}
+
+type PulseLayer struct {
+	StartColor, EndColor ui.Color
+	Duration             float32
+	PulseTime            float32
+	Size                 float32
+	Time                 float32
+	Shape                ui.Shape
+}
+
+func (r *PulseLayer) Init(b *ui.Base, init ui.Init) {}
+func (r *PulseLayer) Update(b *ui.Base, update ui.Update) ui.Dirty {
+	r.Time += float32(update.DeltaTime.Seconds())
+	if r.Time > r.Duration {
+		r.Time -= r.Duration
+	}
+	if r.Time < r.PulseTime {
+		return ui.DirtyVisual
+	}
+	return ui.DirtyNone
+}
+func (r *PulseLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderContext, out *ui.VertexBuffers) {
+	if r.Time <= r.PulseTime {
+		delta := r.Time / r.PulseTime
+		size := ui.Lerp(0, r.Size, delta)
+		pulseBounds := ui.Bounds{
+			Left:   bounds.Left - size,
+			Right:  bounds.Right + size,
+			Top:    bounds.Top - size,
+			Bottom: bounds.Bottom + size,
+		}
+		color := r.StartColor.Lerp(r.EndColor, delta)
+		background := ui.VisualFilled{
+			Shape: r.Shape,
+		}
+		visualized := ui.NewVertexIterator(out)
+		background.Visualize(b, pulseBounds, ctx, out)
+		for visualized.HasNext() {
+			v := visualized.Next()
+			v.AddColor(color.R, color.G, color.B, color.A)
+		}
+	}
+}
+
+func newWindow(title string, placement ui.Placement) *ui.Base {
+	barSize := float32(36)
+	frameShape := ui.ShapeRounded{
+		Radius: ui.AmountCorners{
+			TopLeft:     ui.Amount{Value: 8},
+			TopRight:    ui.Amount{Value: 8},
+			BottomLeft:  ui.Amount{Value: 8},
+			BottomRight: ui.Amount{Value: 8},
+		},
+		UnitToPoints: 0.5,
+	}
+	frame := &ui.Base{
+		Placement: placement,
+		Layers: []ui.Layer{{
+			Visual:     ui.VisualFilled{Shape: frameShape},
+			Background: ui.BackgroundColor{Color: ui.ColorGray},
+		}},
+	}
+
+	barShape := ui.ShapeRounded{
+		Radius: ui.AmountCorners{
+			TopLeft:  ui.Amount{Value: 8},
+			TopRight: ui.Amount{Value: 8},
+		},
+		UnitToPoints: 0.5,
+	}
+	bar := &ui.Base{
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: 0, Delta: 0},
+			Right:  ui.Anchor{Base: 0, Delta: 1},
+			Top:    ui.Anchor{Base: 0, Delta: 0},
+			Bottom: ui.Anchor{Base: barSize, Delta: 0},
+		},
+		Layers: []ui.Layer{{
+			Visual: ui.VisualFilled{Shape: barShape},
+			Background: ui.BackgroundLinearGradient{
+				StartColor: ui.ColorCornflowerBlue,
+				EndColor:   ui.ColorCornflowerBlue.Lighten(0.2),
+				End:        ui.Coord{X: 0, Y: 1},
+			},
+		}, {
+			Placement: ui.Maximized().Shrink(2).Shift(6, 0),
+			Visual:    ui.MustTextToVisual("{s:20}{pv:0.5}" + title),
+		}},
+		Draggable: true,
+		Events: ui.Events{
+			OnDrag: func(ev *ui.DragEvent) {
+				if ev.Capture {
+					return
+				}
+				switch ev.Type {
+				case ui.DragEventStart:
+					frame.Transparency.Set(0.2)
+				case ui.DragEventMove:
+					shifted := frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y)
+					// shifted.Constrain(frame.Parent())
+					frame.SetPlacement(shifted)
+				case ui.DragEventEnd:
+					frame.Transparency.Set(0)
+				}
+			},
+		},
+		Children: []*ui.Base{
+			newWindowClose(frame, barSize),
+			newWindowMinimizeMaximize(frame, barSize),
+		},
+	}
+
+	lines := []string{
+		"{c:black}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
+		"{p}{h:0.5}This is centered.",
+		"{v:0.5}And {s:300%f}{f:warrior}THIS{s:150%f}{f} is big!",
+		"{v:1}This is bottom & center {s:300%f}aligned?",
+		"{p}{h:0}{v:0}Top{s:150%f} and left aligned.",
+		"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
+		"{p}{h:1}{c:white}Right aligned!",
+		"{p}{h:0.25}25% aligned?",
+		"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
+		"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
+	}
+	text := &ui.Base{
+		Placement: ui.MaximizeOffset(10, 34, -10, -10),
+		Children: []*ui.Base{{
+			Layers: []ui.Layer{{
+				Visual: ui.MustTextToVisual(strings.Join(lines, "\n")).Clipped(),
+			}},
+		}},
+	}
+
+	frame.Children = append(
+		frame.Children, bar, text,
+		newWindowResizeRight(frame, barSize),
+		newWindowResizeBottom(frame),
+		newWindowResizeBottomRight(frame),
+		newWindowResizeBottomLeft(frame),
+	)
+
+	return frame
+}
+
+func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
+	return &ui.Base{
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: -barSize, Delta: 1},
+			Right:  ui.Anchor{Delta: 1},
+			Bottom: ui.Anchor{Base: barSize},
+		},
+		Layers: []ui.Layer{{
+			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
+			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
+			States:     ui.StateHover.Is,
+		}, {
+			Placement: ui.Maximized().Shrink(8),
+			Visual: ui.VisualFilled{
+				Shape: ui.ShapePolygon{
+					Points: []ui.Coord{
+						{X: 0, Y: 0}, {X: 0.1, Y: 0}, {X: 0.5, Y: 0.4}, {X: 0.9, Y: 0},
+						{X: 1, Y: 0}, {X: 1.0, Y: 0.1}, {X: 0.6, Y: 0.5}, {X: 1, Y: 0.9},
+						{X: 1, Y: 1}, {X: 0.9, Y: 1}, {X: 0.5, Y: 0.6}, {X: 0.1, Y: 1},
+						{X: 0, Y: 1}, {X: 0, Y: 0.9}, {X: 0.4, Y: 0.5}, {X: 0, Y: 0.1},
+					},
+				},
+			},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+		}},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("click"),
+			ui.CursorEventDown:  id.Get("clicking"),
+		}),
+		Events: ui.Events{
+			OnPointer: func(ev *ui.PointerEvent) {
+				if !ev.Capture && ev.Type == ui.PointerEventDown {
+					win.Transparency.Set(1)
+
+					go func() {
+						time.Sleep(time.Second * 3)
+						win.Transparency.Set(0)
+					}()
+				}
+			},
+		},
+	}
+}
+
+func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
+	minimized := win.Placement
+	maximized := false
+
+	return &ui.Base{
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: -barSize * 2, Delta: 1},
+			Right:  ui.Anchor{Base: -barSize, Delta: 1},
+			Bottom: ui.Anchor{Base: barSize},
+		},
+		Layers: []ui.Layer{{
+			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
+			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
+			States:     ui.StateHover.Is,
+		}, {
+			Placement: ui.Maximized().Shrink(10),
+			Visual: ui.VisualBordered{
+				Width: 3,
+				Shape: ui.ShapeRectangle{},
+			},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+		}},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("click"),
+			ui.CursorEventDown:  id.Get("clicking"),
+		}),
+		Events: ui.Events{
+			OnPointer: func(ev *ui.PointerEvent) {
+				if !ev.Capture && ev.Type == ui.PointerEventDown {
+					if maximized {
+						win.SetPlacement(minimized)
+					} else {
+						minimized = win.Placement
+						win.SetPlacement(ui.Maximized())
+					}
+					maximized = !maximized
+				}
+			},
+		},
+	}
+}
+
+func newWindowResizeBottomRight(win *ui.Base) *ui.Base {
+	start := win.Placement
+
+	return &ui.Base{
+		Draggable: true,
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: -8, Delta: 1},
+			Right:  ui.Anchor{Base: 0, Delta: 1},
+			Top:    ui.Anchor{Base: -8, Delta: 1},
+			Bottom: ui.Anchor{Base: 0, Delta: 1},
+		},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("resizebr"),
+		}),
+		Events: ui.Events{
+			OnDrag: func(ev *ui.DragEvent) {
+				if !ev.Capture && !win.Placement.IsMaximized() {
+					ev.Stop = true
+					switch ev.Type {
+					case ui.DragEventStart:
+						win.Transparency.Set(0.2)
+						start = win.Placement
+					case ui.DragEventMove:
+						current := win.Placement
+						current.Right.Base += ev.DeltaMove.X
+						current.Bottom.Base += ev.DeltaMove.Y
+						win.SetPlacement(current)
+					case ui.DragEventCancel:
+						win.SetPlacement(start)
+					case ui.DragEventEnd:
+						win.Transparency.Set(0)
+					}
+				}
+			},
+		},
+	}
+}
+
+func newWindowResizeRight(win *ui.Base, barSize float32) *ui.Base {
+	start := win.Placement
+
+	return &ui.Base{
+		Draggable: true,
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: -8, Delta: 1},
+			Right:  ui.Anchor{Base: 0, Delta: 1},
+			Top:    ui.Anchor{Base: barSize, Delta: 0},
+			Bottom: ui.Anchor{Base: -8, Delta: 1},
+		},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("resizer"),
+		}),
+		Events: ui.Events{
+			OnDrag: func(ev *ui.DragEvent) {
+				if !ev.Capture && !win.Placement.IsMaximized() {
+					ev.Stop = true
+					switch ev.Type {
+					case ui.DragEventStart:
+						win.Transparency.Set(0.2)
+						start = win.Placement
+					case ui.DragEventMove:
+						current := win.Placement
+						current.Right.Base += ev.DeltaMove.X
+						win.SetPlacement(current)
+					case ui.DragEventCancel:
+						win.SetPlacement(start)
+					case ui.DragEventEnd:
+						win.Transparency.Set(0)
+					}
+				}
+			},
+		},
+	}
+}
+
+func newWindowResizeBottom(win *ui.Base) *ui.Base {
+	start := win.Placement
+
+	return &ui.Base{
+		Draggable: true,
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: 8, Delta: 0},
+			Right:  ui.Anchor{Base: -8, Delta: 1},
+			Top:    ui.Anchor{Base: -8, Delta: 1},
+			Bottom: ui.Anchor{Base: 0, Delta: 1},
+		},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("resizeb"),
+		}),
+		Events: ui.Events{
+			OnDrag: func(ev *ui.DragEvent) {
+				if !ev.Capture && !win.Placement.IsMaximized() {
+					ev.Stop = true
+					switch ev.Type {
+					case ui.DragEventStart:
+						win.Transparency.Set(0.2)
+						start = win.Placement
+					case ui.DragEventMove:
+						current := win.Placement
+						current.Bottom.Base += ev.DeltaMove.Y
+						win.SetPlacement(current)
+					case ui.DragEventCancel:
+						win.SetPlacement(start)
+					case ui.DragEventEnd:
+						win.Transparency.Set(0)
+					}
+				}
+			},
+		},
+	}
+}
+
+func newWindowResizeBottomLeft(win *ui.Base) *ui.Base {
+	start := win.Placement
+
+	return &ui.Base{
+		Draggable: true,
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: 0, Delta: 0},
+			Right:  ui.Anchor{Base: 8, Delta: 0},
+			Top:    ui.Anchor{Base: -8, Delta: 1},
+			Bottom: ui.Anchor{Base: 0, Delta: 1},
+		},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("resizebl"),
+		}),
+		Events: ui.Events{
+			OnDrag: func(ev *ui.DragEvent) {
+				if !ev.Capture && !win.Placement.IsMaximized() {
+					ev.Stop = true
+					switch ev.Type {
+					case ui.DragEventStart:
+						win.Transparency.Set(0.2)
+						start = win.Placement
+					case ui.DragEventMove:
+						current := win.Placement
+						current.Bottom.Base += ev.DeltaMove.Y
+						current.Left.Base += ev.DeltaMove.X
+						win.SetPlacement(current)
+					case ui.DragEventCancel:
+						win.SetPlacement(start)
+					case ui.DragEventEnd:
+						win.Transparency.Set(0)
+					}
+				}
+			},
+		},
+	}
 }

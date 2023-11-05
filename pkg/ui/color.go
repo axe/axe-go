@@ -11,6 +11,10 @@ type Color struct {
 	R, G, B, A float32
 }
 
+func NewColor(r, g, b, a float32) Color {
+	return Color{R: r, B: b, G: g, A: a}
+}
+
 func ColorFromInts(r, g, b, a int) Color {
 	return Color{R: float32(r) / 255, G: float32(g) / 255, B: float32(b) / 255, A: float32(a) / 255}
 }
@@ -98,15 +102,24 @@ func (c Color) Lighten(scale float32) Color {
 	return c
 }
 
+func (c Color) Lerp(to Color, delta float32) Color {
+	return Color{
+		R: Lerp(c.R, to.R, delta),
+		G: Lerp(c.G, to.G, delta),
+		B: Lerp(c.B, to.B, delta),
+		A: Lerp(c.A, to.A, delta),
+	}
+}
+
 func (c Color) IsZero() bool {
 	return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0
 }
 
 func (c Color) ToInts() (r, g, b, a int) {
-	r = int(clamp(c.R*255, 0, 255))
-	g = int(clamp(c.G*255, 0, 255))
-	b = int(clamp(c.B*255, 0, 255))
-	a = int(clamp(c.A*255, 0, 255))
+	r = int(Clamp(c.R*255, 0, 255))
+	g = int(Clamp(c.G*255, 0, 255))
+	b = int(Clamp(c.B*255, 0, 255))
+	a = int(Clamp(c.A*255, 0, 255))
 	return
 }
 

@@ -167,7 +167,7 @@ func (a BasicAnimation) IsDone(base *Base, animationTime float32) bool {
 }
 func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
 	animationDelta := min(animationTime/a.Duration, 1)
-	animationEasingDelta := ease(animationDelta, a.Easing)
+	animationEasingDelta := Ease(animationDelta, a.Easing)
 
 	i := len(a.Frames) - 2
 	for i > 0 && a.Frames[i].Time > animationEasingDelta {
@@ -177,8 +177,8 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 	start := a.Frames[i]
 	end := a.Frames[i+1]
 
-	timeDelta := delta(start.Time, end.Time, animationEasingDelta)
-	timeEasingDelta := ease(timeDelta, start.Easing)
+	timeDelta := Delta(start.Time, end.Time, animationEasingDelta)
+	timeEasingDelta := Ease(timeDelta, start.Easing)
 
 	startTx, startTy := start.Translate.Get(ctx.AmountContext)
 	startOx, startOy := start.Origin.Get(ctx.AmountContext)
@@ -188,16 +188,16 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 	scaleX := float32(1)
 	scaleY := float32(1)
 	if start.Scale != nil && end.Scale != nil {
-		scaleX = lerp(start.Scale.X, end.Scale.X, timeEasingDelta)
-		scaleY = lerp(start.Scale.Y, end.Scale.Y, timeEasingDelta)
+		scaleX = Lerp(start.Scale.X, end.Scale.X, timeEasingDelta)
+		scaleY = Lerp(start.Scale.Y, end.Scale.Y, timeEasingDelta)
 	}
-	origX := lerp(startOx, endOx, timeEasingDelta) + base.Bounds.Left
-	origY := lerp(startOy, endOy, timeEasingDelta) + base.Bounds.Top
-	transX := lerp(startTx, endTx, timeEasingDelta)
-	transY := lerp(startTy, endTy, timeEasingDelta)
+	origX := Lerp(startOx, endOx, timeEasingDelta) + base.Bounds.Left
+	origY := Lerp(startOy, endOy, timeEasingDelta) + base.Bounds.Top
+	transX := Lerp(startTx, endTx, timeEasingDelta)
+	transY := Lerp(startTy, endTy, timeEasingDelta)
 
-	rotation := lerp(start.Rotate, end.Rotate, timeEasingDelta)
-	transparency := lerp(start.Transparency, end.Transparency, timeEasingDelta)
+	rotation := Lerp(start.Rotate, end.Rotate, timeEasingDelta)
+	transparency := Lerp(start.Transparency, end.Transparency, timeEasingDelta)
 
 	transform := Transform{}
 	transform.SetRotateDegreesScaleAround(rotation, scaleX, scaleY, origX, origY)

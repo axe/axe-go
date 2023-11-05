@@ -168,14 +168,14 @@ func (s *ParagraphStyles) Override(o *ParagraphStylesOverride) *ParagraphStyles 
 		return s
 	}
 	return &ParagraphStyles{
-		Spacing:               coalesce(o.Spacing, s.Spacing),
-		LineSpacing:           coalesce(o.LineSpacing, s.LineSpacing),
-		LineHeight:            coalesce(o.LineHeight, s.LineHeight),
-		LineVerticalAlignment: coalesce(o.LineVerticalAlignment, s.LineVerticalAlignment),
-		Indent:                coalesce(o.Indent, s.Indent),
-		HorizontalAlignment:   coalesce(o.HorizontalAlignment, s.HorizontalAlignment),
-		Wrap:                  coalesce(o.Wrap, s.Wrap),
-		ParagraphPadding:      coalesce(o.ParagraphPadding, s.ParagraphPadding),
+		Spacing:               Coalesce(o.Spacing, s.Spacing),
+		LineSpacing:           Coalesce(o.LineSpacing, s.LineSpacing),
+		LineHeight:            Coalesce(o.LineHeight, s.LineHeight),
+		LineVerticalAlignment: Coalesce(o.LineVerticalAlignment, s.LineVerticalAlignment),
+		Indent:                Coalesce(o.Indent, s.Indent),
+		HorizontalAlignment:   Coalesce(o.HorizontalAlignment, s.HorizontalAlignment),
+		Wrap:                  Coalesce(o.Wrap, s.Wrap),
+		ParagraphPadding:      Coalesce(o.ParagraphPadding, s.ParagraphPadding),
 	}
 }
 
@@ -203,14 +203,14 @@ func (o *ParagraphStylesOverride) Clone() *ParagraphStylesOverride {
 		return nil
 	}
 	return &ParagraphStylesOverride{
-		Spacing:               clone(o.Spacing),
-		LineSpacing:           clone(o.LineSpacing),
-		LineHeight:            clone(o.LineHeight),
-		LineVerticalAlignment: clone(o.LineVerticalAlignment),
-		Indent:                clone(o.Indent),
-		HorizontalAlignment:   clone(o.HorizontalAlignment),
-		Wrap:                  clone(o.Wrap),
-		ParagraphPadding:      clone(o.ParagraphPadding),
+		Spacing:               Clone(o.Spacing),
+		LineSpacing:           Clone(o.LineSpacing),
+		LineHeight:            Clone(o.LineHeight),
+		LineVerticalAlignment: Clone(o.LineVerticalAlignment),
+		Indent:                Clone(o.Indent),
+		HorizontalAlignment:   Clone(o.HorizontalAlignment),
+		Wrap:                  Clone(o.Wrap),
+		ParagraphPadding:      Clone(o.ParagraphPadding),
 	}
 }
 
@@ -226,10 +226,10 @@ func (s *ParagraphsStyles) Override(o *ParagraphsStylesOverride) *ParagraphsStyl
 		return s
 	}
 	return &ParagraphsStyles{
-		ParagraphSpacing:  coalesce(o.ParagraphSpacing, s.ParagraphSpacing),
-		VerticalAlignment: coalesce(o.VerticalAlignment, s.VerticalAlignment),
-		ClipShowX:         coalesce(o.ClipShowX, s.ClipShowX),
-		ClipShowY:         coalesce(o.ClipShowY, s.ClipShowY),
+		ParagraphSpacing:  Coalesce(o.ParagraphSpacing, s.ParagraphSpacing),
+		VerticalAlignment: Coalesce(o.VerticalAlignment, s.VerticalAlignment),
+		ClipShowX:         Coalesce(o.ClipShowX, s.ClipShowX),
+		ClipShowY:         Coalesce(o.ClipShowY, s.ClipShowY),
 	}
 }
 
@@ -262,9 +262,9 @@ func (s *TextStyles) Override(o *TextStylesOverride) *TextStyles {
 	return &TextStyles{
 		ParagraphStyles:  *s.ParagraphStyles.Override(o.ParagraphStylesOverride),
 		ParagraphsStyles: *s.ParagraphsStyles.Override(o.ParagraphsStylesOverride),
-		Color:            coalesce(o.Color, s.Color),
-		Font:             coalesce(o.Font, s.Font),
-		FontSize:         coalesce(o.FontSize, s.FontSize),
+		Color:            Coalesce(o.Color, s.Color),
+		Font:             Coalesce(o.Font, s.Font),
+		FontSize:         Coalesce(o.FontSize, s.FontSize),
 	}
 }
 

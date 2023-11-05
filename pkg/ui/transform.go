@@ -94,7 +94,7 @@ func (t *Transform) GetInvert() Transform {
 }
 
 func (t *Transform) GetRadians() float32 {
-	return atan2(t.ry, t.rx)
+	return Atan2(t.ry, t.rx)
 }
 
 func (t *Transform) GetDegrees() float32 {
@@ -167,7 +167,7 @@ func (t *Transform) RotateDegrees(degrees float32) {
 }
 
 func (t *Transform) Rotate(radians float32) {
-	cos, sin := cossin(radians)
+	cos, sin := CosSin(radians)
 	tsx := t.sx
 	try := t.ry
 	t.sx = tsx*cos + t.rx*sin
@@ -181,7 +181,7 @@ func (t *Transform) SetRotateDegrees(degrees float32) {
 }
 
 func (t *Transform) SetRotate(radians float32) {
-	cos, sin := cossin(radians)
+	cos, sin := CosSin(radians)
 	t.Set(cos, sin, -sin, cos, 0, 0)
 }
 
@@ -190,7 +190,7 @@ func (t *Transform) SetRotateDegreesAround(radians, anchorX, anchorY float32) {
 }
 
 func (t *Transform) SetRotateAround(radians, anchorX, anchorY float32) {
-	cos, sin := cossin(radians)
+	cos, sin := CosSin(radians)
 	tx := anchorX - anchorX*cos + anchorY*sin
 	ty := anchorY - anchorX*sin - anchorY*cos
 	t.Set(cos, sin, -sin, cos, tx, ty)
@@ -201,7 +201,7 @@ func (t *Transform) SetRotateDegreesScaleAround(degrees, scaleX, scaleY, anchorX
 }
 
 func (t *Transform) SetRotateScaleAround(radians, scaleX, scaleY, anchorX, anchorY float32) {
-	cos, sin := cossin(radians)
+	cos, sin := CosSin(radians)
 	sx := cos * scaleX
 	ry := sin * scaleX
 	rx := -sin * scaleY

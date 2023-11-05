@@ -28,5 +28,5 @@ func postProcessJoin(first, second PostProcess) PostProcess {
 }
 
 func (pp *PostProcess) Add(other PostProcess, before bool) {
-	*pp = coalesceJoin(*pp, other, before, postProcessNil, postProcessJoin)
+	*pp = CoalesceJoin(*pp, other, before, postProcessNil, postProcessJoin)
 }

@@ -33,7 +33,7 @@ func hookInitJoin(first, second HookInit) HookInit {
 }
 
 func (h *HookInit) Add(add HookInit, before bool) {
-	*h = coalesceJoin(*h, add, before, hookInitNil, hookInitJoin)
+	*h = CoalesceJoin(*h, add, before, hookInitNil, hookInitJoin)
 }
 
 type HookPlace func(b *Base, parent Bounds, force bool)
@@ -49,7 +49,7 @@ func hookPlaceJoin(first, second HookPlace) HookPlace {
 }
 
 func (h *HookPlace) Add(add HookPlace, before bool) {
-	*h = coalesceJoin(*h, add, before, hookPlaceNil, hookPlaceJoin)
+	*h = CoalesceJoin(*h, add, before, hookPlaceNil, hookPlaceJoin)
 }
 
 type HookUpdate func(b *Base, update Update) Dirty
@@ -67,7 +67,7 @@ func hookUpdateJoin(first, second HookUpdate) HookUpdate {
 }
 
 func (h *HookUpdate) Add(add HookUpdate, before bool) {
-	*h = coalesceJoin(*h, add, before, hookUpdateNil, hookUpdateJoin)
+	*h = CoalesceJoin(*h, add, before, hookUpdateNil, hookUpdateJoin)
 }
 
 type HookRender func(b *Base, ctx *RenderContext, out *VertexBuffers)
@@ -83,5 +83,5 @@ func hookRenderJoin(first, second HookRender) HookRender {
 }
 
 func (h *HookRender) Add(add HookRender, before bool) {
-	*h = coalesceJoin(*h, add, before, hookRenderNil, hookRenderJoin)
+	*h = CoalesceJoin(*h, add, before, hookRenderNil, hookRenderJoin)
 }

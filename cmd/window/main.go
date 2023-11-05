@@ -8,6 +8,7 @@ import (
 	axe "github.com/axe/axe-go/pkg"
 	"github.com/axe/axe-go/pkg/asset"
 	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/impl/opengl"
 	"github.com/axe/axe-go/pkg/ui"
 )
@@ -34,6 +35,7 @@ func main() {
 			Name: "win",
 			Assets: []asset.Ref{
 				{Name: "roboto", URI: "../assets/roboto.fnt"},
+				{Name: "cursors", URI: "../assets/cursors.png"},
 			},
 			Views2: []axe.View2f{{
 				Camera: axe.NewCamera2d(),
@@ -49,6 +51,20 @@ func main() {
 					e := ecs.New()
 
 					userInterface := axe.NewUserInterface()
+
+					// Cursors
+					cursors := ui.TileGrid(10, 8, 56, 56, 559, 449, 0, 0, "cursors")
+					userInterface.Theme.DefaultCursor = id.Get("pointer")
+					userInterface.Theme.Cursors.SetStringMap(map[string]ui.ExtentTile{
+						"pointer":      ui.NewExtentTile(cursors[0][0], ui.NewBounds(-7, -7, 49, 49).Scale(0.75)),
+						"drag":         ui.NewExtentTile(cursors[4][1], ui.NewBounds(-25, -25, 31, 31).Scale(0.75)),
+						"dragging":     ui.NewExtentTile(cursors[4][0], ui.NewBounds(-25, -25, 31, 31).Scale(0.75)),
+						"text":         ui.NewExtentTile(cursors[0][9], ui.NewBounds(-23, -23, 33, 33).Scale(0.75)),
+						"click":        ui.NewExtentTile(cursors[1][0], ui.NewBounds(-21, -6, 35, 50).Scale(0.75)),
+						"clicking":     ui.NewExtentTile(cursors[1][2], ui.NewBounds(-21, -13, 35, 43).Scale(0.75)),
+						"resizecorner": ui.NewExtentTile(cursors[4][7], ui.NewBounds(-38, -38, 18, 18).Scale(0.75)),
+					})
+
 					userInterface.Root = &ui.Base{
 						Children: []*ui.Base{
 							generateWindow("Test window", ui.Absolute(20, 20, 300, 250)),
@@ -71,6 +87,7 @@ func main() {
 }
 
 func generateWindow(title string, placement ui.Placement) *ui.Base {
+	barSize := float32(36)
 	frameShape := ui.ShapeRounded{
 		Radius: ui.AmountCorners{
 			TopLeft:     ui.Amount{Value: 8},
@@ -100,7 +117,7 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 			Left:   ui.Anchor{Base: 0, Delta: 0},
 			Right:  ui.Anchor{Base: 0, Delta: 1},
 			Top:    ui.Anchor{Base: 0, Delta: 0},
-			Bottom: ui.Anchor{Base: 24, Delta: 0},
+			Bottom: ui.Anchor{Base: barSize, Delta: 0},
 		},
 		Layers: []ui.Layer{{
 			Visual: ui.VisualFilled{Shape: barShape},
@@ -110,8 +127,8 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 				End:        ui.Coord{X: 0, Y: 1},
 			},
 		}, {
-			Placement: ui.Maximized().Shrink(2).Shift(4, 0),
-			Visual:    ui.MustTextToVisual("{s:18}{pv:0.5}" + title),
+			Placement: ui.Maximized().Shrink(2).Shift(6, 0),
+			Visual:    ui.MustTextToVisual("{s:20}{pv:0.5}" + title),
 		}},
 		Draggable: true,
 		Events: ui.Events{
@@ -132,8 +149,8 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 			},
 		},
 		Children: []*ui.Base{
-			newWindowClose(frame),
-			newWindowMinimizeMaximize(frame),
+			newWindowClose(frame, barSize),
+			newWindowMinimizeMaximize(frame, barSize),
 		},
 	}
 
@@ -163,19 +180,19 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 	return frame
 }
 
-func newWindowClose(win *ui.Base) *ui.Base {
+func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 	return &ui.Base{
 		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: -24, Delta: 1},
+			Left:   ui.Anchor{Base: -barSize, Delta: 1},
 			Right:  ui.Anchor{Delta: 1},
-			Bottom: ui.Anchor{Base: 24},
+			Bottom: ui.Anchor{Base: barSize},
 		},
 		Layers: []ui.Layer{{
 			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
 			States:     ui.StateHover.Is,
 		}, {
-			Placement: ui.Maximized().Shrink(4),
+			Placement: ui.Maximized().Shrink(8),
 			Visual: ui.VisualFilled{
 				Shape: ui.ShapePolygon{
 					Points: []ui.Coord{
@@ -188,6 +205,10 @@ func newWindowClose(win *ui.Base) *ui.Base {
 			},
 			Background: ui.BackgroundColor{Color: ui.ColorBlack},
 		}},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("click"),
+			ui.CursorEventDown:  id.Get("clicking"),
+		}),
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventDown {
@@ -198,28 +219,32 @@ func newWindowClose(win *ui.Base) *ui.Base {
 	}
 }
 
-func newWindowMinimizeMaximize(win *ui.Base) *ui.Base {
+func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 	minimized := win.Placement
 	maximized := false
 
 	return &ui.Base{
 		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: -48, Delta: 1},
-			Right:  ui.Anchor{Base: -24, Delta: 1},
-			Bottom: ui.Anchor{Base: 24},
+			Left:   ui.Anchor{Base: -barSize * 2, Delta: 1},
+			Right:  ui.Anchor{Base: -barSize, Delta: 1},
+			Bottom: ui.Anchor{Base: barSize},
 		},
 		Layers: []ui.Layer{{
 			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
 			States:     ui.StateHover.Is,
 		}, {
-			Placement: ui.Maximized().Shrink(6),
+			Placement: ui.Maximized().Shrink(10),
 			Visual: ui.VisualBordered{
 				Width: 3,
 				Shape: ui.ShapeRectangle{},
 			},
 			Background: ui.BackgroundColor{Color: ui.ColorBlack},
 		}},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("click"),
+			ui.CursorEventDown:  id.Get("clicking"),
+		}),
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventDown {
@@ -247,15 +272,9 @@ func newWindowResize(win *ui.Base) *ui.Base {
 			Top:    ui.Anchor{Base: -8, Delta: 1},
 			Bottom: ui.Anchor{Base: 0, Delta: 1},
 		},
-		Layers: []ui.Layer{{
-			Background: ui.BackgroundColor{Color: ui.ColorDarkSlateGray},
-			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
-			States:     ui.StateHover.Is,
-		}, {
-			Background: ui.BackgroundColor{Color: ui.ColorDarkSlateGray.Alpha(0.3)},
-			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
-			States:     ui.StateHover.Not,
-		}},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("resizecorner"),
+		}),
 		Events: ui.Events{
 			OnDrag: func(ev *ui.DragEvent) {
 				if !ev.Capture {

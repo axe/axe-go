@@ -29,7 +29,7 @@ func listenerJoin[E CanStop](first Listener[E], second Listener[E]) Listener[E] 
 }
 
 func (a *Listener[E]) Add(b Listener[E], before bool) {
-	*a = coalesceJoin(*a, b, before, listenerNil[E], listenerJoin[E])
+	*a = CoalesceJoin(*a, b, before, listenerNil[E], listenerJoin[E])
 }
 
 type Events struct {

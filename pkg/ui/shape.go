@@ -43,12 +43,12 @@ func (o ShapeRounded) Shapify(b Bounds, ctx *RenderContext) []Coord {
 		radiusW := amount.Get(ctx.AmountContext, true)
 		radiusH := amount.Get(ctx.AmountContext, false)
 		points := int((radiusW+radiusH)*0.5*o.UnitToPoints) + 1
-		originX := lerp(b.Left, b.Right, placements[0]) - (radiusW * ((placements[0] * 2) - 1))
-		originY := lerp(b.Top, b.Bottom, placements[1]) - (radiusH * ((placements[1] * 2) - 1))
+		originX := Lerp(b.Left, b.Right, placements[0]) - (radiusW * ((placements[0] * 2) - 1))
+		originY := Lerp(b.Top, b.Bottom, placements[1]) - (radiusH * ((placements[1] * 2) - 1))
 
 		for i := 0; i <= points; i++ {
 			delta := float32(i) / float32(points)
-			angle := lerp(angles[0], angles[1], delta)
+			angle := Lerp(angles[0], angles[1], delta)
 			coords = append(coords, Coord{
 				X: float32(math.Cos(float64(angle)))*radiusW + originX,
 				Y: float32(-math.Sin(float64(angle)))*radiusH + originY,
@@ -78,8 +78,8 @@ func (o ShapeSharpen) Shapify(b Bounds, ctx *RenderContext) []Coord {
 		for i := 0; i < times; i++ {
 			delta := float32(i) / float32(times)
 			sharp := &sharpened[next*times+i]
-			sharp.X = lerp(prevPoint.X, nextPoint.X, delta)
-			sharp.Y = lerp(prevPoint.Y, nextPoint.Y, delta)
+			sharp.X = Lerp(prevPoint.X, nextPoint.X, delta)
+			sharp.Y = Lerp(prevPoint.Y, nextPoint.Y, delta)
 		}
 	}
 	return sharpened

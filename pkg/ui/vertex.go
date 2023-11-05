@@ -25,8 +25,8 @@ func (t Tile) Coord(dx, dy float32) TexCoord {
 	return TexCoord{
 		Texture: t.Texture,
 		Coord: Coord{
-			X: lerp(t.Coords.Left, t.Coords.Right, dx),
-			Y: lerp(t.Coords.Top, t.Coords.Bottom, dy),
+			X: Lerp(t.Coords.Left, t.Coords.Right, dx),
+			Y: Lerp(t.Coords.Top, t.Coords.Bottom, dy),
 		},
 	}
 }

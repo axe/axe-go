@@ -5,24 +5,24 @@ import (
 	"reflect"
 )
 
-func lerp(s, e, d float32) float32 {
+func Lerp(s, e, d float32) float32 {
 	return (e-s)*d + s
 }
 
-func delta(s, e, v float32) float32 {
+func Delta(s, e, v float32) float32 {
 	return (v - s) / (e - s)
 }
 
-func normal(a, b Coord) (nx, ny float32) {
+func Normal(a, b Coord) (nx, ny float32) {
 	dx := b.X - a.X
 	dy := b.Y - a.Y
-	invLength := 1.0 / length(dx, dy)
+	invLength := 1.0 / Length(dx, dy)
 	nx = dx * invLength
 	ny = dy * invLength
 	return
 }
 
-func length(dx, dy float32) float32 {
+func Length(dx, dy float32) float32 {
 	return float32(math.Sqrt(float64(dx*dx + dy*dy)))
 }
 
@@ -37,7 +37,7 @@ func equal(a, b float32) bool {
 	return abs(a-b) < 0.0001
 }
 
-func collinear(a, b, c Coord) bool {
+func Collinear(a, b, c Coord) bool {
 	return equal((b.Y-a.Y)/(b.X-a.X), (c.Y-b.Y)/(c.X-b.X)) ||
 		equal((b.Y-a.Y)*(c.X-b.X), (c.Y-b.Y)*(b.X-a.X))
 }
@@ -56,7 +56,7 @@ func max(a, b float32) float32 {
 	return b
 }
 
-func clamp(v, min, max float32) float32 {
+func Clamp(v, min, max float32) float32 {
 	if v < min {
 		return min
 	}
@@ -70,7 +70,7 @@ func toPtr(x any) uintptr {
 	return reflect.ValueOf(x).Pointer()
 }
 
-func inPolygon(polygon []Coord, pt Coord) bool {
+func InPolygon(polygon []Coord, pt Coord) bool {
 	in := false
 	n := len(polygon)
 	i := 0
@@ -87,26 +87,26 @@ func inPolygon(polygon []Coord, pt Coord) bool {
 	return in
 }
 
-func cos(rad float32) float32 {
+func Cos(rad float32) float32 {
 	return float32(math.Cos(float64(rad)))
 }
 
-func sin(rad float32) float32 {
+func Sin(rad float32) float32 {
 	return float32(math.Sin(float64(rad)))
 }
 
-func cossin(rad float32) (cos float32, sin float32) {
+func CosSin(rad float32) (cos float32, sin float32) {
 	rad64 := float64(rad)
 	cos = float32(math.Cos(rad64))
 	sin = float32(math.Sin(rad64))
 	return
 }
 
-func atan2(y, x float32) float32 {
+func Atan2(y, x float32) float32 {
 	return float32(math.Atan2(float64(y), float64(x)))
 }
 
-func ease(delta float32, easing func(float32) float32) float32 {
+func Ease(delta float32, easing func(float32) float32) float32 {
 	if easing == nil {
 		return delta
 	} else {
@@ -114,7 +114,7 @@ func ease(delta float32, easing func(float32) float32) float32 {
 	}
 }
 
-func coalesceJoin[V any](a, b V, swap bool, isNil func(V) bool, join func(V, V) V) V {
+func CoalesceJoin[V any](a, b V, swap bool, isNil func(V) bool, join func(V, V) V) V {
 	if isNil(a) {
 		return b
 	} else if !isNil(b) {
@@ -132,14 +132,14 @@ func coalesceJoin[V any](a, b V, swap bool, isNil func(V) bool, join func(V, V) 
 	return a
 }
 
-func coalesce[V any](nilable *V, nonNil V) V {
+func Coalesce[V any](nilable *V, nonNil V) V {
 	if nilable != nil {
 		return *nilable
 	}
 	return nonNil
 }
 
-func clone[V any](nilable *V) *V {
+func Clone[V any](nilable *V) *V {
 	if nilable == nil {
 		return nil
 	}

@@ -1,9 +1,9 @@
 package ui
 
 type Visual interface {
-	Init(init Init)
-	Update(update Update) Dirty
-	Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers)
+	Init(b *Base, init Init)
+	Update(b *Base, update Update) Dirty
+	Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers)
 }
 
 var _ Visual = VisualFilled{}
@@ -15,16 +15,16 @@ type VisualFilled struct {
 	Shape Shape
 }
 
-func (s VisualFilled) Init(init Init) {
+func (s VisualFilled) Init(b *Base, init Init) {
 	s.Shape.Init(init)
 }
 
-func (s VisualFilled) Update(update Update) Dirty {
+func (s VisualFilled) Update(b *Base, update Update) Dirty {
 	return DirtyNone
 }
 
-func (s VisualFilled) Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers) {
-	points := s.Shape.Shapify(b, ctx)
+func (s VisualFilled) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
+	points := s.Shape.Shapify(bounds, ctx)
 	center := Coord{}
 	for _, p := range points {
 		center.X += p.X
@@ -58,16 +58,16 @@ type VisualBordered struct {
 	Shape         Shape
 }
 
-func (s VisualBordered) Init(init Init) {
+func (s VisualBordered) Init(b *Base, init Init) {
 	s.Shape.Init(init)
 }
 
-func (s VisualBordered) Update(update Update) Dirty {
+func (s VisualBordered) Update(b *Base, update Update) Dirty {
 	return DirtyNone
 }
 
-func (s VisualBordered) Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers) {
-	inner := s.Shape.Shapify(b, ctx)
+func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
+	inner := s.Shape.Shapify(bounds, ctx)
 	outer := make([]Coord, len(inner))
 	last := len(inner) - 1
 	i0 := last - 1
@@ -77,8 +77,8 @@ func (s VisualBordered) Visualize(b Bounds, ctx *RenderContext, out *VertexBuffe
 		p0 := inner[i0]
 		p1 := inner[i1]
 		p2 := inner[i2]
-		n1dx, n1dy := normal(p0, p1)
-		n2dx, n2dy := normal(p2, p1)
+		n1dx, n1dy := Normal(p0, p1)
+		n2dx, n2dy := Normal(p2, p1)
 		nx := n1dy + -n2dy
 		ny := -n1dx + n2dx
 		outer[i1].X = nx*hw + p1.X
@@ -110,18 +110,18 @@ type VisualFrame struct {
 	Tile  []Tile
 }
 
-func (r VisualFrame) Init(init Init) {
+func (r VisualFrame) Init(b *Base, init Init) {
 
 }
 
-func (r VisualFrame) Update(update Update) Dirty {
+func (r VisualFrame) Update(b *Base, update Update) Dirty {
 	return DirtyNone
 }
 
-func (r VisualFrame) Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers) {
+func (r VisualFrame) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
 	sizes := r.Sizes.GetBounds(ctx.AmountContext)
-	axisX := []float32{b.Left, b.Left + sizes.Left, b.Right - sizes.Right, b.Right}
-	axisY := []float32{b.Top, b.Top + sizes.Top, b.Bottom - sizes.Bottom, b.Bottom}
+	axisX := []float32{bounds.Left, bounds.Left + sizes.Left, bounds.Right - sizes.Right, bounds.Right}
+	axisY := []float32{bounds.Top, bounds.Top + sizes.Top, bounds.Bottom - sizes.Bottom, bounds.Bottom}
 
 	buffer := out.Buffer()
 	for i, tile := range r.Tile {
@@ -147,11 +147,11 @@ type VisualText struct {
 	renderedBounds Bounds
 }
 
-func (s *VisualText) Init(init Init) {
+func (s *VisualText) Init(b *Base, init Init) {
 	s.theme = init.Theme
 }
 
-func (s *VisualText) Update(update Update) Dirty {
+func (s *VisualText) Update(b *Base, update Update) Dirty {
 	oldDirty := s.dirty
 	s.dirty.Clear()
 	return oldDirty
@@ -176,20 +176,20 @@ func (s *VisualText) WillClip() bool {
 	return s.Clip && (s.VisibleThreshold == nil || *s.VisibleThreshold != GlyphVisibilityVisible)
 }
 
-func (s *VisualText) Visualize(b Bounds, ctx *RenderContext, out *VertexBuffers) {
-	if s.renderedBounds != b {
-		s.Paragraphs.MaxWidth, s.Paragraphs.MaxHeight = b.Dimensions()
+func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
+	if s.renderedBounds != bounds {
+		s.Paragraphs.MaxWidth, s.Paragraphs.MaxHeight = bounds.Dimensions()
 		s.rendered = s.Paragraphs.Render(ctx)
-		s.rendered.Translate(b.Left, b.Top)
-		s.renderedBounds = b
+		s.rendered.Translate(bounds.Left, bounds.Top)
+		s.renderedBounds = bounds
 
 		if s.VisibleThreshold != nil {
-			s.rendered.UpdateVisibility(b)
+			s.rendered.UpdateVisibility(bounds)
 		}
 	}
 	clipBounds := Bounds{}
 	if s.WillClip() {
-		clipBounds = b
+		clipBounds = bounds
 	}
 	out.ClipMaybe(clipBounds, func(vb *VertexBuffers) {
 		buffer := vb.Buffer()

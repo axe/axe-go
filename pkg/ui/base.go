@@ -99,51 +99,51 @@ func (c *Base) SetPlacement(placement Placement) {
 	}
 }
 
-func (c *Base) Init(init Init) {
-	if c.ui != nil && !c.Name.Empty() {
-		c.ui.Named.Set(c.Name, c)
+func (b *Base) Init(init Init) {
+	if b.ui != nil && !b.Name.Empty() {
+		b.ui.Named.Set(b.Name, b)
 	}
-	c.Placement.Init(Maximized())
-	if c.States == 0 {
-		c.States = StateDefault
+	b.Placement.Init(Maximized())
+	if b.States == 0 {
+		b.States = StateDefault
 	}
-	for i := range c.Layers {
-		c.Layers[i].Init(init)
+	for i := range b.Layers {
+		b.Layers[i].Init(b, init)
 	}
-	for _, child := range c.Children {
-		child.parent = c
-		child.ui = c.ui
+	for _, child := range b.Children {
+		child.parent = b
+		child.ui = b.ui
 		child.Init(init)
 	}
-	c.Dirty(DirtyPlacement)
-	c.PlayEvent(AnimationEventShow)
+	b.Dirty(DirtyPlacement)
+	b.PlayEvent(AnimationEventShow)
 
-	if c.Hooks.OnInit != nil {
-		c.Hooks.OnInit(c, init)
+	if b.Hooks.OnInit != nil {
+		b.Hooks.OnInit(b, init)
 	}
 }
 
-func (c *Base) Place(parent Bounds, force bool) {
-	doPlacement := force || c.dirty.Is(DirtyPlacement)
+func (b *Base) Place(parent Bounds, force bool) {
+	doPlacement := force || b.dirty.Is(DirtyPlacement)
 	if doPlacement {
-		newBounds := c.Placement.GetBoundsIn(parent)
-		if newBounds != c.Bounds {
-			c.Bounds = newBounds
-			for i := range c.Layers {
-				c.Layers[i].Place(c.Bounds)
+		newBounds := b.Placement.GetBoundsIn(parent)
+		if newBounds != b.Bounds {
+			b.Bounds = newBounds
+			for i := range b.Layers {
+				b.Layers[i].Place(b, b.Bounds)
 			}
-			c.Dirty(DirtyVisual)
+			b.Dirty(DirtyVisual)
 			force = true
 		}
-		c.dirty.Remove(DirtyPlacement)
+		b.dirty.Remove(DirtyPlacement)
 	}
 
-	for _, child := range c.Children {
-		child.Place(c.Bounds, force)
+	for _, child := range b.Children {
+		child.Place(b.Bounds, force)
 	}
 
-	if c.Hooks.OnPlace != nil {
-		c.Hooks.OnPlace(c, parent, force)
+	if b.Hooks.OnPlace != nil {
+		b.Hooks.OnPlace(b, parent, force)
 	}
 }
 
@@ -151,7 +151,7 @@ func (c *Base) Update(update Update) {
 	dirty := DirtyNone
 
 	for i := range c.Layers {
-		dirty.Add(c.Layers[i].Update(update))
+		dirty.Add(c.Layers[i].Update(c, update))
 	}
 	for _, child := range c.Children {
 		child.Update(update)
@@ -195,7 +195,7 @@ func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 
 		for _, layer := range c.Layers {
 			if layer.ForStates(c.States) {
-				layer.Render(baseCtx, out)
+				layer.Render(c, baseCtx, out)
 			}
 		}
 
@@ -269,7 +269,7 @@ func (c *Base) IsInside(pt Coord) bool {
 			X: c.Bounds.Dx(pt.X),
 			Y: c.Bounds.Dy(pt.Y),
 		}
-		if !inPolygon(c.OverShape, normalized) {
+		if !InPolygon(c.OverShape, normalized) {
 			return false
 		}
 	}
