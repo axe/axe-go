@@ -53,12 +53,10 @@ type AnimationState struct {
 	Current      Animation
 	CurrentTime  float32
 	CurrentEvent AnimationEvent
-
-	Animations *Animations
 }
 
 func (as *AnimationState) Defined() bool {
-	return as.Current != nil || as.Animations != nil
+	return as.Current != nil
 }
 
 func (as *AnimationState) Set(a Animation, ev AnimationEvent) {
@@ -101,8 +99,8 @@ func (as *AnimationState) IsAnimating() bool {
 
 func (c *Base) Play(name id.Identifier) bool {
 	var named AnimationFactory
-	if c.Animation.Animations != nil {
-		named = c.Animation.Animations.Named.Get(name)
+	if c.Animations != nil {
+		named = c.Animations.Named.Get(name)
 	}
 	if named == nil {
 		named = c.ui.Theme.Animations.Named.Get(name)
@@ -115,8 +113,8 @@ func (c *Base) PlayEvent(ev AnimationEvent) bool {
 		return true
 	}
 	var factory AnimationFactory
-	if c.Animation.Animations != nil {
-		factory = c.Animation.Animations.ForEvent.Get(ev)
+	if c.Animations != nil {
+		factory = c.Animations.ForEvent.Get(ev)
 	}
 	if factory == nil {
 		factory = c.ui.Theme.Animations.ForEvent.Get(ev)
@@ -155,9 +153,20 @@ type BasicAnimationFrame struct {
 type BasicAnimation struct {
 	Duration float32
 	Easing   func(float32) float32
+	Save     bool
 	Frames   []BasicAnimationFrame
 }
 
+func (a BasicAnimation) WithDuration(duration float32) BasicAnimation {
+	copy := a
+	copy.Duration = duration
+	return copy
+}
+func (a BasicAnimation) WithEasing(easing func(float32) float32) BasicAnimation {
+	copy := a
+	copy.Easing = easing
+	return copy
+}
 func (a BasicAnimation) Init(base *Base) {}
 func (a BasicAnimation) Update(base *Base, animationTime float32, update Update) Dirty {
 	return DirtyVisual
@@ -203,11 +212,16 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 	transform.SetRotateDegreesScaleAround(rotation, scaleX, scaleY, origX, origY)
 	transform.PreTranslate(transX, transY)
 
-	alphaScalar := 1 - transparency
+	if a.Save {
+		base.Transparency.Set(transparency)
+		base.Transform = transform
+	} else {
+		alphaScalar := 1 - transparency
 
-	for vertex.HasNext() {
-		v := vertex.Next()
-		v.X, v.Y = transform.Transform(v.X, v.Y)
-		v.Color.A *= alphaScalar
+		for vertex.HasNext() {
+			v := vertex.Next()
+			v.X, v.Y = transform.Transform(v.X, v.Y)
+			v.Color.A *= alphaScalar
+		}
 	}
 }

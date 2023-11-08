@@ -111,6 +111,15 @@ func (c Color) Lerp(to Color, delta float32) Color {
 	}
 }
 
+func (c Color) Multiply(o Color) Color {
+	return Color{
+		R: c.R * o.R,
+		G: c.G * o.G,
+		B: c.B * o.B,
+		A: c.A * o.A,
+	}
+}
+
 func (c Color) IsZero() bool {
 	return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0
 }

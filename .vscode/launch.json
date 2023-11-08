@@ -18,6 +18,7 @@
       "request": "launch",
       "mode": "test",
       "program": "${workspaceFolder}/pkg",
+      "dlvFlags": ["--check-go-version=false"],
       "args": [
         "-test.run",
         "TestExpr"

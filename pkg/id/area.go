@@ -47,6 +47,9 @@ func (a Area[From, To]) Has(from From) bool {
 }
 
 func (a *Area[From, To]) Peek(from From) int {
+	if a == nil {
+		return int(from)
+	}
 	if a != nil && int(from) < len(a.tos) {
 		return int(a.tos[from]) - 1
 	}

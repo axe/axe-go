@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"runtime"
 	"strings"
 	"time"
@@ -181,10 +182,174 @@ func main() {
 						"resizebl": ui.NewExtentTile(cursors[4][8], ui.NewBounds(-11, -41, 45, 15).Scale(0.75)),
 					})
 
+					textCoordinates := ui.MustTextToVisual("{h:1}{pa:10}{pv:1}0,0")
+
 					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}Press me", true, nil)
 
 					btnToggle := newButton(ui.Absolute(20, 100, 200, 50), "{f:roboto}{s:18}{h:0.5}{pv:0.5}TOGGLE DISABLED", false, func() {
 						btnPress.SetDisabled(!btnPress.IsDisabled())
+					})
+
+					textWindow := newWindow("Test Window", ui.Absolute(900, 20, 400, 300))
+					textWindow.Children = append(textWindow.Children,
+						&ui.Base{
+							Placement: ui.MaximizeOffset(10, 34, -10, -10),
+							Children: []*ui.Base{{
+								Layers: []ui.Layer{{
+									Visual: ui.MustTextToVisual(strings.Join([]string{
+										"{c:black}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
+										"{p}{h:0.5}This is centered.",
+										"{v:0.5}And {s:300%f}{f:warrior}THIS{s:150%f}{f} is big!",
+										"{v:1}This is bottom & center {s:300%f}aligned?",
+										"{p}{h:0}{v:0}Top{s:150%f} and left aligned.",
+										"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
+										"{p}{h:1}{c:white}Right aligned!",
+										"{p}{h:0.25}25% aligned?",
+										"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
+										"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
+									}, "\n")).Clipped(),
+								}},
+							}},
+						},
+					)
+
+					layoutColumnName := id.Get("layoutColumn")
+					layoutColumnChange := func(change func(*ui.LayoutColumn)) {
+						frame := userInterface.Named.Get(layoutColumnName).(*ui.Base)
+						layout := frame.Layout.(*ui.LayoutColumn)
+						change(layout)
+						frame.Dirty(ui.DirtyPlacement)
+					}
+					layoutColumnWindow := newWindow("Layout Column", ui.Absolute(10, 500, 300, 300))
+					layoutColumnWindow.Children = append(layoutColumnWindow.Children, &ui.Base{
+						Name:      layoutColumnName,
+						Placement: ui.MaximizeOffset(8, 44, -8, -8),
+						// Clip:      ui.Maximized(),
+						Layout: &ui.LayoutColumn{
+							FullWidth:           false,
+							HorizontalAlignment: ui.AlignmentCenter,
+							Spacing:             ui.Amount{Value: 10},
+						},
+						Children: []*ui.Base{
+							newButton(ui.Absolute(0, 0, 0, 0), "Toggle Alignment", false, func() {
+								layoutColumnChange(func(lc *ui.LayoutColumn) {
+									lc.HorizontalAlignment = ui.Alignment(math.Mod(float64(lc.HorizontalAlignment)+0.5, 1.5))
+								})
+							}),
+							newButton(ui.Absolute(0, 0, 150, 60), "{s:20}{h:0.5}{pv:0.5}Toggle FullWidth", false, func() {
+								layoutColumnChange(func(lc *ui.LayoutColumn) {
+									lc.FullWidth = !lc.FullWidth
+								})
+							}),
+						},
+					})
+
+					layoutRowName := id.Get("layoutRow")
+					layoutRowChange := func(change func(*ui.LayoutRow)) {
+						frame := userInterface.Named.Get(layoutRowName).(*ui.Base)
+						layout := frame.Layout.(*ui.LayoutRow)
+						change(layout)
+						frame.Dirty(ui.DirtyPlacement)
+					}
+					layoutRowWindow := newWindow("Layout Row", ui.Absolute(800, 500, 300, 300))
+					layoutRowWindow.Children = append(layoutRowWindow.Children, &ui.Base{
+						Name:      layoutRowName,
+						Placement: ui.MaximizeOffset(8, 44, -8, -8),
+						// Clip:      ui.Maximized(),
+						Layout: &ui.LayoutRow{
+							FullHeight:        false,
+							VerticalAlignment: ui.AlignmentCenter,
+							Spacing:           ui.Amount{Value: 10},
+						},
+						Children: []*ui.Base{
+							newButton(ui.Absolute(0, 0, 0, 0), "Toggle Alignment", false, func() {
+								layoutRowChange(func(lr *ui.LayoutRow) {
+									lr.VerticalAlignment = ui.Alignment(math.Mod(float64(lr.VerticalAlignment)+0.5, 1.5))
+								})
+							}),
+							newButton(ui.Absolute(0, 0, 150, 60), "{s:20}{h:0.5}{pv:0.5}Toggle FullHeight", false, func() {
+								layoutRowChange(func(lr *ui.LayoutRow) {
+									lr.FullHeight = !lr.FullHeight
+								})
+							}),
+						},
+					})
+
+					layoutGridName := id.Get("layoutGrid")
+					layoutGridChange := func(change func(*ui.LayoutGrid)) {
+						frame := userInterface.Named.Get(layoutGridName).(*ui.Base)
+						layout := frame.Layout.(*ui.LayoutGrid)
+						change(layout)
+						frame.Dirty(ui.DirtyPlacement)
+					}
+					layoutGridWindow := newWindow("Layout Grid", ui.Absolute(1000, 300, 300, 300))
+					layoutGridWindow.Children = append(layoutGridWindow.Children, &ui.Base{
+						Name:      layoutGridName,
+						Placement: ui.MaximizeOffset(8, 44, -8, -8),
+						// Clip:      ui.Maximized(),
+						Layout: &ui.LayoutGrid{
+							FullHeight:          false,
+							FullWidth:           false,
+							VerticalAlignment:   ui.AlignmentCenter,
+							HorizontalAlignment: ui.AlignmentCenter,
+							VerticalSpacing:     ui.Amount{Value: 10},
+							HorizontalSpacing:   ui.Amount{Value: 10},
+							Columns:             3,
+							MinSize:             ui.Coord{X: 80, Y: 80},
+							AspectRatio:         0,
+						},
+						TextStyles: &ui.TextStylesOverride{
+							FontSize: &ui.Amount{Value: 20},
+							ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
+								VerticalAlignment: ui.Override(ui.AlignmentCenter),
+							},
+							ParagraphStylesOverride: &ui.ParagraphStylesOverride{
+								HorizontalAlignment: ui.Override(ui.AlignmentCenter),
+							},
+						},
+						Children: []*ui.Base{
+							newButton(ui.Placement{}, "Toggle FullHeight", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.FullHeight = !lg.FullHeight
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle FullWidth", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.FullWidth = !lg.FullWidth
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle AspectRatio", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.AspectRatio = 1 - lg.AspectRatio
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle Vertical Alignment", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.VerticalAlignment = ui.Alignment(math.Mod(float64(lg.VerticalAlignment)+0.5, 1.5))
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle Horizontal Alignment", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.HorizontalAlignment = ui.Alignment(math.Mod(float64(lg.HorizontalAlignment)+0.5, 1.5))
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle Columns", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.Columns = (lg.Columns + 1) % 6
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle MinSize", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									if lg.MinSize.X == 0 {
+										lg.MinSize.Set(80, 80)
+									} else if lg.MinSize.X == 80 {
+										lg.MinSize.Set(160, 160)
+									} else {
+										lg.MinSize.Set(0, 0)
+									}
+								})
+							}),
+						},
 					})
 
 					userInterface.Root = &ui.Base{
@@ -192,7 +357,28 @@ func main() {
 							newDraggable(),
 							btnPress,
 							btnToggle,
-							newWindow("Test Window", ui.Absolute(700, 20, 400, 300)),
+							textWindow,
+							layoutColumnWindow,
+							layoutRowWindow,
+							layoutGridWindow,
+							{
+								Placement: ui.Placement{
+									Left:   ui.Anchor{Delta: 1, Base: -200},
+									Right:  ui.Anchor{Delta: 1},
+									Top:    ui.Anchor{Delta: 1, Base: -60},
+									Bottom: ui.Anchor{Delta: 1},
+								},
+								Layers: []ui.Layer{{
+									Visual: textCoordinates,
+								}},
+							},
+						},
+						Events: ui.Events{
+							OnPointer: func(ev *ui.PointerEvent) {
+								if ev.Type == ui.PointerEventMove {
+									textCoordinates.SetText(fmt.Sprintf("{h:1}{pa:10}{pv:1}%.0f,%.0f", ev.Point.X, ev.Point.Y))
+								}
+							},
 						},
 					}
 
@@ -210,6 +396,55 @@ func main() {
 		panic(err)
 	}
 }
+
+// Animations
+
+var OriginCenter = ui.AmountPoint{
+	X: ui.Amount{Value: 0.5, Unit: ui.UnitParent},
+	Y: ui.Amount{Value: 0.5, Unit: ui.UnitParent},
+}
+
+var WiggleAnimation = ui.BasicAnimation{
+	Duration: 1.0,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Rotate: 0, Origin: OriginCenter},
+		{Time: .125, Rotate: -45, Origin: OriginCenter},
+		{Time: .375, Rotate: 45, Origin: OriginCenter},
+		{Time: .583, Rotate: -30, Origin: OriginCenter},
+		{Time: .75, Rotate: 30, Origin: OriginCenter},
+		{Time: .875, Rotate: -15, Origin: OriginCenter},
+		{Time: .9583, Rotate: 15, Origin: OriginCenter},
+		{Time: 1, Rotate: 0, Origin: OriginCenter},
+	},
+}
+
+var RevealAnimation = ui.BasicAnimation{
+	Duration: 1.0,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Scale: &ui.Coord{X: 1}, Origin: OriginCenter},
+		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
+	},
+}
+
+var FadeOutSlideUpAnimation = ui.BasicAnimation{
+	Save:     true,
+	Duration: 0.7,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Origin: OriginCenter},
+		{Time: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter, Transparency: 1},
+	},
+}
+
+var FadeInSlideRightAnimation = ui.BasicAnimation{
+	Save:     true,
+	Duration: 0.7,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Translate: ui.AmountPoint{X: ui.Amount{Value: -100}}, Origin: OriginCenter, Transparency: 1},
+		{Time: 1, Origin: OriginCenter},
+	},
+}
+
+// Temporary component generators
 
 func newDraggable() *ui.Base {
 	var draggable *ui.Base
@@ -253,8 +488,18 @@ func newDraggable() *ui.Base {
 	return draggable
 }
 
-func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.Base {
-	shape := ui.ShapeRounded{
+var buttonColor = ui.ColorFromHex("#008080")
+var buttonTemplate = &ui.Template{
+	Animations: &ui.Animations{
+		ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
+			ui.AnimationEventShow: ui.StatelessAnimationFactory(RevealAnimation),
+		}),
+	},
+	Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+		ui.CursorEventHover: id.Get("click"),
+		ui.CursorEventDown:  id.Get("clicking"),
+	}),
+	Shape: ui.ShapeRounded{
 		Radius: ui.AmountCorners{
 			TopLeft:     ui.Amount{Value: 8},
 			TopRight:    ui.Amount{Value: 8},
@@ -262,166 +507,121 @@ func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.
 			BottomRight: ui.Amount{Value: 8},
 		},
 		UnitToPoints: 0.5,
-	}
-	color := ui.ColorFromHex("#008080")
+	},
+	PreLayers: []ui.Layer{{
+		// Shadow filled
+		Placement:  ui.Maximized().Shrink(4).Shift(1, 4),
+		Visual:     ui.VisualFilled{},
+		Background: ui.BackgroundColor{Color: buttonColor.Darken(0.5).Alpha(0.5)},
+		States:     (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
+	}, {
+		// Shadow blur
+		Placement: ui.Maximized().Shrink(4).Shift(1, 4),
+		Visual: ui.VisualBordered{
+			Width:         8,
+			OuterColor:    ui.ColorTransparent,
+			HasOuterColor: true,
+			InnerColor:    buttonColor.Darken(0.5).Alpha(0.5),
+			HasInnerColor: true,
+		},
+		States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
+	}, {
+		// Shadow filled (default)
+		Placement:  ui.Maximized().Shrink(4).Shift(1, 4),
+		Visual:     ui.VisualFilled{},
+		Background: ui.BackgroundColor{Color: buttonColor.Darken(0.5).Alpha(0.2)},
+		States:     (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
+	}, {
+		// Shadow blur (default)
+		Placement: ui.Maximized().Shrink(4).Shift(1, 4),
+		Visual: ui.VisualBordered{
+			Width:         8,
+			OuterColor:    ui.ColorTransparent,
+			HasOuterColor: true,
+			InnerColor:    buttonColor.Darken(0.5).Alpha(0.2),
+			HasInnerColor: true,
+		},
+		States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
+	}, {
+		// Background
+		Placement:  ui.Maximized(),
+		Visual:     ui.VisualFilled{},
+		Background: ui.BackgroundColor{Color: buttonColor},
+		States:     (ui.StateHover | ui.StatePressed).Not,
+	}, {
+		// Background on hover
+		Placement:  ui.Maximized(),
+		Visual:     ui.VisualFilled{},
+		Background: ui.BackgroundColor{Color: buttonColor.Lighten(0.1)},
+		States:     ui.StateHover.Is,
+	}, {
+		// Background on press
+		Placement:  ui.Maximized(),
+		Visual:     ui.VisualFilled{},
+		Background: ui.BackgroundColor{Color: buttonColor.Darken(0.1)},
+		States:     ui.StatePressed.Is,
+	}},
+	PostLayers: []ui.Layer{{
+		// Ripple animation
+		Placement: ui.Maximized().Shrink(2),
+		Visual: &RippleLayer{
+			StartRadius: ui.Amount{Value: 0},
+			EndRadius:   ui.Amount{Value: 4, Unit: ui.UnitParent},
+			StartColor:  ui.NewColor(1, 1, 1, 0.3),
+			EndColor:    ui.ColorTransparent,
+			Duration:    1,
+		},
+	}},
+}
 
+func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.Base {
 	var button *ui.Base
+
+	textVisual := ui.MustTextToVisual(text)
 
 	button = &ui.Base{
 		Placement: place,
-		Animation: ui.AnimationState{
-			Animations: &ui.Animations{
-				ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
-					ui.AnimationEventShow: ui.StatelessAnimationFactory(RevealAnimation),
-				}),
-			},
-		},
-		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
-			ui.CursorEventHover: id.Get("click"),
-			ui.CursorEventDown:  id.Get("clicking"),
-		}),
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventDown && onClick != nil {
 					onClick()
 					ev.Stop = true
+
+					// ctx := button.ComputeRenderContext()
+					// renderAgain := textVisual.Paragraphs.Render(ctx)
+					// r := textVisual.Rendered()
+					// fmt.Printf("Button (layerBounds=%v, textBounds=%v, preferredSize=%+v, renderAgain=%v)\n",
+					// 	textVisual.RenderedBounds(),
+					// 	r.Bounds,
+					// 	textVisual.PreferredSize(button, ctx, button.Bounds.Width()-20),
+					// 	renderAgain.Bounds,
+					// )
 				}
 			},
 		},
 		Layers: []ui.Layer{{
-			// Shadow filled
-			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
-			Visual: ui.VisualFilled{
-				Shape: shape,
-			},
-			Background: ui.BackgroundColor{
-				Color: color.Darken(0.5).Alpha(0.5),
-			},
-			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
-		}, {
-			// Shadow blur
-			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
-			Visual: ui.VisualBordered{
-				Width:         8,
-				OuterColor:    ui.ColorTransparent,
-				HasOuterColor: true,
-				InnerColor:    color.Darken(0.5).Alpha(0.5),
-				HasInnerColor: true,
-				Shape:         shape,
-			},
-			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
-		}, {
-			// Shadow filled (default)
-			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
-			Visual: ui.VisualFilled{
-				Shape: shape,
-			},
-			Background: ui.BackgroundColor{
-				Color: color.Darken(0.5).Alpha(0.2),
-			},
-			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
-		}, {
-			// Shadow blur (default)
-			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
-			Visual: ui.VisualBordered{
-				Width:         8,
-				OuterColor:    ui.ColorTransparent,
-				HasOuterColor: true,
-				InnerColor:    color.Darken(0.5).Alpha(0.2),
-				HasInnerColor: true,
-				Shape:         shape,
-			},
-			States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
-		}, {
-			// Background
-			Placement: ui.Maximized(),
-			Visual: ui.VisualFilled{
-				Shape: shape,
-			},
-			Background: ui.BackgroundColor{
-				Color: color,
-			},
-			States: (ui.StateHover | ui.StatePressed).Not,
-		}, {
-			// Background on hover
-			Placement: ui.Maximized(),
-			Visual: ui.VisualFilled{
-				Shape: shape,
-			},
-			Background: ui.BackgroundColor{
-				Color: color.Lighten(0.1),
-			},
-			States: ui.StateHover.Is,
-		}, {
-			// Background on press
-			Placement: ui.Maximized(),
-			Visual: ui.VisualFilled{
-				Shape: shape,
-			},
-			Background: ui.BackgroundColor{
-				Color: color.Darken(0.1),
-			},
-			States: ui.StatePressed.Is,
-		}, {
-			Placement: ui.Maximized().Shrink(2),
-			Visual: &RippleLayer{
-				StartRadius: ui.Amount{Value: 0},
-				EndRadius:   ui.Amount{Value: 4, Unit: ui.UnitParent},
-				StartColor:  ui.NewColor(1, 1, 1, 0.3),
-				EndColor:    ui.ColorTransparent,
-				Duration:    1,
-			},
-		}, {
 			// Text content
 			Placement: ui.Maximized().Shrink(10),
-			Visual:    ui.MustTextToVisual(text),
+			Visual:    textVisual,
 		}},
 	}
+
+	button.ApplyTemplate(buttonTemplate)
 
 	if pulse {
 		button.Layers = append([]ui.Layer{{
 			Visual: &PulseLayer{
-				StartColor: color.Lighten(0.2),
+				StartColor: buttonColor.Lighten(0.2),
 				EndColor:   ui.ColorTransparent,
 				Duration:   1.5,
 				PulseTime:  0.6,
 				Size:       12,
-				Shape:      shape,
 			},
 			States: ui.StateDefault.Exactly,
 		}}, button.Layers...)
 	}
 
 	return button
-}
-
-// Animations
-
-var OriginCenter = ui.AmountPoint{
-	X: ui.Amount{Value: 0.5, Unit: ui.UnitParent},
-	Y: ui.Amount{Value: 0.5, Unit: ui.UnitParent},
-}
-
-var WiggleAnimation = ui.BasicAnimation{
-	Duration: 1.0,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Rotate: 0, Origin: OriginCenter},
-		{Time: .125, Rotate: -45, Origin: OriginCenter},
-		{Time: .375, Rotate: 45, Origin: OriginCenter},
-		{Time: .583, Rotate: -30, Origin: OriginCenter},
-		{Time: .75, Rotate: 30, Origin: OriginCenter},
-		{Time: .875, Rotate: -15, Origin: OriginCenter},
-		{Time: .9583, Rotate: 15, Origin: OriginCenter},
-		{Time: 1, Rotate: 0, Origin: OriginCenter},
-	},
-}
-
-var RevealAnimation = ui.BasicAnimation{
-	Duration: 1.0,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Scale: &ui.Coord{X: 1}, Origin: OriginCenter},
-		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
-	},
 }
 
 type RippleLayer struct {
@@ -431,6 +631,8 @@ type RippleLayer struct {
 	Time                   float32
 	Center                 ui.Coord
 	Animating              bool
+
+	animatingOn *ui.Base
 }
 
 func (r *RippleLayer) Init(b *ui.Base, init ui.Init) {
@@ -439,11 +641,12 @@ func (r *RippleLayer) Init(b *ui.Base, init ui.Init) {
 			r.Center.X, r.Center.Y = b.Bounds.Delta(ev.Point.X, ev.Point.Y)
 			r.Animating = true
 			r.Time = 0
+			r.animatingOn = b
 		}
 	}, false)
 }
 func (r *RippleLayer) Update(b *ui.Base, update ui.Update) ui.Dirty {
-	if r.Animating {
+	if r.Animating && b == r.animatingOn {
 		r.Time += float32(update.DeltaTime.Seconds())
 		if r.Time > r.Duration {
 			r.Animating = false
@@ -454,7 +657,7 @@ func (r *RippleLayer) Update(b *ui.Base, update ui.Update) ui.Dirty {
 	return ui.DirtyNone
 }
 func (r *RippleLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderContext, out *ui.VertexBuffers) {
-	if r.Animating {
+	if r.Animating && b == r.animatingOn {
 		centerX, centerY := bounds.Lerp(r.Center.X, r.Center.Y)
 		delta := r.Time / r.Duration
 		radius := ui.Lerp(r.StartRadius.Get(ctx.AmountContext, true), r.EndRadius.Get(ctx.AmountContext, true), delta)
@@ -483,9 +686,12 @@ func (r *RippleLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderCont
 			v := visualized.Next()
 			v.X = ui.Clamp(v.X, bounds.Left, bounds.Right)
 			v.Y = ui.Clamp(v.Y, bounds.Top, bounds.Bottom)
-			v.AddColor(color.R, color.G, color.B, color.A)
+			v.AddColor(color)
 		}
 	}
+}
+func (r *RippleLayer) PreferredSize(b *ui.Base, ctx *ui.RenderContext, maxWidth float32) ui.Coord {
+	return ui.Coord{}
 }
 
 type PulseLayer struct {
@@ -526,37 +732,59 @@ func (r *PulseLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderConte
 		background.Visualize(b, pulseBounds, ctx, out)
 		for visualized.HasNext() {
 			v := visualized.Next()
-			v.AddColor(color.R, color.G, color.B, color.A)
+			v.AddColor(color)
 		}
 	}
+}
+func (r *PulseLayer) PreferredSize(b *ui.Base, ctx *ui.RenderContext, maxWidth float32) ui.Coord {
+	return ui.Coord{}
 }
 
 func newWindow(title string, placement ui.Placement) *ui.Base {
 	barSize := float32(36)
-	frameShape := ui.ShapeRounded{
-		Radius: ui.AmountCorners{
-			TopLeft:     ui.Amount{Value: 8},
-			TopRight:    ui.Amount{Value: 8},
-			BottomLeft:  ui.Amount{Value: 8},
-			BottomRight: ui.Amount{Value: 8},
-		},
-		UnitToPoints: 0.5,
-	}
-	frame := &ui.Base{
+	var frame *ui.Base
+
+	frame = &ui.Base{
 		Placement: placement,
+		Events: ui.Events{
+			OnPointer: func(ev *ui.PointerEvent) {
+				if !ev.Capture && ev.Type == ui.PointerEventDown {
+					frame.BringToFront()
+				}
+			},
+		},
+		Shape: ui.ShapeRounded{
+			Radius: ui.AmountCorners{
+				TopLeft:     ui.Amount{Value: 8},
+				TopRight:    ui.Amount{Value: 8},
+				BottomLeft:  ui.Amount{Value: 8},
+				BottomRight: ui.Amount{Value: 8},
+			},
+			UnitToPoints: 0.5,
+		},
+		Animations: &ui.Animations{
+			Named: id.NewDenseKeyMap[ui.AnimationFactory, uint16, uint8](
+				id.WithStringMap(map[string]ui.AnimationFactory{
+					"hide": ui.StatelessAnimationFactory(FadeOutSlideUpAnimation),
+					"show": ui.StatelessAnimationFactory(FadeInSlideRightAnimation),
+				}),
+			),
+		},
 		Layers: []ui.Layer{{
-			Visual:     ui.VisualFilled{Shape: frameShape},
-			Background: ui.BackgroundColor{Color: ui.ColorGray},
+			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
+			Visual: ui.VisualBordered{
+				Width:         8,
+				OuterColor:    ui.ColorTransparent,
+				HasOuterColor: true,
+				InnerColor:    buttonColor.Darken(0.5).Alpha(0.2),
+				HasInnerColor: true,
+			},
+		}, {
+			Visual:     ui.VisualFilled{},
+			Background: ui.BackgroundColor{Color: ui.ColorGray.Lighten(0.2)},
 		}},
 	}
 
-	barShape := ui.ShapeRounded{
-		Radius: ui.AmountCorners{
-			TopLeft:  ui.Amount{Value: 8},
-			TopRight: ui.Amount{Value: 8},
-		},
-		UnitToPoints: 0.5,
-	}
 	bar := &ui.Base{
 		Placement: ui.Placement{
 			Left:   ui.Anchor{Base: 0, Delta: 0},
@@ -564,11 +792,18 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 			Top:    ui.Anchor{Base: 0, Delta: 0},
 			Bottom: ui.Anchor{Base: barSize, Delta: 0},
 		},
+		Shape: ui.ShapeRounded{
+			Radius: ui.AmountCorners{
+				TopLeft:  ui.Amount{Value: 8},
+				TopRight: ui.Amount{Value: 8},
+			},
+			UnitToPoints: 0.5,
+		},
 		Layers: []ui.Layer{{
-			Visual: ui.VisualFilled{Shape: barShape},
+			Visual: ui.VisualFilled{},
 			Background: ui.BackgroundLinearGradient{
-				StartColor: ui.ColorCornflowerBlue,
-				EndColor:   ui.ColorCornflowerBlue.Lighten(0.2),
+				StartColor: buttonColor,
+				EndColor:   buttonColor.Lighten(0.2),
 				End:        ui.Coord{X: 0, Y: 1},
 			},
 		}, {
@@ -584,10 +819,13 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 				switch ev.Type {
 				case ui.DragEventStart:
 					frame.Transparency.Set(0.2)
+					frame.BringToFront()
 				case ui.DragEventMove:
 					shifted := frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y)
-					// shifted.Constrain(frame.Parent())
+					// parent := frame.Parent().(*ui.Base)
+					// shifted.FitInside(parent.Bounds.Width(), parent.Bounds.Height())
 					frame.SetPlacement(shifted)
+
 				case ui.DragEventEnd:
 					frame.Transparency.Set(0)
 				}
@@ -596,32 +834,12 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 		Children: []*ui.Base{
 			newWindowClose(frame, barSize),
 			newWindowMinimizeMaximize(frame, barSize),
+			newWindowHide(frame, barSize),
 		},
 	}
 
-	lines := []string{
-		"{c:black}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
-		"{p}{h:0.5}This is centered.",
-		"{v:0.5}And {s:300%f}{f:warrior}THIS{s:150%f}{f} is big!",
-		"{v:1}This is bottom & center {s:300%f}aligned?",
-		"{p}{h:0}{v:0}Top{s:150%f} and left aligned.",
-		"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
-		"{p}{h:1}{c:white}Right aligned!",
-		"{p}{h:0.25}25% aligned?",
-		"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
-		"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
-	}
-	text := &ui.Base{
-		Placement: ui.MaximizeOffset(10, 34, -10, -10),
-		Children: []*ui.Base{{
-			Layers: []ui.Layer{{
-				Visual: ui.MustTextToVisual(strings.Join(lines, "\n")).Clipped(),
-			}},
-		}},
-	}
-
 	frame.Children = append(
-		frame.Children, bar, text,
+		frame.Children, bar,
 		newWindowResizeRight(frame, barSize),
 		newWindowResizeBottom(frame),
 		newWindowResizeBottomRight(frame),
@@ -711,6 +929,42 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 						win.SetPlacement(ui.Maximized())
 					}
 					maximized = !maximized
+				}
+			},
+		},
+	}
+}
+
+func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
+	return &ui.Base{
+		Placement: ui.Placement{
+			Left:   ui.Anchor{Base: -barSize * 3, Delta: 1},
+			Right:  ui.Anchor{Base: -barSize * 2, Delta: 1},
+			Bottom: ui.Anchor{Base: barSize},
+		},
+		Layers: []ui.Layer{{
+			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
+			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
+			States:     ui.StateHover.Is,
+		}, {
+			Placement: ui.Absolute(8, barSize-10, barSize-14, 3),
+			Visual: ui.VisualFilled{
+				Shape: ui.ShapeRectangle{},
+			},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+		}},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("click"),
+			ui.CursorEventDown:  id.Get("clicking"),
+		}),
+		Events: ui.Events{
+			OnPointer: func(ev *ui.PointerEvent) {
+				if !ev.Capture && ev.Type == ui.PointerEventDown {
+					win.Play(id.Maybe("hide"))
+					go func() {
+						time.Sleep(time.Second * 3)
+						win.Play(id.Maybe("show"))
+					}()
 				}
 			},
 		},

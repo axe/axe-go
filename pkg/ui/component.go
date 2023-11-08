@@ -56,7 +56,7 @@ func (ctx *RenderContext) WithBoundsAndTextStyles(parent Bounds, styles *TextSty
 
 type Component interface {
 	Init(init Init)
-	Place(parent Bounds, force bool)
+	Place(ctx *RenderContext, parent Bounds, force bool)
 	Update(update Update)
 	Render(ctx *RenderContext, out *VertexBuffers)
 	GetDirty() Dirty
@@ -75,24 +75,41 @@ type Component interface {
 	OnDrag(ev *DragEvent)
 }
 
-type ComponentMap map[uintptr]Component
-
-func (cm ComponentMap) Add(c Component) {
-	cm[toPtr(c)] = c
+type ComponentMap struct {
+	set     map[uintptr]Component
+	ordered []Component
 }
 
-func (cm ComponentMap) AddMany(c []Component) {
+func NewComponentMap() ComponentMap {
+	return ComponentMap{
+		set: make(map[uintptr]Component),
+	}
+}
+
+func (cm ComponentMap) Components() []Component {
+	return cm.ordered
+}
+
+func (cm *ComponentMap) Add(c Component) {
+	key := toPtr(c)
+	if _, exists := cm.set[key]; !exists {
+		cm.set[key] = c
+		cm.ordered = append(cm.ordered, c)
+	}
+}
+
+func (cm *ComponentMap) AddMany(c []Component) {
 	for _, m := range c {
 		cm.Add(m)
 	}
 }
 
 func (cm ComponentMap) Has(c Component) bool {
-	_, exists := cm[toPtr(c)]
+	_, exists := cm.set[toPtr(c)]
 	return exists
 }
 
-func (cm ComponentMap) AddLineage(c Component) {
+func (cm *ComponentMap) AddLineage(c Component) {
 	curr := c
 	for curr != nil {
 		cm.Add(curr)
@@ -105,14 +122,14 @@ func (old ComponentMap) Compare(new ComponentMap) (inOld []Component, inBoth []C
 	inBoth = make([]Component, 0)
 	inNew = make([]Component, 0)
 
-	for _, oldOverAncestor := range old {
+	for _, oldOverAncestor := range old.ordered {
 		if !new.Has(oldOverAncestor) {
 			inOld = append(inOld, oldOverAncestor)
 		} else {
 			inBoth = append(inBoth, oldOverAncestor)
 		}
 	}
-	for _, newOverAncestor := range new {
+	for _, newOverAncestor := range new.ordered {
 		if !old.Has(newOverAncestor) {
 			inNew = append(inNew, newOverAncestor)
 		}

@@ -36,15 +36,15 @@ func (h *HookInit) Add(add HookInit, before bool) {
 	*h = CoalesceJoin(*h, add, before, hookInitNil, hookInitJoin)
 }
 
-type HookPlace func(b *Base, parent Bounds, force bool)
+type HookPlace func(b *Base, parent Bounds, ctx *RenderContext, force bool)
 
 func hookPlaceNil(h HookPlace) bool {
 	return h == nil
 }
 func hookPlaceJoin(first, second HookPlace) HookPlace {
-	return func(b *Base, parent Bounds, force bool) {
-		first(b, parent, force)
-		second(b, parent, force)
+	return func(b *Base, parent Bounds, ctx *RenderContext, force bool) {
+		first(b, parent, ctx, force)
+		second(b, parent, ctx, force)
 	}
 }
 

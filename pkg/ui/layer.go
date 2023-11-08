@@ -33,6 +33,17 @@ func (l *Layer) Update(b *Base, update Update) Dirty {
 	return dirty
 }
 
+func (l Layer) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
+	size := Coord{}
+	if l.Visual != nil {
+		padding := l.Placement.ParentWidth(0)
+		size = l.Visual.PreferredSize(b, ctx, maxWidth-padding)
+		size.X = l.Placement.ParentWidth(size.X)
+		size.Y = l.Placement.ParentHeight(size.Y)
+	}
+	return size
+}
+
 func (l Layer) Render(b *Base, ctx *RenderContext, out *VertexBuffers) {
 	layerCtx := ctx.WithBounds(l.Bounds)
 
@@ -45,6 +56,10 @@ func (l Layer) Render(b *Base, ctx *RenderContext, out *VertexBuffers) {
 			l.Background.Backgroundify(b, l.Bounds, layerCtx, iter.Next())
 		}
 	}
+}
+
+func (l Layer) ComputeRenderContext(b *Base) *RenderContext {
+	return b.ComputeRenderContext().WithBounds(l.Bounds)
 }
 
 func (l Layer) ForStates(s State) bool {

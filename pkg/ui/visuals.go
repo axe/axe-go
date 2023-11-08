@@ -4,6 +4,7 @@ type Visual interface {
 	Init(b *Base, init Init)
 	Update(b *Base, update Update) Dirty
 	Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers)
+	PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord
 }
 
 var _ Visual = VisualFilled{}
@@ -16,7 +17,9 @@ type VisualFilled struct {
 }
 
 func (s VisualFilled) Init(b *Base, init Init) {
-	s.Shape.Init(init)
+	if s.Shape != nil {
+		s.Shape.Init(init)
+	}
 }
 
 func (s VisualFilled) Update(b *Base, update Update) Dirty {
@@ -24,7 +27,7 @@ func (s VisualFilled) Update(b *Base, update Update) Dirty {
 }
 
 func (s VisualFilled) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
-	points := s.Shape.Shapify(bounds, ctx)
+	points := coalesceShape(s.Shape, b.Shape).Shapify(bounds, ctx)
 	center := Coord{}
 	for _, p := range points {
 		center.X += p.X
@@ -49,6 +52,10 @@ func (s VisualFilled) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out 
 	}
 }
 
+func (s VisualFilled) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
+	return Coord{}
+}
+
 type VisualBordered struct {
 	Width         float32
 	OuterColor    Color
@@ -59,7 +66,9 @@ type VisualBordered struct {
 }
 
 func (s VisualBordered) Init(b *Base, init Init) {
-	s.Shape.Init(init)
+	if s.Shape != nil {
+		s.Shape.Init(init)
+	}
 }
 
 func (s VisualBordered) Update(b *Base, update Update) Dirty {
@@ -67,7 +76,7 @@ func (s VisualBordered) Update(b *Base, update Update) Dirty {
 }
 
 func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
-	inner := s.Shape.Shapify(bounds, ctx)
+	inner := coalesceShape(s.Shape, b.Shape).Shapify(bounds, ctx)
 	outer := make([]Coord, len(inner))
 	last := len(inner) - 1
 	i0 := last - 1
@@ -105,6 +114,10 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 	}
 }
 
+func (s VisualBordered) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
+	return Coord{}
+}
+
 type VisualFrame struct {
 	Sizes AmountBounds
 	Tile  []Tile
@@ -136,6 +149,10 @@ func (r VisualFrame) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 	}
 }
 
+func (s VisualFrame) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
+	return Coord{}
+}
+
 type VisualText struct {
 	Paragraphs       Paragraphs
 	VisibleThreshold *GlyphVisibility
@@ -161,15 +178,23 @@ func (s *VisualText) Clipped() *VisualText {
 	partial := GlyphVisibilityPartial
 	s.Clip = true
 	s.VisibleThreshold = &partial
+	return s.Dirty()
+}
+
+func (s *VisualText) SetText(text string) *VisualText {
+	s.Paragraphs = MustTextToParagraphs(text)
+	return s.Dirty()
+}
+
+func (s *VisualText) Dirty() *VisualText {
+	s.renderedBounds = Bounds{}
 	s.dirty = DirtyVisual
 	return s
 }
 
 func (s *VisualText) Visibility(threshold GlyphVisibility) *VisualText {
 	s.VisibleThreshold = &threshold
-	s.renderedBounds = Bounds{}
-	s.dirty = DirtyVisual
-	return s
+	return s.Dirty()
 }
 
 func (s *VisualText) WillClip() bool {
@@ -205,4 +230,26 @@ func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 			)
 		}
 	})
+}
+
+func (s VisualText) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
+	existingMaxWidth := s.Paragraphs.MaxWidth
+	s.Paragraphs.MaxWidth = maxWidth
+	size := s.Paragraphs.Measure(ctx)
+	s.Paragraphs.MaxWidth = existingMaxWidth
+	return size
+}
+
+func (s VisualText) Rendered() RenderedText {
+	return s.rendered
+}
+func (s VisualText) RenderedBounds() Bounds {
+	return s.renderedBounds
+}
+
+func coalesceShape(a, b Shape) Shape {
+	if a == nil {
+		a = b
+	}
+	return a
 }

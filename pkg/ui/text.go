@@ -101,11 +101,16 @@ func (a *Alignment) UnmarshalText(text []byte) error {
 	case "middle", "m", "center", "c":
 		*a = 0.5
 	default:
+		multiplier := float64(1)
+		if strings.HasSuffix(s, "%") {
+			s = strings.TrimSuffix(s, "%")
+			multiplier = 0.01
+		}
 		asFloat, err := strconv.ParseFloat(s, 32)
 		if err != nil {
 			return err
 		}
-		*a = Alignment(asFloat)
+		*a = Alignment(asFloat * multiplier)
 	}
 	return nil
 }
@@ -135,6 +140,7 @@ func (a ClipShow) MarshalText() ([]byte, error) {
 	}
 	return nil, fmt.Errorf("invalid clip show %d", a)
 }
+
 func (c *ClipShow) UnmarshalText(text []byte) error {
 	s := strings.ToLower(string(text))
 	switch s {
@@ -244,7 +250,7 @@ func (o *ParagraphsStylesOverride) HasOverride() bool {
 	if o == nil {
 		return false
 	}
-	return o != nil || o.ParagraphSpacing != nil || o.VerticalAlignment != nil || o.ClipShowX != nil || o.ClipShowY != nil
+	return o.ParagraphSpacing != nil || o.VerticalAlignment != nil || o.ClipShowX != nil || o.ClipShowY != nil
 }
 
 type TextStyles struct {
@@ -319,6 +325,9 @@ type RenderedGlyph struct {
 	Bounds     Bounds
 	Color      Color
 	Visibility GlyphVisibility
+	Line       int
+	Column     int
+	Word       int
 }
 
 type GlyphVisibility int
@@ -359,7 +368,12 @@ func (paragraph Paragraph) GetStates(ctx *RenderContext, style *ParagraphStyles)
 	return states
 }
 
-func (paragraph Paragraph) UnwrappedSize(ctx *RenderContext, scale Coord, paragraphs Paragraphs) Coord {
+const (
+	MeasureWidthRoundingError  = 0.001
+	MeasureHeightRoundingError = 0.001
+)
+
+func (paragraph Paragraph) Measure(ctx *RenderContext, paragraphs Paragraphs) Coord {
 	style := ctx.TextStyles.ParagraphStyles.Override(paragraph.Styles)
 	states := paragraph.GetStates(ctx, style)
 
@@ -367,28 +381,70 @@ func (paragraph Paragraph) UnwrappedSize(ctx *RenderContext, scale Coord, paragr
 	lineSpacing := style.LineSpacing.Get(ctx.AmountContext, false)
 	lineIndent := style.Indent.Get(ctx.AmountContext, true)
 	lineWidth := lineIndent
-	lineHeight := float32(0)
 	size := Coord{}
+	endOfLine := 0
+	lastBreak := -1
 
-	for glyphIndex := range paragraph.Glyphs {
-		state := states[glyphIndex]
-		if state.ShouldBreak {
-			if lineWidth > size.X {
-				size.X = lineWidth
-			}
-			if lineCount > 0 {
-				size.Y += lineSpacing
-			}
-			size.Y += paragraph.GetLineHeight(ctx, style, lineHeight) * scale.Y
-			lineCount++
-			lineWidth = 0
-			lineHeight = 0
-		} else {
-			lineWidth += state.Size.X * scale.X
-			if state.Size.Y > lineHeight {
-				lineHeight = state.Size.Y
-			}
+	endLine := func(newLineWidth float32, newEndOfLine int) {
+		// Keep track of biggest line width
+		if lineWidth > size.X {
+			size.X = lineWidth
 		}
+		// Add linespacing between lines
+		if lineCount > 0 {
+			size.Y += lineSpacing
+		}
+		// Calculate line height once the line is done
+		lineHeight := float32(0)
+		for i := endOfLine; i < newEndOfLine; i++ {
+			lineHeight = max(lineHeight, states[i].Size.Y)
+		}
+		size.Y += paragraph.GetLineHeight(ctx, style, lineHeight)
+		// Prepare for next line
+		lineCount++
+		lineWidth = newLineWidth
+		endOfLine = newEndOfLine
+		lastBreak = -1
+	}
+
+	glyphLast := len(paragraph.Glyphs) - 1
+
+	for glyphIndex := 0; glyphIndex <= glyphLast; glyphIndex++ {
+		state := states[glyphIndex]
+
+		if state.ShouldBreak {
+			endLine(0, glyphIndex)
+
+			if state.Empty {
+				continue
+			}
+		} else if paragraphs.Wrap(lineWidth+state.Size.X) && lastBreak != -1 {
+			// Wrap everything after lastBreak
+			endLineAt := lastBreak + 1
+			nextLineWidth := float32(0)
+			for k := endLineAt; k < glyphIndex; k++ {
+				nextLineWidth += states[k].Size.X
+			}
+
+			// Remove wrapped glyphs from current line
+			lineWidth -= nextLineWidth
+			// Exclude empty (whitespace) from line width when at end of line
+			if states[lastBreak].Empty {
+				lineWidth -= states[lastBreak].Size.X
+			}
+
+			// End line and start next
+			endLine(nextLineWidth, endLineAt)
+		}
+
+		lineWidth += state.Size.X
+		if state.CanBreak {
+			lastBreak = glyphIndex
+		}
+	}
+
+	if lineWidth > 0 {
+		endLine(0, glyphLast+1)
 	}
 
 	padding := style.ParagraphPadding.GetBounds(ctx.AmountContext)
@@ -397,6 +453,9 @@ func (paragraph Paragraph) UnwrappedSize(ctx *RenderContext, scale Coord, paragr
 	size.Y += padding.Bottom
 	size.X += padding.Left
 	size.X += padding.Right
+
+	size.X += MeasureWidthRoundingError
+	size.Y += MeasureHeightRoundingError
 
 	return size
 }
@@ -408,55 +467,64 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs) Ren
 	type line struct {
 		width  float32
 		height float32
-		glyphs []int
+		start  int
+		end    int
 	}
 
 	lineIndent := style.Indent.Get(ctx.AmountContext, true)
 	padding := style.ParagraphPadding.GetBounds(ctx.AmountContext)
 	paddingWidth := padding.Left + padding.Right
 
-	lines := make([]line, 0, 8)
-	currentLine := line{glyphs: []int{}, width: paddingWidth + lineIndent}
+	lastBreak := -1
+	glyphLast := len(paragraph.Glyphs) - 1
 
-	for glyphIndex := range paragraph.Glyphs {
+	lines := make([]line, 0, 8)
+	currentLine := line{start: 0, end: 0, width: paddingWidth + lineIndent}
+
+	endLine := func(lineWidth float32, start int) {
+		currentLine.end = start
+		currentLine.width -= lineWidth
+		lines = append(lines, currentLine)
+		currentLine = line{start: start, end: start, width: paddingWidth + lineWidth}
+		lastBreak = -1
+	}
+
+	for glyphIndex := 0; glyphIndex <= glyphLast; glyphIndex++ {
 		state := states[glyphIndex]
-		nextWidth := currentLine.width + state.Size.X
 
 		if state.ShouldBreak {
-			nextLine := line{glyphs: []int{}, width: paddingWidth}
-			lines = append(lines, currentLine)
-			currentLine = nextLine
+			endLine(0, glyphIndex)
 
 			if state.Empty {
 				continue
 			}
-		} else if paragraphs.Wrap(nextWidth) {
-			wrap := len(currentLine.glyphs) - 1
-			for wrap > 0 && !states[currentLine.glyphs[wrap]].CanBreak {
-				wrap--
-			}
-			if wrap < 0 {
-				wrap = 0
-			}
-
-			nextLine := line{glyphs: currentLine.glyphs[wrap:]}
-			for _, k := range nextLine.glyphs {
-				nextLine.width += states[k].Size.X
+		} else if paragraphs.Wrap(currentLine.width+state.Size.X) && lastBreak != -1 {
+			// Wrap everything after lastBreak
+			endLineAt := lastBreak + 1
+			// Glyphs moving to next line
+			nextLineWidth := float32(0)
+			for k := endLineAt; k < glyphIndex; k++ {
+				nextLineWidth += states[k].Size.X
 			}
 
-			currentLine.width -= nextLine.width
-			currentLine.glyphs = currentLine.glyphs[:wrap]
-			lines = append(lines, currentLine)
-			currentLine = nextLine
-			currentLine.width += paddingWidth
+			// Exclude empty (whitespace) from line width when at end of line
+			if states[lastBreak].Empty {
+				currentLine.width -= states[lastBreak].Size.X
+			}
+
+			// End line and start next
+			endLine(nextLineWidth, endLineAt)
 		}
 
 		currentLine.width += state.Size.X
-		currentLine.glyphs = append(currentLine.glyphs, glyphIndex)
+		currentLine.end++
+		if state.CanBreak {
+			lastBreak = glyphIndex
+		}
 	}
 
-	if len(currentLine.glyphs) > 0 {
-		lines = append(lines, currentLine)
+	if currentLine.start != currentLine.end {
+		endLine(0, glyphLast+1)
 	}
 	lineSpacing := style.LineSpacing.Get(ctx.AmountContext, false)
 
@@ -474,8 +542,8 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs) Ren
 
 		line := &lines[lineIndex]
 		actualLineHeight := float32(0)
-		for _, glyphIndex := range line.glyphs {
-			state := states[glyphIndex]
+		for k := line.start; k < line.end; k++ {
+			state := states[k]
 			if state.Size.Y > actualLineHeight {
 				actualLineHeight = state.Size.Y
 			}
@@ -487,6 +555,7 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs) Ren
 	rendered := make([]RenderedGlyph, 0, len(paragraph.Glyphs))
 	offsetY := padding.Top
 
+	words := 0
 	for lineIndex, line := range lines {
 		start := Coord{
 			X: style.HorizontalAlignment.Compute(paragraphs.MaxWidth - line.width),
@@ -504,14 +573,20 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs) Ren
 		}
 		start.X += padding.Left
 
-		for _, glyphIndex := range line.glyphs {
-			g := paragraph.Glyphs[glyphIndex]
-			s := states[glyphIndex]
+		for k := line.start; k < line.end; k++ {
+			g := paragraph.Glyphs[k]
+			s := states[k]
 			start.Y = offsetY + style.LineVerticalAlignment.Compute(line.height-s.Size.Y)
 			render := g.Render(ctx, start)
+			render.Line = lineIndex
+			render.Column = k - line.start
+			render.Word = words
 			if render.Bounds.Width() > 0 {
 				rendered = append(rendered, render)
+			} else if s.CanBreak || s.ShouldBreak {
+				words++
 			}
+
 			start.X += s.Size.X
 		}
 
@@ -521,7 +596,8 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs) Ren
 	return RenderedText{Bounds: bounds, Glyphs: rendered}
 }
 
-func (paragraph RenderedText) Translate(x, y float32) {
+func (paragraph *RenderedText) Translate(x, y float32) {
+	paragraph.Bounds.Translate(x, y)
 	for i := range paragraph.Glyphs {
 		paragraph.Glyphs[i].Bounds.Translate(x, y)
 	}
@@ -531,13 +607,13 @@ func (paragraphs Paragraphs) Wrap(lineWidth float32) bool {
 	return paragraphs.MaxWidth > 0 && lineWidth > paragraphs.MaxWidth
 }
 
-func (paragraphs Paragraphs) UnwrappedSize(ctx RenderContext, scale Coord) Coord {
+func (paragraphs Paragraphs) Measure(ctx *RenderContext) Coord {
 	style := ctx.TextStyles.ParagraphsStyles.Override(paragraphs.Styles)
 	size := Coord{}
 	paragraphCtx := ctx.WithParent(paragraphs.MaxWidth, paragraphs.MaxHeight)
 	paragraphSpacing := style.ParagraphSpacing.Get(paragraphCtx.AmountContext, false)
 	for i, paragraph := range paragraphs.Paragraphs {
-		paragraphSize := paragraph.UnwrappedSize(paragraphCtx, scale, paragraphs)
+		paragraphSize := paragraph.Measure(paragraphCtx, paragraphs)
 		if i > 0 {
 			size.Y += paragraphSpacing
 		}
@@ -586,11 +662,11 @@ func (paragraphs Paragraphs) Render(ctx *RenderContext) RenderedText {
 		switch style.ClipShowX {
 		case ClipShowLeft:
 			if paragraph.Bounds.Left < 0 {
-				offsetX = paragraph.Bounds.Left
+				offsetX = -paragraph.Bounds.Left
 			}
 		case ClipShowRight:
 			if paragraph.Bounds.Right > paragraphs.MaxWidth {
-				offsetX = paragraphs.MaxWidth - paragraph.Bounds.Right
+				offsetX = paragraph.Bounds.Right - paragraphs.MaxWidth
 			}
 		}
 
@@ -606,8 +682,22 @@ func (paragraphs Paragraphs) Render(ctx *RenderContext) RenderedText {
 		Bounds: joinedBounds,
 		Glyphs: make([]RenderedGlyph, 0, totalGlyphs),
 	}
+	lineOffset := 0
+	wordOfsset := 0
 	for _, paragraph := range rendered {
+		n := len(paragraph.Glyphs) - 1
+		if n == -1 {
+			continue
+		}
+		for i := 0; i <= n; i++ {
+			g := &paragraph.Glyphs[i]
+			g.Line += lineOffset
+			g.Word += wordOfsset
+		}
 		joined.Glyphs = append(joined.Glyphs, paragraph.Glyphs...)
+		last := paragraph.Glyphs[n]
+		lineOffset += last.Line + 1
+		wordOfsset += last.Word + 1
 	}
 
 	return joined

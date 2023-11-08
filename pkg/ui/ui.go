@@ -23,8 +23,9 @@ type UI struct {
 	Cursor         id.Identifier
 	Named          id.DenseMap[Component, uint16, uint16]
 
-	context AmountContext
-	bounds  Bounds
+	amountContext AmountContext
+	renderContext RenderContext
+	bounds        Bounds
 }
 
 func NewUI() *UI {
@@ -76,15 +77,24 @@ func (ui *UI) Place(newBounds Bounds) {
 	force := ui.bounds != newBounds
 	if force || ui.Root.GetDirty().Is(DirtyDeepPlacement|DirtyPlacement) {
 		ui.bounds = newBounds
-		ui.Root.Place(newBounds, force)
+		ui.Root.Place(&ui.renderContext, newBounds, force)
 	}
 }
 
 func (ui *UI) SetContext(ctx *AmountContext) {
-	if ctx != nil && ui.context != *ctx {
+	if ctx != nil && ui.amountContext != *ctx {
 		ui.Root.Dirty(DirtyVisual)
-		ui.context = *ctx
+		ui.amountContext = *ctx
+		ui.renderContext = RenderContext{
+			AmountContext: ui.amountContext.ForFont(ui.Theme.TextStyles.FontSize),
+			Theme:         ui.Theme,
+			TextStyles:    &ui.Theme.TextStyles,
+		}
 	}
+}
+
+func (ui *UI) RenderContext() *RenderContext {
+	return &ui.renderContext
 }
 
 func (ui *UI) NeedsRender() bool {
@@ -96,12 +106,7 @@ func (ui *UI) Update(update Update) {
 }
 
 func (ui *UI) Render(out *VertexBuffers) {
-	ctx := &RenderContext{
-		AmountContext: ui.context.ForFont(ui.Theme.TextStyles.FontSize),
-		Theme:         ui.Theme,
-		TextStyles:    &ui.Theme.TextStyles,
-	}
-	ui.Root.Render(ctx, out)
+	ui.Root.Render(&ui.renderContext, out)
 }
 
 func (ui *UI) IsPointerOver() bool {
@@ -206,11 +211,11 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 		ui.PointerPoint = ev.Point
 
 		if over != ui.PointerOver {
-			oldOver := ComponentMap{}
+			oldOver := NewComponentMap()
 			if ui.PointerOver != nil {
 				oldOver.AddLineage(ui.PointerOver)
 			}
-			newOver := ComponentMap{}
+			newOver := NewComponentMap()
 			if over != nil {
 				newOver.AddLineage(over)
 			}
@@ -227,6 +232,9 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 			triggerPointerEvent(movePath, ev.as(PointerEventMove))
 
 			ui.PointerOver = over
+		} else if over != nil {
+			// For every component in over's lineage we need to trigger move
+			triggerPointerEvent(getPath(over), ev.as(PointerEventMove))
 		}
 	}
 
@@ -249,9 +257,9 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 			old := getFocusablePath(ui.Focused)
 			new := getFocusablePath(ui.PointerOver)
 
-			oldMap := ComponentMap{}
+			oldMap := NewComponentMap()
 			oldMap.AddMany(old)
-			newMap := ComponentMap{}
+			newMap := NewComponentMap()
 			newMap.AddMany(new)
 
 			ui.Focused = ui.PointerOver

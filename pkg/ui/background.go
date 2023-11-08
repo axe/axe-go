@@ -18,7 +18,7 @@ type BackgroundColor struct {
 func (bc BackgroundColor) Init(b *Base, init Init)             {}
 func (bc BackgroundColor) Update(b *Base, update Update) Dirty { return DirtyNone }
 func (bc BackgroundColor) Backgroundify(b *Base, bounds Bounds, ctx *RenderContext, out *Vertex) {
-	out.AddColor(bc.Color.R, bc.Color.G, bc.Color.B, bc.Color.A)
+	out.AddColor(bc.Color)
 }
 
 type BackgroundLinearGradient struct {
@@ -37,12 +37,8 @@ func (bg BackgroundLinearGradient) Backgroundify(b *Base, bounds Bounds, ctx *Re
 	px := bounds.Dx(out.X) - bg.Start.X
 	py := bounds.Dy(out.Y) - bg.Start.Y
 	delta := Clamp(((dx*px)+(dy*py))/lenSq, 0, 1)
-	out.AddColor(
-		Lerp(bg.StartColor.R, bg.EndColor.R, delta),
-		Lerp(bg.StartColor.G, bg.EndColor.G, delta),
-		Lerp(bg.StartColor.B, bg.EndColor.B, delta),
-		Lerp(bg.StartColor.A, bg.EndColor.A, delta),
-	)
+
+	out.AddColor(bg.StartColor.Lerp(bg.EndColor, delta))
 }
 
 type BackgroundImage struct {
@@ -81,10 +77,5 @@ func (bg BackgroundRadialGradient) Backgroundify(b *Base, bounds Bounds, ctx *Re
 	olen := Length(nx*rx, ny*ry)
 	delta := Clamp(olen/len, 0, 1)
 
-	out.AddColor(
-		Lerp(bg.InnerColor.R, bg.OuterColor.R, delta),
-		Lerp(bg.InnerColor.G, bg.OuterColor.G, delta),
-		Lerp(bg.InnerColor.B, bg.OuterColor.B, delta),
-		Lerp(bg.InnerColor.A, bg.OuterColor.A, delta),
-	)
+	out.AddColor(bg.InnerColor.Lerp(bg.OuterColor, delta))
 }

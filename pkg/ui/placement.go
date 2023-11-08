@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"math"
-
 	"github.com/axe/axe-go/pkg/geom"
 )
 
@@ -73,6 +71,22 @@ func (p Placement) Shift(dx, dy float32) Placement {
 	return p
 }
 
+func (p *Placement) FitInside(width, height float32) {
+	b := p.GetBounds(width, height)
+	if b.Left < 0 {
+		p.Left.Base -= (p.Left.Delta*2 - 1) * b.Left
+	}
+	if b.Top < 0 {
+		p.Top.Base -= (p.Top.Delta*2 - 1) * b.Top
+	}
+	if b.Right > width {
+		p.Right.Base -= (p.Right.Delta*2 - 1) * b.Right
+	}
+	if b.Bottom > height {
+		p.Bottom.Base -= (p.Bottom.Delta*2 - 1) * b.Bottom
+	}
+}
+
 func (p *Placement) Relative(leftAnchor float32, topAnchor float32, rightAnchor float32, bottomAnchor float32) {
 	p.Left.Set(0, leftAnchor)
 	p.Top.Set(0, topAnchor)
@@ -127,19 +141,6 @@ func (p *Placement) RightFixedWidth(rightOffset float32, width float32, topOffse
 	p.Bottom.Set(bottomOffset, 1)
 }
 
-func (p *Placement) GetBoundsf(parentWidth float32, parentHeight float32) geom.Bounds2f {
-	return geom.Bounds2f{
-		Min: geom.Vec2f{
-			X: p.Left.Get(parentWidth),
-			Y: p.Top.Get(parentHeight),
-		},
-		Max: geom.Vec2f{
-			X: p.Right.Get(parentWidth),
-			Y: p.Bottom.Get(parentHeight),
-		},
-	}
-}
-
 func (p Placement) GetBoundsIn(parent Bounds) Bounds {
 	w := parent.Width()
 	h := parent.Height()
@@ -185,7 +186,7 @@ func (p Placement) GetWidth(parentWidth float32) float32 {
 }
 
 func (p Placement) GetMinWidth(parentWidth float32, minWidth float32) float32 {
-	return float32(math.Max(float64(minWidth), float64(p.Right.Get(parentWidth)-p.Left.Get(parentWidth))))
+	return max(minWidth, p.Right.Get(parentWidth)-p.Left.Get(parentWidth))
 }
 
 func (p Placement) GetHeight(parentHeight float32) float32 {
@@ -193,7 +194,7 @@ func (p Placement) GetHeight(parentHeight float32) float32 {
 }
 
 func (p Placement) GetMinHeight(parentHeight float32, minHeight float32) float32 {
-	return float32(math.Max(float64(minHeight), float64(p.Top.Get(parentHeight)-p.Bottom.Get(parentHeight))))
+	return max(minHeight, p.Top.Get(parentHeight)-p.Bottom.Get(parentHeight))
 }
 
 func (p Placement) PreferredWidth() float32 {
@@ -224,7 +225,7 @@ func (p Placement) ParentWidth(minWidth float32) float32 {
 		w += p.Left.Base
 	}
 	if p.Right.Delta == 1 {
-		w += p.Right.Base
+		w -= p.Right.Base
 	}
 	return w
 }
@@ -235,7 +236,7 @@ func (p Placement) ParentHeight(minHeight float32) float32 {
 		h += p.Top.Base
 	}
 	if p.Bottom.Delta == 1 {
-		h += p.Bottom.Base
+		h -= p.Bottom.Base
 	}
 	return h
 }

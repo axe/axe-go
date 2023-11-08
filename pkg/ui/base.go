@@ -18,12 +18,20 @@ type Base struct {
 	Clip         Placement
 	Transform    Transform
 	TextStyles   *TextStylesOverride
+	Shape        Shape
 	OverShape    []Coord
 	Transparency Watch[float32]
 	Animation    AnimationState
+	Animations   *Animations
 	Cursors      Cursors
 	Hooks        Hooks
 
+	Margin  AmountBounds
+	MinSize Coord
+	MaxSize Coord
+	Layout  Layout
+
+	visualBounds  Bounds
 	dirty         Dirty
 	parent        *Base
 	ui            *UI
@@ -64,14 +72,14 @@ func (c *Base) SetState(state State) {
 	}
 
 	if c.isDirtyForState(state) {
-		c.Dirty(DirtyVisual)
+		c.Dirty(DirtyVisual | DirtyPlacement)
 	}
 
 	c.States = state
 }
 
 func (c *Base) isDirtyForState(state State) bool {
-	if !c.dirty.Is(DirtyVisual) {
+	if !c.dirty.Is(DirtyVisual | DirtyPlacement) {
 		for _, layer := range c.Layers {
 			if layer.ForStates(state) != layer.ForStates(c.States) {
 				return true
@@ -99,6 +107,10 @@ func (c *Base) SetPlacement(placement Placement) {
 	}
 }
 
+func (c *Base) GetPlacement() Placement {
+	return c.Placement
+}
+
 func (b *Base) Init(init Init) {
 	if b.ui != nil && !b.Name.Empty() {
 		b.ui.Named.Set(b.Name, b)
@@ -107,8 +119,14 @@ func (b *Base) Init(init Init) {
 	if b.States == 0 {
 		b.States = StateDefault
 	}
+	if b.Shape != nil {
+		b.Shape.Init(init)
+	}
 	for i := range b.Layers {
 		b.Layers[i].Init(b, init)
+	}
+	if b.Layout != nil {
+		b.Layout.Init(b, init)
 	}
 	for _, child := range b.Children {
 		child.parent = b
@@ -123,7 +141,7 @@ func (b *Base) Init(init Init) {
 	}
 }
 
-func (b *Base) Place(parent Bounds, force bool) {
+func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 	doPlacement := force || b.dirty.Is(DirtyPlacement)
 	if doPlacement {
 		newBounds := b.Placement.GetBoundsIn(parent)
@@ -138,13 +156,36 @@ func (b *Base) Place(parent Bounds, force bool) {
 		b.dirty.Remove(DirtyPlacement)
 	}
 
+	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
+
+	if b.Layout != nil {
+		b.Layout.Layout(b, baseCtx, b.Bounds, b.Children)
+	}
+
 	for _, child := range b.Children {
-		child.Place(b.Bounds, force)
+		child.Place(baseCtx, b.Bounds, force)
 	}
 
 	if b.Hooks.OnPlace != nil {
-		b.Hooks.OnPlace(b, parent, force)
+		b.Hooks.OnPlace(b, parent, baseCtx, force)
 	}
+}
+
+func (b *Base) PreferredSize(ctx *RenderContext, ignorePlacement bool, maxWidth float32) Coord {
+	size := Coord{}
+	for _, layer := range b.Layers {
+		if layer.ForStates(b.States) {
+			size = size.Max(layer.PreferredSize(b, ctx, maxWidth))
+		}
+	}
+	if !ignorePlacement {
+		size = size.Max(Coord{
+			X: b.Placement.PreferredWidth(),
+			Y: b.Placement.PreferredHeight(),
+		})
+	}
+	size = size.Max(b.MinSize)
+	return size
 }
 
 func (c *Base) Update(update Update) {
@@ -182,17 +223,26 @@ func (c *Base) CheckForChanges() Dirty {
 	return dirty
 }
 
+func (c *Base) ComputeRenderContext() *RenderContext {
+	if c.parent == nil {
+		return c.ui.renderContext.WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
+	} else {
+		return c.parent.ComputeRenderContext().WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
+	}
+}
+
 func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 	if c.Transparency.Get() == 1 {
 		return
 	}
 
+	c.visualBounds.Clear()
+
 	baseCtx := ctx.WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
+	rendered := NewVertexIterator(out)
+	renderedIndex := NewIndexIterator(out)
 
 	if len(c.Layers) > 0 {
-		rendered := NewVertexIterator(out)
-		renderedIndex := NewIndexIterator(out)
-
 		for _, layer := range c.Layers {
 			if layer.ForStates(c.States) {
 				layer.Render(c, baseCtx, out)
@@ -200,7 +250,7 @@ func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 		}
 
 		c.PostProcess(baseCtx, out, renderedIndex, rendered)
-		c.Hooks.OnPostProcessLayers.Run(c, ctx, out, renderedIndex, rendered)
+		c.Hooks.OnPostProcessLayers.Run(c, baseCtx, out, renderedIndex, rendered)
 	}
 
 	if len(c.Children) > 0 {
@@ -215,15 +265,17 @@ func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 			}
 
 			c.PostProcess(baseCtx, inner, renderedIndex, renderedChildren)
-			c.Hooks.OnPostProcessChildren.Run(c, ctx, out, renderedIndex, renderedChildren)
+			c.Hooks.OnPostProcessChildren.Run(c, baseCtx, out, renderedIndex, renderedChildren)
 		})
 	}
 
 	c.dirty.Remove(DirtyVisual)
 
 	if c.Hooks.OnRender != nil {
-		c.Hooks.OnRender(c, ctx, out)
+		c.Hooks.OnRender(c, baseCtx, out)
 	}
+
+	c.updateVisualBounds(rendered)
 }
 
 func (c *Base) PostProcess(ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
@@ -252,6 +304,13 @@ func (c *Base) PostProcess(ctx *RenderContext, out *VertexBuffers, index IndexIt
 	c.Hooks.OnPostProcess.Run(c, ctx, out, index, vertex)
 }
 
+func (c *Base) updateVisualBounds(vertex VertexIterator) {
+	for vertex.HasNext() {
+		v := vertex.Next()
+		c.visualBounds.Include(v.X, v.Y)
+	}
+}
+
 func (c *Base) Parent() Component {
 	if c == nil || c.parent == nil {
 		return nil
@@ -260,7 +319,7 @@ func (c *Base) Parent() Component {
 }
 
 func (c *Base) IsInside(pt Coord) bool {
-	if !c.Bounds.Inside(pt) {
+	if !c.Bounds.InsideCoord(pt) {
 		return false
 	}
 
@@ -459,6 +518,7 @@ type Template struct {
 	PostEvents      Events
 	Clip            Placement
 	TextStyles      *TextStylesOverride
+	Shape           Shape
 	OverShape       []Coord
 	Animations      *Animations
 	AnimationsMerge bool
@@ -473,12 +533,12 @@ func (b *Base) ApplyTemplate(t *Template) {
 		return
 	}
 	if len(t.PreLayers) > 0 {
-		layers := b.Layers
+		layers := b.Layers[:]
 		b.Layers = append(make([]Layer, 0, len(b.Layers)+len(t.PreLayers)+len(t.PostLayers)))
 		b.Layers = append(b.Layers, t.PreLayers...)
 		b.Layers = append(b.Layers, layers...)
 	}
-	b.Layers = append(t.PostLayers)
+	b.Layers = append(b.Layers, t.PostLayers...)
 	b.Focusable = t.Focusable || b.Focusable
 	b.Draggable = t.Draggable || b.Draggable
 	b.Droppable = t.Droppable || b.Droppable
@@ -490,14 +550,17 @@ func (b *Base) ApplyTemplate(t *Template) {
 	if b.TextStyles == nil {
 		b.TextStyles = t.TextStyles
 	}
+	if b.Shape == nil {
+		b.Shape = t.Shape
+	}
 	if b.OverShape == nil {
 		b.OverShape = t.OverShape
 	}
-	if t.Animations != nil && (t.AnimationsMerge || b.Animation.Animations == nil) {
-		if b.Animation.Animations == nil {
-			b.Animation.Animations = &Animations{}
+	if t.Animations != nil && (t.AnimationsMerge || b.Animations == nil) {
+		if b.Animations == nil {
+			b.Animations = &Animations{}
 		}
-		b.Animation.Animations.Merge(t.Animations, false)
+		b.Animations.Merge(t.Animations, false)
 	}
 	if !t.Cursors.Empty() && (t.CursorsMerge || b.Cursors.Empty()) {
 		b.Cursors.Merge(t.Cursors.EnumMap, false, cursorNil)
