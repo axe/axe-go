@@ -238,6 +238,9 @@ func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 }
 
 func (s VisualText) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
+	if maxWidth == 0 {
+		maxWidth = s.Paragraphs.MinWidth(ctx)
+	}
 	existingMaxWidth := s.Paragraphs.MaxWidth
 	s.Paragraphs.MaxWidth = maxWidth
 	size := s.Paragraphs.Measure(ctx)

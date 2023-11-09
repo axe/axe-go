@@ -26,10 +26,11 @@ type Base struct {
 	Cursors      Cursors
 	Hooks        Hooks
 
-	Margin  AmountBounds
-	MinSize Coord
-	MaxSize Coord
-	Layout  Layout
+	Margin       AmountBounds
+	MarginBounds Bounds
+	MinSize      Coord
+	MaxSize      Coord
+	Layout       Layout
 
 	visualBounds  Bounds
 	dirty         Dirty
@@ -142,11 +143,17 @@ func (b *Base) Init(init Init) {
 }
 
 func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
+	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
+
 	doPlacement := force || b.dirty.Is(DirtyPlacement)
 	if doPlacement {
 		newBounds := b.Placement.GetBoundsIn(parent)
 		if newBounds != b.Bounds {
 			b.Bounds = newBounds
+
+			margin := b.Margin.GetBounds(baseCtx.AmountContext)
+			b.MarginBounds = b.Bounds.Expand(margin)
+
 			for i := range b.Layers {
 				b.Layers[i].Place(b, b.Bounds)
 			}
@@ -155,8 +162,6 @@ func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 		}
 		b.dirty.Remove(DirtyPlacement)
 	}
-
-	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 
 	if b.Layout != nil {
 		b.Layout.Layout(b, baseCtx, b.Bounds, b.Children)
@@ -171,6 +176,9 @@ func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 	}
 }
 
+// ctx should be relative to this component
+// ignorePlacement will ignore the inferred preferred width & height of the placement on this component
+// maxWidth should be relative to the size of this component
 func (b *Base) PreferredSize(ctx *RenderContext, ignorePlacement bool, maxWidth float32) Coord {
 	size := Coord{}
 	for _, layer := range b.Layers {
@@ -185,7 +193,30 @@ func (b *Base) PreferredSize(ctx *RenderContext, ignorePlacement bool, maxWidth 
 		})
 	}
 	size = size.Max(b.MinSize)
+	// if b.Layout == nil {
+	// 	for _, child := range b.Children {
+	// 		size = size.Max(child.Placement.MinParentSize())
+	// 		size = size.Max(child.PreferredSize(ctx, ignorePlacement, maxWidth))
+	// 	}
+	// } else {
+	// 	size = size.Max(b.Layout.PreferredSize(b, ctx, maxWidth, b.Children))
+	// }
 	return size
+}
+
+func (c *Base) UpdateMinSize() {
+	ctx := c.ComputeRenderContext()
+	c.UpdateMinSizeForContext(ctx)
+}
+
+func (c *Base) UpdateMinSizeForContext(ctx *RenderContext) {
+	c.MinSize = Coord{}
+	preferredSize := c.PreferredSize(ctx, true, 0)
+	if preferredSize != c.MinSize {
+		c.MinSize = preferredSize
+		// TODO
+		c.Dirty(DirtyPlacement)
+	}
 }
 
 func (c *Base) Update(update Update) {

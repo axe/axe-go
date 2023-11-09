@@ -8,6 +8,7 @@ type Layoutable interface {
 
 type Layout interface {
 	Init(b *Base, init Init)
+	PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord
 	Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base)
 }
 
@@ -24,6 +25,27 @@ type LayoutColumn struct {
 }
 
 func (l LayoutColumn) Init(b *Base, init Init) {}
+func (l LayoutColumn) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
+	size := Coord{}
+
+	for _, child := range layoutable {
+		childMargin := child.Margin.GetBounds(ctx.AmountContext)
+		childMaxWidth := maxWidth
+		if childMaxWidth > 0 {
+			childMaxWidth -= childMargin.Left + childMargin.Right
+		}
+		childSize := child.PreferredSize(ctx, !l.UsePlacementSizes, childMaxWidth)
+		childSize.X += childMargin.Left + childMargin.Right
+		childSize.Y += childMargin.Top + childMargin.Bottom
+		size.X = max(size.X, childSize.X)
+		size.Y += childSize.Y
+	}
+
+	spacing := l.Spacing.Get(ctx.AmountContext, false)
+	size.Y += spacing * float32(len(layoutable)-1)
+
+	return size
+}
 func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base) {
 	if len(layoutable) == 0 {
 		return
@@ -61,6 +83,27 @@ type LayoutRow struct {
 }
 
 func (l LayoutRow) Init(b *Base, init Init) {}
+func (l LayoutRow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
+	size := Coord{}
+
+	for _, child := range layoutable {
+		childMargin := child.Margin.GetBounds(ctx.AmountContext)
+		childMaxWidth := maxWidth
+		if childMaxWidth > 0 {
+			childMaxWidth -= childMargin.Left + childMargin.Right
+		}
+		childSize := child.PreferredSize(ctx, !l.UsePlacementSizes, childMaxWidth)
+		childSize.X += childMargin.Left + childMargin.Right
+		childSize.Y += childMargin.Top + childMargin.Bottom
+		size.Y = max(size.Y, childSize.Y)
+		size.X += childSize.X
+	}
+
+	spacing := l.Spacing.Get(ctx.AmountContext, false)
+	size.X += spacing * float32(len(layoutable)-1)
+
+	return size
+}
 func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base) {
 	if len(layoutable) == 0 {
 		return
@@ -107,6 +150,7 @@ type LayoutGrid struct {
 	MinSize             Coord
 	Columns             int
 	AspectRatio         float32
+	EqualHeights        bool
 }
 
 const (
@@ -114,6 +158,11 @@ const (
 )
 
 func (l LayoutGrid) Init(b *Base, init Init) {}
+func (l LayoutGrid) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
+	size := Coord{}
+	// TODO
+	return size
+}
 func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base) {
 	if len(layoutable) == 0 {
 		return
@@ -141,18 +190,7 @@ func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutabl
 	cellHeights := make([]float32, (len(layoutable)+columns-1)/int(columns))
 	cellWidth -= LayoutGridWidthRoundingError
 
-	sizes := make([]Coord, len(layoutable))
-	margins := make([]Bounds, len(layoutable))
-
-	for childIndex, child := range layoutable {
-		margin := child.Margin.GetBounds(ctx.AmountContext)
-		size := child.PreferredSize(ctx, !l.UsePlacementSizes, cellWidth-margin.Left-margin.Right)
-		size.X += margin.Left + margin.Right
-		size.Y += margin.Top + margin.Bottom
-
-		sizes[childIndex] = size
-		margins[childIndex] = margin
-	}
+	sizes, fullSizes, margins := getLayoutableDimensions(ctx, l.UsePlacementSizes, cellWidth, layoutable)
 
 	if l.AspectRatio > 0 {
 		for i := range cellHeights {
@@ -161,32 +199,42 @@ func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutabl
 	} else {
 		for childIndex := range layoutable {
 			row := childIndex / columns
-			cellHeights[row] = max(sizes[childIndex].Y, cellHeights[row])
+			cellHeights[row] = max(fullSizes[childIndex].Y, cellHeights[row])
 		}
 	}
+	maxHeight := float32(0)
 	for i := range cellHeights {
 		cellHeights[i] = max(cellHeights[i], l.MinSize.Y)
+		maxHeight = max(maxHeight, cellHeights[i])
+	}
+	if l.EqualHeights {
+		for i := range cellHeights {
+			cellHeights[i] = maxHeight
+		}
 	}
 
 	offsetY := float32(0)
 
 	for childIndex, child := range layoutable {
 		size := sizes[childIndex]
+		fullSize := fullSizes[childIndex]
 		margin := margins[childIndex]
 		row := childIndex / columns
 		col := childIndex % columns
 		cellHeight := cellHeights[row]
 
-		if l.FullHeight || size.Y > cellHeight {
-			size.Y = cellHeight
+		if l.FullWidth || fullSize.X > cellWidth {
+			size.X = cellWidth - margin.Left - margin.Right
+			fullSize.X = cellWidth
 		}
-		if l.FullWidth || size.X > cellWidth {
-			size.X = cellWidth
+		if l.FullHeight || fullSize.Y > cellHeight {
+			size.Y = cellHeight - margin.Top - margin.Bottom
+			fullSize.Y = cellHeight
 		}
 
 		offsetX := float32(col) * (cellWidth + spacingX)
-		alignX := l.HorizontalAlignment.Compute(cellWidth - size.X - margin.Left - margin.Right)
-		alignY := l.VerticalAlignment.Compute(cellHeight - size.Y - margin.Top - margin.Bottom)
+		alignX := l.HorizontalAlignment.Compute(cellWidth - fullSize.X)
+		alignY := l.VerticalAlignment.Compute(cellHeight - fullSize.Y)
 
 		left := offsetX + alignX + margin.Left
 		top := offsetY + alignY + margin.Top
@@ -197,4 +245,97 @@ func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutabl
 			offsetY += cellHeight + spacingY
 		}
 	}
+}
+
+// A layout which places all children on after another and wraps them
+// if it can't fit in a line.
+type LayoutInline struct {
+	VerticalAlignment   Alignment
+	HorizontalAlignment Alignment
+	VerticalSpacing     Amount
+	HorizontalSpacing   Amount
+	UsePlacementSizes   bool
+}
+
+func (l LayoutInline) Init(b *Base, init Init) {}
+func (l LayoutInline) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
+	size := Coord{}
+	// TODO
+	return size
+}
+func (l LayoutInline) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base) {
+	if len(layoutable) == 0 {
+		return
+	}
+
+	type line struct {
+		start, end    int
+		width, height float32
+	}
+
+	width := bounds.Width()
+	spacingX := l.HorizontalSpacing.Get(ctx.AmountContext, true)
+	spacingY := l.VerticalSpacing.Get(ctx.AmountContext, false)
+	sizes, fullSizes, margins := getLayoutableDimensions(ctx, l.UsePlacementSizes, width, layoutable)
+	lines := make([]line, 0, len(layoutable))
+	currentLine := line{}
+
+	for childIndex := range layoutable {
+		size := fullSizes[childIndex]
+		nextWidth := currentLine.width + size.X
+		if childIndex > currentLine.start {
+			nextWidth += spacingX
+		}
+		if nextWidth > width && childIndex > currentLine.start {
+			currentLine.end = childIndex
+			lines = append(lines, currentLine)
+			currentLine = line{start: childIndex}
+		}
+		currentLine.width += size.X
+		if childIndex > currentLine.start {
+			currentLine.width += spacingX
+		}
+		currentLine.height = max(currentLine.height, size.Y)
+	}
+	if currentLine.width > 0 {
+		currentLine.end = len(layoutable)
+		lines = append(lines, currentLine)
+	}
+
+	offsetY := float32(0)
+
+	for _, line := range lines {
+		offsetX := max(0, l.HorizontalAlignment.Compute(width-line.width))
+		for i := line.start; i < line.end; i++ {
+			child := layoutable[i]
+			size := sizes[i]
+			fullSize := fullSizes[i]
+			margin := margins[i]
+			alignY := l.VerticalAlignment.Compute(line.height - fullSize.Y)
+
+			child.SetPlacement(Absolute(offsetX+margin.Left, offsetY+alignY+margin.Top, size.X, size.Y))
+			offsetX += fullSize.X + spacingX
+		}
+		offsetY += line.height + spacingY
+	}
+}
+
+func getLayoutableDimensions(ctx *RenderContext, usePlacementSizes bool, width float32, children []*Base) (sizes []Coord, fullSizes []Coord, margins []Bounds) {
+	sizes = make([]Coord, len(children))
+	fullSizes = make([]Coord, len(children))
+	margins = make([]Bounds, len(children))
+
+	for childIndex, child := range children {
+		margin := child.Margin.GetBounds(ctx.AmountContext)
+		size := child.PreferredSize(ctx, !usePlacementSizes, width-margin.Left-margin.Right)
+
+		sizes[childIndex] = size
+		fullSizes[childIndex] = Coord{
+			X: size.X + margin.Left + margin.Right,
+			Y: size.Y + margin.Top + margin.Bottom,
+		}
+		margins[childIndex] = margin
+	}
+
+	return
 }

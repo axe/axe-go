@@ -241,6 +241,9 @@ func main() {
 									lc.FullWidth = !lc.FullWidth
 								})
 							}),
+							newButton(ui.Placement{}, "Update MinSize", false, func() {
+								layoutColumnWindow.UpdateMinSize()
+							}),
 						},
 					})
 
@@ -271,6 +274,9 @@ func main() {
 								layoutRowChange(func(lr *ui.LayoutRow) {
 									lr.FullHeight = !lr.FullHeight
 								})
+							}),
+							newButton(ui.Placement{}, "Update MinSize", false, func() {
+								layoutRowWindow.UpdateMinSize()
 							}),
 						},
 					})
@@ -349,6 +355,62 @@ func main() {
 									}
 								})
 							}),
+							newButton(ui.Placement{}, "Update MinSize", false, func() {
+								layoutGridWindow.UpdateMinSize()
+							}),
+						},
+					})
+
+					layoutInlineName := id.Get("layoutInline")
+					layoutInlineChange := func(change func(*ui.LayoutInline)) {
+						frame := userInterface.Named.Get(layoutInlineName).(*ui.Base)
+						layout := frame.Layout.(*ui.LayoutInline)
+						change(layout)
+						frame.Dirty(ui.DirtyPlacement)
+					}
+					layoutInlineWindow := newWindow("Layout Inline", ui.Absolute(20, 700, 300, 300))
+					layoutInlineWindow.Children = append(layoutInlineWindow.Children, &ui.Base{
+						Name:      layoutInlineName,
+						Placement: ui.MaximizeOffset(8, 44, 8, 8),
+						Layout: &ui.LayoutInline{
+							VerticalAlignment:   ui.AlignmentTop,
+							HorizontalAlignment: ui.AlignmentLeft,
+							VerticalSpacing:     ui.Amount{Value: 10},
+							HorizontalSpacing:   ui.Amount{Value: 10},
+						},
+						TextStyles: &ui.TextStylesOverride{
+							FontSize: &ui.Amount{Value: 20},
+							ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
+								VerticalAlignment: ui.Override(ui.AlignmentCenter),
+							},
+							ParagraphStylesOverride: &ui.ParagraphStylesOverride{
+								HorizontalAlignment: ui.Override(ui.AlignmentCenter),
+							},
+						},
+						Children: []*ui.Base{
+							newButton(ui.Placement{}, "Toggle Vertical Alignment", false, func() {
+								layoutInlineChange(func(lg *ui.LayoutInline) {
+									lg.VerticalAlignment = ui.Alignment(math.Mod(float64(lg.VerticalAlignment)+0.5, 1.5))
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle Horizontal Alignment", false, func() {
+								layoutInlineChange(func(lg *ui.LayoutInline) {
+									lg.HorizontalAlignment = ui.Alignment(math.Mod(float64(lg.HorizontalAlignment)+0.5, 1.5))
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle Vertical Spacing", false, func() {
+								layoutInlineChange(func(lg *ui.LayoutInline) {
+									lg.VerticalSpacing.Value = float32(math.Mod(float64(lg.VerticalSpacing.Value)+10, 30))
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle Horizontal Spacing", false, func() {
+								layoutInlineChange(func(lg *ui.LayoutInline) {
+									lg.HorizontalSpacing.Value = float32(math.Mod(float64(lg.HorizontalSpacing.Value)+10, 30))
+								})
+							}),
+							newButton(ui.Placement{}, "Update MinSize", false, func() {
+								layoutInlineWindow.UpdateMinSize()
+							}),
 						},
 					})
 
@@ -361,6 +423,7 @@ func main() {
 							layoutColumnWindow,
 							layoutRowWindow,
 							layoutGridWindow,
+							layoutInlineWindow,
 							{
 								Placement: ui.Placement{
 									Left:   ui.Anchor{Delta: 1, Base: -200},

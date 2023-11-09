@@ -60,6 +60,14 @@ func (b Bounds) Inside(x, y float32) bool {
 func (b Bounds) InsideCoord(c Coord) bool {
 	return !(c.X < b.Left || c.X > b.Right || c.Y < b.Top || c.Y > b.Bottom)
 }
+func (b Bounds) Expand(a Bounds) Bounds {
+	return Bounds{
+		Left:   b.Left - a.Left,
+		Top:    b.Top - a.Top,
+		Right:  b.Right + a.Right,
+		Bottom: b.Bottom + a.Bottom,
+	}
+}
 func (b Bounds) Union(a Bounds) Bounds {
 	if b.IsZero() {
 		return a

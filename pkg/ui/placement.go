@@ -233,6 +233,13 @@ func (p Placement) PreferredWidth() float32 {
 	return 0
 }
 
+func (p Placement) MinParentSize() Coord {
+	return Coord{
+		X: p.MinParentWidth(),
+		Y: p.MinParentHeight(),
+	}
+}
+
 func (p Placement) MinParentWidth() float32 {
 	return p.ParentWidth(p.PreferredWidth())
 }
@@ -246,6 +253,13 @@ func (p Placement) PreferredHeight() float32 {
 
 func (p Placement) MinParentHeight() float32 {
 	return p.ParentHeight(p.PreferredHeight())
+}
+
+func (p Placement) ParentSize(minWidth, minHeight float32) Coord {
+	return Coord{
+		X: p.ParentWidth(minWidth),
+		Y: p.ParentHeight(minHeight),
+	}
 }
 
 func (p Placement) ParentWidth(minWidth float32) float32 {

@@ -36,10 +36,13 @@ func (l *Layer) Update(b *Base, update Update) Dirty {
 func (l Layer) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
 	size := Coord{}
 	if l.Visual != nil {
-		padding := l.Placement.ParentWidth(0)
-		size = l.Visual.PreferredSize(b, ctx, maxWidth-padding)
-		size.X = l.Placement.ParentWidth(size.X)
-		size.Y = l.Placement.ParentHeight(size.Y)
+		padding := l.Placement.ParentSize(0, 0)
+		if maxWidth > 0 {
+			maxWidth -= padding.X
+		}
+		size = l.Visual.PreferredSize(b, ctx, maxWidth)
+		size.X += padding.X
+		size.Y += padding.Y
 	}
 	return size
 }

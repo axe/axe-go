@@ -159,7 +159,7 @@ func (c *ClipShow) UnmarshalText(text []byte) error {
 }
 
 type ParagraphStyles struct {
-	Spacing               Amount       // extra space between glyphs
+	Spacing               Amount       // extra space between glyphs TODO
 	LineSpacing           Amount       // extra space between lines
 	LineHeight            Amount       // 0=calculated per line
 	LineVerticalAlignment Alignment    // 0=top, 0.5=middle, 1=bottom
@@ -372,6 +372,35 @@ const (
 	MeasureWidthRoundingError  = 0.001
 	MeasureHeightRoundingError = 0.001
 )
+
+func (paragraph Paragraph) MinWidth(ctx *RenderContext) float32 {
+	style := ctx.TextStyles.ParagraphStyles.Override(paragraph.Styles)
+	states := paragraph.GetStates(ctx, style)
+
+	lineIndent := style.Indent.Get(ctx.AmountContext, true)
+	lineWidth := lineIndent
+	maxWidth := float32(0)
+
+	for _, state := range states {
+		if state.ShouldBreak || state.CanBreak {
+			maxWidth = max(maxWidth, lineWidth)
+			lineWidth = 0
+
+			if state.Empty {
+				continue
+			}
+		}
+		lineWidth += state.Size.X
+	}
+	maxWidth = max(maxWidth, lineWidth)
+
+	minWidth := maxWidth
+	minWidth += style.ParagraphPadding.Left.Get(ctx.AmountContext, true)
+	minWidth += style.ParagraphPadding.Right.Get(ctx.AmountContext, true)
+	minWidth += MeasureWidthRoundingError
+
+	return minWidth
+}
 
 func (paragraph Paragraph) Measure(ctx *RenderContext, paragraphs Paragraphs) Coord {
 	style := ctx.TextStyles.ParagraphStyles.Override(paragraph.Styles)
@@ -605,6 +634,14 @@ func (paragraph *RenderedText) Translate(x, y float32) {
 
 func (paragraphs Paragraphs) Wrap(lineWidth float32) bool {
 	return paragraphs.MaxWidth > 0 && lineWidth > paragraphs.MaxWidth
+}
+
+func (paragraphs Paragraphs) MinWidth(ctx *RenderContext) float32 {
+	minWidth := float32(0)
+	for _, para := range paragraphs.Paragraphs {
+		minWidth = max(minWidth, para.MinWidth(ctx))
+	}
+	return minWidth
 }
 
 func (paragraphs Paragraphs) Measure(ctx *RenderContext) Coord {
