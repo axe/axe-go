@@ -167,7 +167,7 @@ func generateWindow(title string, placement ui.Placement) *ui.Base {
 		"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
 	}
 	text := &ui.Base{
-		Placement: ui.MaximizeOffset(10, 34, -10, -10),
+		Placement: ui.MaximizeOffset(10, 34, 10, 10),
 		Children: []*ui.Base{{
 			Layers: []ui.Layer{{
 				Visual: ui.MustTextToVisual(strings.Join(lines, "\n")).Clipped(),

@@ -12,15 +12,11 @@ type Placement struct {
 }
 
 func Maximized() Placement {
-	p := Placement{}
-	p.Maximize()
-	return p
+	return Placement{}.Maximize()
 }
 
 func Centered(width float32, height float32) Placement {
-	p := Placement{}
-	p.Center(width, height)
-	return p
+	return Placement{}.Center(width, height)
 }
 
 func Absolute(left, top, width, height float32) Placement {
@@ -36,8 +32,8 @@ func MaximizeOffset(left, top, right, bottom float32) Placement {
 	p := Placement{}
 	p.Left.Set(left, 0)
 	p.Top.Set(top, 0)
-	p.Right.Set(right, 1)
-	p.Bottom.Set(bottom, 1)
+	p.Right.Set(-right, 1)
+	p.Bottom.Set(-bottom, 1)
 	return p
 }
 
@@ -71,23 +67,42 @@ func (p Placement) Shift(dx, dy float32) Placement {
 	return p
 }
 
-func (p *Placement) FitInside(width, height float32) {
+func (p Placement) FitInside(width, height float32, keepSize bool) Placement {
 	b := p.GetBounds(width, height)
 	if b.Left < 0 {
-		p.Left.Base -= (p.Left.Delta*2 - 1) * b.Left
-	}
-	if b.Top < 0 {
-		p.Top.Base -= (p.Top.Delta*2 - 1) * b.Top
+		p.Left.Base -= b.Left
+		if keepSize {
+			p.Right.Base -= b.Left
+		}
+		b.Right -= b.Left
+		b.Left = 0
 	}
 	if b.Right > width {
-		p.Right.Base -= (p.Right.Delta*2 - 1) * b.Right
+		over := b.Right - width
+		p.Right.Base -= over
+		if keepSize {
+			p.Left.Base -= over
+		}
+	}
+	if b.Top < 0 {
+		p.Top.Base -= b.Top
+		if keepSize {
+			p.Bottom.Base -= b.Top
+		}
+		b.Bottom -= b.Top
+		b.Top = 0
 	}
 	if b.Bottom > height {
-		p.Bottom.Base -= (p.Bottom.Delta*2 - 1) * b.Bottom
+		over := b.Bottom - height
+		p.Bottom.Base -= over
+		if keepSize {
+			p.Top.Base -= over
+		}
 	}
+	return p
 }
 
-func (p Placement) Padding(padding Bounds) Placement {
+func (p Placement) Padded(padding Bounds) Placement {
 	p.Left.Base += padding.Left
 	p.Right.Base -= padding.Right
 	p.Top.Base += padding.Top
@@ -95,58 +110,64 @@ func (p Placement) Padding(padding Bounds) Placement {
 	return p
 }
 
-func (p *Placement) Relative(leftAnchor float32, topAnchor float32, rightAnchor float32, bottomAnchor float32) {
+func (p Placement) Relative(leftAnchor float32, topAnchor float32, rightAnchor float32, bottomAnchor float32) Placement {
 	p.Left.Set(0, leftAnchor)
 	p.Top.Set(0, topAnchor)
 	p.Right.Set(0, rightAnchor)
 	p.Bottom.Set(0, bottomAnchor)
+	return p
 }
 
-func (p *Placement) Maximize() {
-	p.Relative(0, 0, 1, 1)
+func (p Placement) Maximize() Placement {
+	return p.Relative(0, 0, 1, 1)
 }
 
 func (p Placement) IsMaximized() bool {
 	return p.Left.Is(0, 0) && p.Top.Is(0, 0) && p.Right.Is(0, 1) && p.Bottom.Is(0, 1)
 }
 
-func (p *Placement) Attach(dx float32, dy float32, width float32, height float32) {
+func (p Placement) Attach(dx float32, dy float32, width float32, height float32) Placement {
 	p.Left.Set(width*-dx, dx)
 	p.Right.Set(width*(1-dx), dx)
 	p.Top.Set(height*-dy, dy)
 	p.Bottom.Set(height*(1-dy), dy)
+	return p
 }
 
-func (p *Placement) Center(width float32, height float32) {
-	p.Attach(0.5, 0.5, width, height)
+func (p Placement) Center(width float32, height float32) Placement {
+	return p.Attach(0.5, 0.5, width, height)
 }
 
-func (p *Placement) TopFixedHeight(topOffset float32, height float32, leftOffset float32, rightOffset float32) {
+func (p Placement) TopFixedHeight(topOffset float32, height float32, leftOffset float32, rightOffset float32) Placement {
 	p.Left.Set(leftOffset, 0)
 	p.Right.Set(rightOffset, 1)
 	p.Top.Set(topOffset, 0)
 	p.Bottom.Set(topOffset+height, 0)
+	return p
 }
 
-func (p *Placement) BottomFixedHeight(bottomOffset float32, height float32, leftOffset float32, rightOffset float32) {
+func (p Placement) BottomFixedHeight(bottomOffset float32, height float32, leftOffset float32, rightOffset float32) Placement {
 	p.Left.Set(leftOffset, 0)
 	p.Right.Set(rightOffset, 1)
-	p.Top.Set(bottomOffset+height, 0)
-	p.Bottom.Set(bottomOffset, 0)
+	p.Top.Set(-bottomOffset-height, 1)
+	p.Bottom.Set(-bottomOffset, 1)
+	return p
 }
 
-func (p *Placement) LeftFixedWidth(leftOffset float32, width float32, topOffset float32, bottomOffset float32) {
+func (p Placement) LeftFixedWidth(leftOffset float32, width float32, topOffset float32, bottomOffset float32) Placement {
 	p.Left.Set(leftOffset, 0)
 	p.Right.Set(leftOffset+width, 0)
 	p.Top.Set(topOffset, 0)
 	p.Bottom.Set(bottomOffset, 1)
+	return p
 }
 
-func (p *Placement) RightFixedWidth(rightOffset float32, width float32, topOffset float32, bottomOffset float32) {
-	p.Left.Set(rightOffset+width, 1)
-	p.Right.Set(rightOffset, 1)
+func (p Placement) RightFixedWidth(rightOffset float32, width float32, topOffset float32, bottomOffset float32) Placement {
+	p.Left.Set(-rightOffset-width, 1)
+	p.Right.Set(-rightOffset, 1)
 	p.Top.Set(topOffset, 0)
 	p.Bottom.Set(bottomOffset, 1)
+	return p
 }
 
 func (p Placement) GetBoundsIn(parent Bounds) Bounds {

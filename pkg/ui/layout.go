@@ -40,9 +40,9 @@ func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 		if l.FullWidth {
 			size.X = width - margin.Left - margin.Right
 		}
-		placement := child.Placement
-		placement.Attach(deltaX, 0, size.X, size.Y)
-		placement = placement.Shift(margin.Left, offsetY+margin.Top)
+		placement := child.Placement.
+			Attach(deltaX, 0, size.X, size.Y).
+			Shift(margin.Left, offsetY+margin.Top)
 		child.SetPlacement(placement)
 		offsetY += size.Y + margin.Top + margin.Bottom + spacing
 	}
@@ -77,9 +77,9 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 		if l.FullHeight {
 			size.Y = height - margin.Top - margin.Bottom
 		}
-		placement := child.Placement
-		placement.Attach(0, deltaY, size.X, size.Y)
-		placement = placement.Shift(offsetX+margin.Left, margin.Top)
+		placement := child.Placement.
+			Attach(0, deltaY, size.X, size.Y).
+			Shift(offsetX+margin.Left, margin.Top)
 		child.SetPlacement(placement)
 		offsetX += size.X + margin.Left + margin.Right + spacing
 	}

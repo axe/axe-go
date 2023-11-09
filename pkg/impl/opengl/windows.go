@@ -232,8 +232,7 @@ type window struct {
 var _ axe.Window = &window{}
 
 func newWindow() *window {
-	place := ui.Placement{}
-	place.Center(512, 512)
+	place := ui.Centered(512, 512)
 
 	return &window{
 		title:     react.Val(""),

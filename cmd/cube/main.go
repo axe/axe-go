@@ -193,7 +193,7 @@ func main() {
 					textWindow := newWindow("Test Window", ui.Absolute(900, 20, 400, 300))
 					textWindow.Children = append(textWindow.Children,
 						&ui.Base{
-							Placement: ui.MaximizeOffset(10, 34, -10, -10),
+							Placement: ui.MaximizeOffset(10, 34, 10, 10),
 							Children: []*ui.Base{{
 								Layers: []ui.Layer{{
 									Visual: ui.MustTextToVisual(strings.Join([]string{
@@ -223,7 +223,7 @@ func main() {
 					layoutColumnWindow := newWindow("Layout Column", ui.Absolute(10, 500, 300, 300))
 					layoutColumnWindow.Children = append(layoutColumnWindow.Children, &ui.Base{
 						Name:      layoutColumnName,
-						Placement: ui.MaximizeOffset(8, 44, -8, -8),
+						Placement: ui.MaximizeOffset(8, 44, 8, 8),
 						// Clip:      ui.Maximized(),
 						Layout: &ui.LayoutColumn{
 							FullWidth:           false,
@@ -254,7 +254,7 @@ func main() {
 					layoutRowWindow := newWindow("Layout Row", ui.Absolute(800, 500, 300, 300))
 					layoutRowWindow.Children = append(layoutRowWindow.Children, &ui.Base{
 						Name:      layoutRowName,
-						Placement: ui.MaximizeOffset(8, 44, -8, -8),
+						Placement: ui.MaximizeOffset(8, 44, 8, 8),
 						// Clip:      ui.Maximized(),
 						Layout: &ui.LayoutRow{
 							FullHeight:        false,
@@ -285,7 +285,7 @@ func main() {
 					layoutGridWindow := newWindow("Layout Grid", ui.Absolute(1000, 300, 300, 300))
 					layoutGridWindow.Children = append(layoutGridWindow.Children, &ui.Base{
 						Name:      layoutGridName,
-						Placement: ui.MaximizeOffset(8, 44, -8, -8),
+						Placement: ui.MaximizeOffset(8, 44, 8, 8),
 						// Clip:      ui.Maximized(),
 						Layout: &ui.LayoutGrid{
 							FullHeight:          false,
@@ -810,11 +810,11 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 					frame.Transparency.Set(0.2)
 					frame.BringToFront()
 				case ui.DragEventMove:
-					shifted := frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y)
-					// parent := frame.Parent().(*ui.Base)
-					// shifted.FitInside(parent.Bounds.Width(), parent.Bounds.Height())
+					parent := frame.Parent().(*ui.Base)
+					shifted := frame.Placement.
+						Shift(ev.DeltaMove.X, ev.DeltaMove.Y).
+						FitInside(parent.Bounds.Width(), parent.Bounds.Height(), true)
 					frame.SetPlacement(shifted)
-
 				case ui.DragEventEnd:
 					frame.Transparency.Set(0)
 				}
