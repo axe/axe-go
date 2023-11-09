@@ -3,9 +3,10 @@ package ux
 import "github.com/axe/axe-go/pkg/ui"
 
 type DialogStyles struct {
-	BarHeight       ui.Amount
-	BarPadding      ui.AmountBounds
-	ChildrenPadding ui.AmountBounds
+	BarHeight        ui.Amount
+	BarPadding       ui.AmountBounds
+	ChildrenPadding  ui.AmountBounds
+	DragTransparency float32
 }
 
 type Dialog struct {
@@ -14,6 +15,7 @@ type Dialog struct {
 
 	Children []HasComponent
 
+	RetainOrderOnDrag        bool
 	HideMaximize             bool
 	HideClose                bool
 	AllowOutside             bool

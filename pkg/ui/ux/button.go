@@ -62,7 +62,13 @@ func (b Button) Build(theme *Theme) *ButtonBase {
 							b.OnAction()
 							ev.Stop = true
 						}
+						base.clickTrigger.Set(1)
+						base.actionTrigger.Set(1)
 						base.clicks.Add(1)
+					}
+					if !ev.Capture && ev.Type == ui.PointerEventUp {
+						base.clickTrigger.Set(0)
+						base.actionTrigger.Set(0)
 					}
 				},
 				OnKey: func(ev *ui.KeyEvent) {
@@ -74,7 +80,13 @@ func (b Button) Build(theme *Theme) *ButtonBase {
 							b.OnAction()
 							ev.Stop = true
 						}
+						base.enterTrigger.Set(1)
+						base.actionTrigger.Set(1)
 						base.enters.Add(1)
+					}
+					if !ev.Capture && ev.Key == input.KeyEnter && ev.Type == ui.KeyEventUp {
+						base.enterTrigger.Set(0)
+						base.actionTrigger.Set(0)
 					}
 				},
 			},
@@ -96,8 +108,11 @@ type ButtonBase struct {
 	Options    Button
 	TextVisual *ui.VisualText
 
-	clicks Counter
-	enters Counter
+	clickTrigger  Trigger
+	enterTrigger  Trigger
+	actionTrigger Trigger
+	clicks        Counter
+	enters        Counter
 }
 
 var _ HasComponent = &ButtonBase{}
@@ -105,3 +120,12 @@ var _ HasComponent = &ButtonBase{}
 func (b *ButtonBase) GetComponent(theme *Theme) *ui.Base { return b.Component }
 func (b *ButtonBase) Clicked() bool                      { return b.clicks.Changed() }
 func (b *ButtonBase) Entered() bool                      { return b.enters.Changed() }
+func (b *ButtonBase) ClickAction(name string) *input.Action {
+	return input.NewAction(name, b.clickTrigger)
+}
+func (b *ButtonBase) EnterAction(name string) *input.Action {
+	return input.NewAction(name, b.enterTrigger)
+}
+func (b *ButtonBase) Action(name string) *input.Action {
+	return input.NewAction(name, b.actionTrigger)
+}

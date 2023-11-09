@@ -1,6 +1,9 @@
 package ux
 
-import "github.com/axe/axe-go/pkg/ui"
+import (
+	"github.com/axe/axe-go/pkg/input"
+	"github.com/axe/axe-go/pkg/ui"
+)
 
 type HasComponent interface {
 	GetComponent(theme *Theme) *ui.Base
@@ -129,3 +132,12 @@ func (c *Counter) Changed() bool {
 	*c = 0
 	return changed
 }
+
+type Trigger float32
+
+func (t *Trigger) Set(value float32)            { *t = Trigger(value) }
+func (t Trigger) Init(inputs input.InputSystem) {}
+func (t Trigger) Update(inputs input.InputSystem) (input.Data, bool) {
+	return input.Data{Value: float32(t)}, true
+}
+func (t Trigger) InputCount() int { return 0 }
