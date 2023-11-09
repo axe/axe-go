@@ -526,6 +526,10 @@ type Template struct {
 	CursorsMerge    bool
 	PreHooks        Hooks
 	PostHooks       Hooks
+	Margin          AmountBounds
+	MinSize         Coord
+	MaxSize         Coord
+	Layout          Layout
 }
 
 func (b *Base) ApplyTemplate(t *Template) {
@@ -567,4 +571,16 @@ func (b *Base) ApplyTemplate(t *Template) {
 	}
 	b.Hooks.Add(t.PreHooks, true)
 	b.Hooks.Add(t.PostHooks, false)
+	if b.Margin.IsZero() {
+		b.Margin = t.Margin
+	}
+	if b.MinSize.IsZero() {
+		b.MinSize = t.MinSize
+	}
+	if b.MaxSize.IsZero() {
+		b.MaxSize = t.MaxSize
+	}
+	if b.Layout == nil {
+		b.Layout = t.Layout
+	}
 }

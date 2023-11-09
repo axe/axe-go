@@ -586,21 +586,10 @@ func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.
 				if !ev.Capture && ev.Type == ui.PointerEventDown && onClick != nil {
 					onClick()
 					ev.Stop = true
-
-					// ctx := button.ComputeRenderContext()
-					// renderAgain := textVisual.Paragraphs.Render(ctx)
-					// r := textVisual.Rendered()
-					// fmt.Printf("Button (layerBounds=%v, textBounds=%v, preferredSize=%+v, renderAgain=%v)\n",
-					// 	textVisual.RenderedBounds(),
-					// 	r.Bounds,
-					// 	textVisual.PreferredSize(button, ctx, button.Bounds.Width()-20),
-					// 	renderAgain.Bounds,
-					// )
 				}
 			},
 		},
 		Layers: []ui.Layer{{
-			// Text content
 			Placement: ui.Maximized().Shrink(10),
 			Visual:    textVisual,
 		}},

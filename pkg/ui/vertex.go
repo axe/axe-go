@@ -24,6 +24,10 @@ func (c *Coord) Set(x, y float32) {
 	c.Y = y
 }
 
+func (c Coord) IsZero() bool {
+	return c.X == 0 && c.Y == 0
+}
+
 type TexCoord struct {
 	Coord
 	Texture string

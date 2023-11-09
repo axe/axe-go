@@ -227,6 +227,10 @@ func (a *AmountBounds) Set(value float32, unit Unit) {
 	a.Bottom.Set(value, unit)
 }
 
+func (a AmountBounds) IsZero() bool {
+	return a.Left.IsZero() && a.Top.IsZero() && a.Right.IsZero() && a.Bottom.IsZero()
+}
+
 type AmountCorners struct {
 	TopLeft     Amount
 	TopRight    Amount

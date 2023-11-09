@@ -87,6 +87,14 @@ func (p *Placement) FitInside(width, height float32) {
 	}
 }
 
+func (p Placement) Padding(padding Bounds) Placement {
+	p.Left.Base += padding.Left
+	p.Right.Base -= padding.Right
+	p.Top.Base += padding.Top
+	p.Bottom.Base -= padding.Bottom
+	return p
+}
+
 func (p *Placement) Relative(leftAnchor float32, topAnchor float32, rightAnchor float32, bottomAnchor float32) {
 	p.Left.Set(0, leftAnchor)
 	p.Top.Set(0, topAnchor)

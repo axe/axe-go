@@ -186,6 +186,11 @@ func (s *VisualText) SetText(text string) *VisualText {
 	return s.Dirty()
 }
 
+func (s *VisualText) SetParagraphs(para Paragraphs) *VisualText {
+	s.Paragraphs = para
+	return s.Dirty()
+}
+
 func (s *VisualText) Dirty() *VisualText {
 	s.renderedBounds = Bounds{}
 	s.dirty = DirtyVisual
