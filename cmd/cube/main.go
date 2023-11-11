@@ -344,7 +344,6 @@ func main() {
 							VerticalSpacing:     ui.Amount{Value: 10},
 							HorizontalSpacing:   ui.Amount{Value: 10},
 							Columns:             3,
-							MinSize:             ui.Coord{X: 80, Y: 80},
 							AspectRatio:         0,
 						},
 						TextStyles: &ui.TextStylesOverride{
@@ -360,6 +359,11 @@ func main() {
 							newButton(ui.Placement{}, "Toggle GridFullWidth", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
 									lg.GridFullWidth = !lg.GridFullWidth
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle GridFullHeight", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.GridFullHeight = !lg.GridFullHeight
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle FullHeight", false, func() {
@@ -402,14 +406,25 @@ func main() {
 									lg.Columns = (lg.Columns + 1) % 6
 								})
 							}),
-							newButton(ui.Placement{}, "Toggle MinSize", false, func() {
+							newButton(ui.Placement{}, "Toggle MinHeights", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									if lg.MinSize.X == 0 {
-										lg.MinSize.Set(80, 80)
-									} else if lg.MinSize.X == 80 {
-										lg.MinSize.Set(160, 160)
+									if len(lg.MinHeights) == 0 {
+										lg.MinHeights = ui.LayoutDimensions{80}
+									} else if len(lg.MinHeights) == 1 {
+										lg.MinHeights = ui.LayoutDimensions{80, 160}
 									} else {
-										lg.MinSize.Set(0, 0)
+										lg.MinHeights = nil
+									}
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle MinWidths", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									if len(lg.MinWidths) == 0 {
+										lg.MinWidths = ui.LayoutDimensions{100}
+									} else if len(lg.MinWidths) == 1 {
+										lg.MinWidths = ui.LayoutDimensions{100, 200}
+									} else {
+										lg.MinWidths = nil
 									}
 								})
 							}),

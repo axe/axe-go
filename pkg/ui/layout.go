@@ -329,30 +329,67 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 }
 
 // A layout which places all children in a grid. The number of columns in the
-// grid can be given or a MinSize can be given with a non-zero X component. That
+// grid can be given or MinWidths can be given with a non-zero X component. That
 // component is used with the spacing and the width of the parent to maintain
 // a dynamic number of columns based on the min width. The width of the cell
 // is evenly distributed is EqualWidths. The height of the cell can be determined
-// by the max preferred size of a child in a row while also using the MinSize.Y defined
+// by the max preferred size of a child in a row while also using the MinHeights defined
 // on the layout which all can be overridden if a non-zero AspectRatio is defined
 // which will make all rows have the same height respective to the cell width.
 // Alignment of a component within a cell is determine by Vertical and Horizontal
 // alignment, unless FullWidth & FullHeight are given which means the component
 // expands to fit the cell.
 type LayoutGrid struct {
-	GridFullWidth       bool
-	FullHeight          bool
-	FullWidth           bool
-	VerticalAlignment   Alignment
+	// The grid will take up the full width of the bounds. May result in ignoring other width settings.
+	GridFullWidth bool
+	// When stretching the columns to match the width of the bounds - how should each column
+	// be stretched? A value of zero will cause no stretching, and non-zero values will be
+	// divided up based on the value / the sum of values. One or zero weights will cause
+	// the widths to be equally stretched.
+	GridFullWidthWeights LayoutWeights
+	// The grid will take up the full height of the bounds. May result in ignoring other height settings.
+	GridFullHeight bool
+	// When stretching the rows to match the height of the bounds - how should each row
+	// be stretched? A value of zero will cause no stretching, and non-zero values will be
+	// divided up based on the value / the sum of values. One or zero weights will cause
+	// the heights to be equally stretched.
+	GridFullHeightWeights LayoutWeights
+	// Each cell component is expanded to the row height
+	FullHeight bool
+	// Each cell component is expanded to the column width
+	FullWidth bool
+	// When FullHeight is false, how to align the cell component veritcally in the cell
+	VerticalAlignment Alignment
+	// When FullWidth is false, how to align the cell component horizontally in the cell
 	HorizontalAlignment Alignment
-	VerticalSpacing     Amount
-	HorizontalSpacing   Amount
-	MinSize             Coord
-	Columns             int
+	// How much space between rows
+	VerticalSpacing Amount
+	// How much space between columns
+	HorizontalSpacing Amount
+	// Defines the min widths for one or all columns. If the number of columns extends beyond the number
+	// of min widths defined, they will use the last min width defined.
+	MinWidths LayoutDimensions
+	// Defines the max widths for one or all columns. If the number of columns extends beyond the number
+	// of max widths defined, they will use the last max width defined.
+	MaxWidths LayoutDimensions
+	// Defines the min heights for one or all rows. If the number of rows extends beyond the number
+	// of min heights defined, they will use the last min height defined.
+	MinHeights LayoutDimensions
+	// Defines the max heights for one or all rows. If the number of rows extends beyond the number
+	// of max heights defined, they will use the last max height defined.
+	MaxHeights LayoutDimensions
+	// The number of columns in the grid. A zero value will have the grid calculate the number of columns.
+	Columns int
+	// A value used in determining how many columns should be in the grid when not defined.
+	// A value of 0.0 will try to fit as many columns as possible while a value of 1.0 will try to fit as few columns as possible.
 	ColumnsDynamicDelta float32
-	AspectRatio         float32
-	EqualHeights        bool
-	EqualWidths         bool
+	// If the cell heights should be a ratio of their width. A value of 0.0 has no affect.
+	// A value of 0.5 will make the height half the width.
+	AspectRatio float32
+	// If all the rows in the grid should try to have equal heights. Min/Max heights may interfere with this.
+	EqualHeights bool
+	// If all the columns in the grid should try to have equal widths. Min/Max widths may interfere with this.
+	EqualWidths bool
 }
 
 const (
@@ -387,14 +424,14 @@ func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGr
 			Y: float32(rows-1) * info.spacingY,
 		},
 	}
-	if grid.MinSize.X > 0 {
+	if len(grid.MinWidths) > 0 {
 		for i := range sizings.widths {
-			sizings.widths[i] = grid.MinSize.X
+			sizings.widths[i] = grid.MinWidths.Get(i)
 		}
 	}
-	if grid.MinSize.Y > 0 {
+	if len(grid.MinHeights) > 0 {
 		for i := range sizings.heights {
-			sizings.heights[i] = grid.MinSize.Y
+			sizings.heights[i] = grid.MinHeights.Get(i)
 		}
 	}
 	for childIndex, sizing := range info.sizings.Sizings {
@@ -425,7 +462,16 @@ func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGr
 			sizings.heights[i] = maxHeight
 		}
 	}
-
+	if len(grid.MaxWidths) > 0 {
+		for i := range sizings.widths {
+			sizings.widths[i] = min(sizings.widths[i], grid.MaxWidths.Get(i))
+		}
+	}
+	if len(grid.MaxHeights) > 0 {
+		for i := range sizings.heights {
+			sizings.heights[i] = min(sizings.heights[i], grid.MaxHeights.Get(i))
+		}
+	}
 	sizings.totalSize = sizings.totalSpacing
 	for _, columnWidth := range sizings.widths {
 		sizings.totalSize.X += columnWidth
@@ -483,7 +529,10 @@ func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layouta
 			layoutWidth = l.ColumnsDynamicDelta * maxWidth
 		}
 		info.sizings = getLayoutSizings(ctx, layoutWidth, layoutable)
-		maxChildWidth := l.MinSize.X
+		maxChildWidth := float32(0)
+		for _, width := range l.MinWidths {
+			maxChildWidth = max(maxChildWidth, width)
+		}
 		for _, sizing := range info.sizings.Sizings {
 			maxChildWidth = max(maxChildWidth, sizing.FullWidth)
 		}
@@ -511,17 +560,26 @@ func (l LayoutGrid) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32,
 	return size
 }
 func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base) {
-	if len(layoutable) == 0 {
+	n := len(layoutable)
+	if n == 0 {
 		return
 	}
 
-	maxWidth := bounds.Width()
+	maxWidth, maxHeight := bounds.Dimensions()
 	info := l.getSizingInfo(ctx, maxWidth, layoutable)
 
 	if info.totalSize.X < maxWidth && l.GridFullWidth {
-		extraColumnWidth := (maxWidth - info.totalSize.X) / float32(info.columns)
+		remaining := maxWidth - info.totalSize.X
 		for i := range info.widths {
-			info.widths[i] += extraColumnWidth
+			add := remaining * l.GridFullWidthWeights.GetWeight(i, info.columns)
+			info.widths[i] += add
+		}
+	}
+	if info.totalSize.Y < maxHeight && l.GridFullHeight {
+		remaining := maxHeight - info.totalSize.Y
+		for i := range info.heights {
+			add := remaining * l.GridFullHeightWeights.GetWeight(i, info.rows)
+			info.heights[i] += add
 		}
 	}
 
