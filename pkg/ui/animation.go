@@ -53,22 +53,26 @@ type AnimationState struct {
 	Current      Animation
 	CurrentTime  float32
 	CurrentEvent AnimationEvent
-}
 
-func (as *AnimationState) Defined() bool {
-	return as.Current != nil
+	lastPostProcess bool
 }
 
 func (as *AnimationState) Set(a Animation, ev AnimationEvent) {
 	as.Current = a
 	as.CurrentTime = 0
 	as.CurrentEvent = ev
+	as.lastPostProcess = false
 }
 
-func (as *AnimationState) Stop() {
-	as.Current = nil
-	as.CurrentTime = 0
-	as.CurrentEvent = AnimationEventNone
+func (as *AnimationState) Stop(now bool) {
+	if now {
+		as.Current = nil
+		as.CurrentTime = 0
+		as.CurrentEvent = AnimationEventNone
+		as.lastPostProcess = false
+	} else {
+		as.lastPostProcess = true
+	}
 }
 
 func (as *AnimationState) Update(base *Base, update Update) Dirty {
@@ -79,7 +83,7 @@ func (as *AnimationState) Update(base *Base, update Update) Dirty {
 		}
 		dirty = as.Current.Update(base, as.CurrentTime, update)
 		if as.Current.IsDone(base, as.CurrentTime) {
-			as.Stop()
+			as.Stop(false)
 		} else {
 			as.CurrentTime += float32(update.DeltaTime.Seconds())
 		}
@@ -90,11 +94,18 @@ func (as *AnimationState) Update(base *Base, update Update) Dirty {
 func (as *AnimationState) PostProcess(base *Base, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
 	if as.Current != nil {
 		as.Current.PostProcess(base, as.CurrentTime, ctx, out, index, vertex)
+		if as.lastPostProcess {
+			as.Stop(true)
+		}
 	}
 }
 
 func (as *AnimationState) IsAnimating() bool {
 	return as.Current != nil
+}
+
+func (c *Base) PlayMaybe(name string) bool {
+	return c.Play(id.Maybe(name))
 }
 
 func (c *Base) Play(name id.Identifier) bool {
@@ -214,7 +225,11 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 
 	if a.Save {
 		base.Transparency.Set(transparency)
-		base.Transform = transform
+		if transform.IsEffectivelyIdentity() {
+			base.Transform.Identity()
+		} else {
+			base.Transform = transform
+		}
 	} else {
 		alphaScalar := 1 - transparency
 

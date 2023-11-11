@@ -27,6 +27,10 @@ func (t Transform) IsIdentity() bool {
 	return t.rx == 0 && t.ry == 0 && t.sx == 1 && t.sy == 1 && t.tx == 0 && t.ty == 0
 }
 
+func (t Transform) IsEffectivelyIdentity() bool {
+	return equal(t.rx, 0) && equal(t.ry, 0) && equal(t.sx, 1) && equal(t.sy, 1) && equal(t.tx, 0) && equal(t.ty, 0)
+}
+
 func (t Transform) IsZero() bool {
 	return t.rx == 0 && t.ry == 0 && t.sx == 0 && t.sy == 0 && t.tx == 0 && t.ty == 0
 }

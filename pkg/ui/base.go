@@ -272,7 +272,7 @@ func (c *Base) ComputeRenderContext() *RenderContext {
 }
 
 func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
-	if c.Transparency.Get() == 1 {
+	if c.Transparency.Get() == 1 && !c.Animation.IsAnimating() {
 		return
 	}
 
@@ -376,20 +376,31 @@ func (c *Base) IsInside(pt Coord) bool {
 	return true
 }
 
-func (c *Base) At(pt Coord) Component {
-	if !c.IsInside(pt) {
+func (b *Base) At(pt Coord) Component {
+	transparency := b.Transparency.Get()
+	if transparency > 0 && b.ui.TransparencyThreshold > 0 && transparency >= b.ui.TransparencyThreshold {
+		return nil
+	}
+	if b.ui.TransformPointer {
+		if b.Transform.HasAffect() {
+			inv := b.Transform.GetInvert()
+			pt = inv.TransformCoord(pt)
+		}
+	}
+
+	if !b.IsInside(pt) {
 		return nil
 	}
 
-	last := len(c.Children) - 1
+	last := len(b.Children) - 1
 	for i := last; i >= 0; i-- {
-		at := c.Children[i].At(pt)
+		at := b.Children[i].At(pt)
 		if at != nil {
 			return at
 		}
 	}
 
-	return c
+	return b
 }
 
 func (c *Base) Order() int {

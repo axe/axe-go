@@ -11,17 +11,19 @@ var Area = id.NewArea[uint32, uint16](
 )
 
 type UI struct {
-	PointerButtons []PointerButtons
-	PointerPoint   Coord
-	Root           Component
-	PointerOver    Component
-	Focused        Component
-	Dragging       Component
-	DragStart      Coord
-	DragCancels    ds.Set[string]
-	Theme          *Theme
-	Cursor         id.Identifier
-	Named          id.DenseMap[Component, uint16, uint16]
+	PointerButtons        []PointerButtons
+	PointerPoint          Coord
+	Root                  Component
+	PointerOver           Component
+	Focused               Component
+	Dragging              Component
+	DragStart             Coord
+	DragCancels           ds.Set[string]
+	Theme                 *Theme
+	Cursor                id.Identifier
+	Named                 id.DenseMap[Component, uint16, uint16]
+	TransformPointer      bool
+	TransparencyThreshold float32
 
 	amountContext AmountContext
 	renderContext RenderContext

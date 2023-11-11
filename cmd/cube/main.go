@@ -152,6 +152,8 @@ func main() {
 					e := ecs.New()
 
 					userInterface := axe.NewUserInterface()
+					userInterface.TransformPointer = true
+					userInterface.TransparencyThreshold = 0.9
 					userInterface.Theme.TextStyles.Font = id.Get("roboto")
 
 					// Global State effects
@@ -565,6 +567,7 @@ var OriginCenter = ui.AmountPoint{
 }
 
 var WiggleAnimation = ui.BasicAnimation{
+	Save:     true, // save on component so the pointer is inverse transformed against it
 	Duration: 1.0,
 	Frames: []ui.BasicAnimationFrame{
 		{Time: 0, Rotate: 0, Origin: OriginCenter},
@@ -587,6 +590,7 @@ var RevealAnimation = ui.BasicAnimation{
 }
 
 var FadeInAnimation = ui.BasicAnimation{
+	Save:     true,
 	Duration: 0.5,
 	Frames: []ui.BasicAnimationFrame{
 		{Time: 0, Transparency: 1},
@@ -1124,10 +1128,10 @@ func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventDown {
-					win.Play(id.Maybe("hide"))
+					win.PlayMaybe("hide")
 					go func() {
 						time.Sleep(time.Second * 3)
-						win.Play(id.Maybe("show"))
+						win.PlayMaybe("show")
 					}()
 				}
 			},
