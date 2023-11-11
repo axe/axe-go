@@ -5,7 +5,7 @@ import (
 	"github.com/axe/axe-go/pkg/id"
 )
 
-type CursorEvent int
+type CursorEvent uint8
 
 const (
 	CursorEventHover CursorEvent = iota

@@ -109,10 +109,10 @@ func (b Builder) VisualPop() Builder {
 func (b Builder) Filled() Builder {
 	return b.Visual(VisualFilled{Shape: b.shape.Peek()})
 }
-func (b Builder) Bordered(width float32, color Color, outerColor *Color) Builder {
-	vb := VisualBordered{Width: width, Shape: b.shape.Peek(), InnerColor: color, HasInnerColor: true, OuterColor: color, HasOuterColor: true}
+func (b Builder) Bordered(width float32, color Colorable, outerColor Colorable) Builder {
+	vb := VisualBordered{Width: width, Shape: b.shape.Peek(), InnerColor: color, OuterColor: color}
 	if outerColor != nil {
-		vb.OuterColor = *outerColor
+		vb.OuterColor = outerColor
 	}
 	return b.Visual(vb)
 }

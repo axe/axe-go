@@ -11,6 +11,7 @@ type Theme struct {
 	Cursors       id.DenseMap[ExtentTile, uint16, uint8]
 	DefaultCursor id.Identifier
 	Animations    Animations
+	Colors        Colors
 }
 
 type State = Flags

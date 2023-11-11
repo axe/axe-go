@@ -182,6 +182,12 @@ func main() {
 						"resizebl": ui.NewExtentTile(cursors[4][8], ui.NewBounds(-11, -41, 45, 15).Scale(0.75)),
 					})
 
+					// Colors
+					userInterface.Theme.TextStyles.Color = TextColor
+					userInterface.Theme.Colors.Set(PrimaryColor, ui.ColorFromHex("#008080"))
+					userInterface.Theme.Colors.Set(BackgroundColor, ui.ColorWhite)
+					userInterface.Theme.Colors.Set(TextColor, ui.ColorBlack)
+
 					textCoordinates := ui.MustTextToVisual("{h:1}{pa:10}{pv:1}0,0")
 
 					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}Press me", true, nil)
@@ -485,6 +491,9 @@ func main() {
 							}),
 							newButton(ui.Placement{}, "Compact", false, func() {
 								layoutInlineWindow.Compact()
+							}).Edit(func(b *ui.Base) {
+								b.Colors.Set(BackgroundColor, ui.ColorPurple)
+								b.Colors.Set(TextColor, ui.ColorWhite)
 							}),
 						},
 					})
@@ -538,6 +547,15 @@ func main() {
 		panic(err)
 	}
 }
+
+// Colors
+
+const (
+	PrimaryColor ui.ThemeColor = iota
+	SecondaryColor
+	BackgroundColor
+	TextColor
+)
 
 // Animations
 
@@ -618,6 +636,9 @@ func newDraggable() *ui.Base {
 	draggable = &ui.Base{
 		Placement: ui.Absolute(10, 200, 80, 80),
 		Draggable: true,
+		Colors: ui.NewColors(map[ui.ThemeColor]ui.Colorable{
+			BackgroundColor: ui.ColorBlack,
+		}),
 		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
 			ui.CursorEventHover: id.Get("drag"),
 			ui.CursorEventDrag:  id.Get("dragging"),
@@ -633,11 +654,11 @@ func newDraggable() *ui.Base {
 		OverShape: shape,
 		Layers: []ui.Layer{{
 			Visual:     ui.VisualFilled{Shape: ui.ShapePolygon{Points: shape}},
-			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+			Background: ui.BackgroundColor{Color: BackgroundColor},
 			States:     ui.StateHover.Not,
 		}, {
 			Visual:     ui.VisualFilled{Shape: ui.ShapePolygon{Points: shape}},
-			Background: ui.BackgroundColor{Color: ui.ColorBlack.Lighten(0.3)},
+			Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Lighten(0.3))},
 			States:     ui.StateHover.Is,
 		}, {
 			Visual: ui.MustTextToVisual("{f:roboto}{s:14}{c:white}{h:0.5}{pv:0.5}drag me"),
@@ -647,13 +668,15 @@ func newDraggable() *ui.Base {
 	return draggable
 }
 
-var buttonColor = ui.ColorFromHex("#008080")
 var buttonTemplate = &ui.Template{
 	Animations: &ui.Animations{
 		ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
 			ui.AnimationEventShow: ui.StatelessAnimationFactory(FadeInAnimation),
 		}),
 	},
+	Colors: ui.NewColors(map[ui.ThemeColor]ui.Colorable{
+		BackgroundColor: PrimaryColor,
+	}),
 	Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
 		ui.CursorEventHover: id.Get("click"),
 		ui.CursorEventDown:  id.Get("clicking"),
@@ -672,32 +695,32 @@ var buttonTemplate = &ui.Template{
 			Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
 			Offsets: ui.NewAmountBounds(5, 8, -3, 0),
 		},
-		Background: ui.BackgroundColor{Color: buttonColor.Darken(0.5).Alpha(0.2)},
+		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Darken(0.5).Then(ui.Alpha(0.2)))},
 		States:     (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
 	}, {
 		Visual: ui.VisualShadow{
 			Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
 			Offsets: ui.NewAmountBounds(5, 8, -3, 0),
 		},
-		Background: ui.BackgroundColor{Color: buttonColor.Darken(0.5).Alpha(0.5)},
+		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Darken(0.5).Then(ui.Alpha(0.5)))},
 		States:     (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
 	}, {
 		// Background
 		Placement:  ui.Maximized(),
 		Visual:     ui.VisualFilled{},
-		Background: ui.BackgroundColor{Color: buttonColor},
+		Background: ui.BackgroundColor{Color: BackgroundColor},
 		States:     (ui.StateHover | ui.StatePressed).Not,
 	}, {
 		// Background on hover
 		Placement:  ui.Maximized(),
 		Visual:     ui.VisualFilled{},
-		Background: ui.BackgroundColor{Color: buttonColor.Lighten(0.1)},
+		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Lighten(0.1))},
 		States:     ui.StateHover.Is,
 	}, {
 		// Background on press
 		Placement:  ui.Maximized(),
 		Visual:     ui.VisualFilled{},
-		Background: ui.BackgroundColor{Color: buttonColor.Darken(0.1)},
+		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Darken(0.1))},
 		States:     ui.StatePressed.Is,
 	}},
 	PostLayers: []ui.Layer{{
@@ -729,8 +752,9 @@ func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.
 			},
 		},
 		Layers: []ui.Layer{{
-			Placement: ui.Maximized().Shrink(10),
-			Visual:    textVisual,
+			Placement:  ui.Maximized().Shrink(10),
+			Visual:     textVisual,
+			Background: ui.BackgroundColor{Color: TextColor},
 		}},
 	}
 
@@ -739,7 +763,7 @@ func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.
 	if pulse {
 		button.Layers = append([]ui.Layer{{
 			Visual: &PulseLayer{
-				StartColor: buttonColor.Lighten(0.2),
+				StartColor: BackgroundColor.Modify(ui.Lighten(0.2)),
 				EndColor:   ui.ColorTransparent,
 				Duration:   1.5,
 				PulseTime:  0.6,
@@ -754,7 +778,7 @@ func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.
 
 type RippleLayer struct {
 	StartRadius, EndRadius ui.Amount
-	StartColor, EndColor   ui.Color
+	StartColor, EndColor   ui.Colorable
 	Duration               float32
 	Time                   float32
 	Center                 ui.Coord
@@ -789,7 +813,9 @@ func (r *RippleLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderCont
 		centerX, centerY := bounds.Lerp(r.Center.X, r.Center.Y)
 		delta := r.Time / r.Duration
 		radius := ui.Lerp(r.StartRadius.Get(ctx.AmountContext, true), r.EndRadius.Get(ctx.AmountContext, true), delta)
-		color := r.StartColor.Lerp(r.EndColor, delta)
+		startColor := r.StartColor.GetColor(b)
+		endColor := r.EndColor.GetColor(b)
+		color := startColor.Lerp(endColor, delta)
 
 		background := ui.VisualFilled{
 			Shape: ui.ShapeRounded{
@@ -823,7 +849,7 @@ func (r *RippleLayer) PreferredSize(b *ui.Base, ctx *ui.RenderContext, maxWidth 
 }
 
 type PulseLayer struct {
-	StartColor, EndColor ui.Color
+	StartColor, EndColor ui.Colorable
 	Duration             float32
 	PulseTime            float32
 	Size                 float32
@@ -852,7 +878,9 @@ func (r *PulseLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderConte
 			Top:    bounds.Top - size,
 			Bottom: bounds.Bottom + size,
 		}
-		color := r.StartColor.Lerp(r.EndColor, delta)
+		startColor := r.StartColor.GetColor(b)
+		endColor := r.EndColor.GetColor(b)
+		color := startColor.Lerp(endColor, delta)
 		background := ui.VisualFilled{
 			Shape: r.Shape,
 		}
@@ -902,14 +930,11 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 			),
 		},
 		Layers: []ui.Layer{{
-			Placement: ui.Maximized().Shrink(4).Shift(1, 4),
-			Visual: ui.VisualBordered{
-				Width:         8,
-				OuterColor:    ui.ColorTransparent,
-				HasOuterColor: true,
-				InnerColor:    buttonColor.Darken(0.5).Alpha(0.2),
-				HasInnerColor: true,
+			Visual: ui.VisualShadow{
+				Blur:    ui.NewAmountBoundsUniform(8, ui.UnitConstant),
+				Offsets: ui.NewAmountBounds(5, 8, -3, 0),
 			},
+			Background: ui.BackgroundColor{Color: PrimaryColor.Modify(ui.Darken(0.5).Then(ui.Alpha(0.2)))},
 		}, {
 			Visual:     ui.VisualFilled{},
 			Background: ui.BackgroundColor{Color: ui.ColorGray.Lighten(0.2)},
@@ -933,8 +958,8 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 		Layers: []ui.Layer{{
 			Visual: ui.VisualFilled{},
 			Background: ui.BackgroundLinearGradient{
-				StartColor: buttonColor,
-				EndColor:   buttonColor.Lighten(0.2),
+				StartColor: PrimaryColor,
+				EndColor:   PrimaryColor.Modify(ui.Lighten(0.2)),
 				End:        ui.Coord{X: 0, Y: 1},
 			},
 		}},

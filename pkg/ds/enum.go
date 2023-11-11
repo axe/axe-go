@@ -1,8 +1,10 @@
 package ds
 
-type EnumMap[K ~int, V any] []V
+import "golang.org/x/exp/constraints"
 
-func NewEnumMap[K ~int, V any](m map[K]V) EnumMap[K, V] {
+type EnumMap[K constraints.Unsigned, V any] []V
+
+func NewEnumMap[K constraints.Unsigned, V any](m map[K]V) EnumMap[K, V] {
 	em := make(EnumMap[K, V], len(m))
 	for k, v := range m {
 		em.Set(k, v)

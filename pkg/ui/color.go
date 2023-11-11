@@ -3,12 +3,28 @@ package ui
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/axe/axe-go/pkg/ds"
 )
 
 //go:generate go run colors.go
 
 type Color struct {
 	R, G, B, A float32
+}
+
+var _ Colorable = Color{}
+
+type Colorable interface {
+	GetColor(b *Base) Color
+}
+
+func GetColor(colorable Colorable, b *Base) (Color, bool) {
+	if colorable == nil {
+		return Color{}, false
+	} else {
+		return colorable.GetColor(b), true
+	}
 }
 
 func NewColor(r, g, b, a float32) Color {
@@ -62,6 +78,10 @@ func ColorFromHex(hex string) Color {
 		return ColorFromInts(int(r), int(g), int(b), int(a))
 	}
 	panic("Invalid hex color: " + hex)
+}
+
+func (c Color) GetColor(b *Base) Color {
+	return c
 }
 
 func (c Color) Ptr() *Color {
@@ -149,4 +169,77 @@ func (c *Color) UnmarshalText(text []byte) error {
 	}
 	*c = ColorFromHex(s)
 	return nil
+}
+
+type ThemeColor uint8
+
+var _ Colorable = ThemeColor(0)
+
+func (t ThemeColor) GetColor(b *Base) Color {
+	if b == nil {
+		return ColorWhite
+	}
+	colorable := b.Colors.Get(t)
+	if colorable == nil {
+		colorable = b.ui.Theme.Colors.Get(t)
+	}
+	if colorable != nil {
+		return colorable.GetColor(b)
+	}
+	return ColorWhite
+}
+
+type ColorModify func(Color) Color
+
+func (a ColorModify) Then(b ColorModify) ColorModify {
+	return func(c Color) Color {
+		return b(a(c))
+	}
+}
+
+type modifiedThemeColor struct {
+	modify     ColorModify
+	themeColor ThemeColor
+}
+
+var _ Colorable = modifiedThemeColor{}
+
+func (m modifiedThemeColor) GetColor(b *Base) Color {
+	return m.modify(m.themeColor.GetColor(b))
+}
+
+func (t ThemeColor) Modify(modify ColorModify) Colorable {
+	return modifiedThemeColor{modify: modify, themeColor: t}
+}
+
+func Lighten(scale float32) ColorModify {
+	return func(c Color) Color {
+		return c.Lighten(scale)
+	}
+}
+
+func Darken(scale float32) ColorModify {
+	return func(c Color) Color {
+		return c.Darken(scale)
+	}
+}
+
+func Alpha(alpha float32) ColorModify {
+	return func(c Color) Color {
+		return c.Alpha(alpha)
+	}
+}
+
+type Colors struct {
+	ds.EnumMap[ThemeColor, Colorable]
+}
+
+func NewColors(m map[ThemeColor]Colorable) Colors {
+	return Colors{
+		EnumMap: ds.NewEnumMap(m),
+	}
+}
+
+func colorableNil(c Colorable) bool {
+	return c == nil
 }

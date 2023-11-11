@@ -164,7 +164,7 @@ func (vb *VertexBuffers) ClipEnd() *VertexBuffer {
 }
 
 func (vb *VertexBuffers) ClipMaybe(bounds Bounds, render func(vb *VertexBuffers)) {
-	if bounds.IsZero() {
+	if bounds.IsEmpty() {
 		render(vb)
 	} else {
 		vb.ClipStart(bounds)
@@ -200,7 +200,7 @@ func (b *VertexBuffer) AddIndexTriangle(i int) {
 }
 
 func (b *VertexBuffer) AddTriangle(v ...Vertex) {
-	if b.clip.IsZero() {
+	if b.clip.IsEmpty() {
 		i := b.Add(v...)
 		b.AddIndex(i, i+1, i+2)
 	} else {
@@ -222,7 +222,7 @@ func (b *VertexBuffer) AddTriangle(v ...Vertex) {
 var relativeQuad = []int{0, 1, 2, 2, 3, 0}
 
 func (b *VertexBuffer) AddQuad(v ...Vertex) {
-	if b.clip.IsZero() {
+	if b.clip.IsEmpty() {
 		b.AddRelative(v, relativeQuad)
 	} else {
 		inside := 0

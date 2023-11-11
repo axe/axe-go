@@ -20,7 +20,6 @@ func TestLayoutGrid(t *testing.T) {
 			VerticalSpacing:     ui.Amount{Value: 10},
 			HorizontalSpacing:   ui.Amount{Value: 10},
 			Columns:             3,
-			MinSize:             ui.Coord{X: 80, Y: 80},
 			AspectRatio:         0,
 		},
 		Children: []*ui.Base{{

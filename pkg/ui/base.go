@@ -25,6 +25,7 @@ type Base struct {
 	Animations   *Animations
 	Cursors      Cursors
 	Hooks        Hooks
+	Colors       Colors
 
 	Margin       AmountBounds
 	MarginBounds Bounds
@@ -563,6 +564,8 @@ type Template struct {
 	AnimationsMerge bool
 	Cursors         Cursors
 	CursorsMerge    bool
+	Colors          Colors
+	ColorsMerge     bool
 	PreHooks        Hooks
 	PostHooks       Hooks
 	Margin          AmountBounds
@@ -607,6 +610,9 @@ func (b *Base) ApplyTemplate(t *Template) {
 	}
 	if !t.Cursors.Empty() && (t.CursorsMerge || b.Cursors.Empty()) {
 		b.Cursors.Merge(t.Cursors.EnumMap, false, cursorNil)
+	}
+	if !t.Colors.Empty() && (t.ColorsMerge || b.Colors.Empty()) {
+		b.Colors.Merge(t.Colors.EnumMap, false, colorableNil)
 	}
 	b.Hooks.Add(t.PreHooks, true)
 	b.Hooks.Add(t.PostHooks, false)

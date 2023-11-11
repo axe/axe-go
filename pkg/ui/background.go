@@ -12,19 +12,19 @@ var _ Background = BackgroundRadialGradient{}
 var _ Background = BackgroundImage{}
 
 type BackgroundColor struct {
-	Color Color
+	Color Colorable
 }
 
 func (bc BackgroundColor) Init(b *Base, init Init)             {}
 func (bc BackgroundColor) Update(b *Base, update Update) Dirty { return DirtyNone }
 func (bc BackgroundColor) Backgroundify(b *Base, bounds Bounds, ctx *RenderContext, out *Vertex) {
-	out.AddColor(bc.Color)
+	out.AddColor(bc.Color.GetColor(b))
 }
 
 type BackgroundLinearGradient struct {
-	StartColor Color
+	StartColor Colorable
 	Start      Coord
-	EndColor   Color
+	EndColor   Colorable
 	End        Coord
 }
 
@@ -37,8 +37,10 @@ func (bg BackgroundLinearGradient) Backgroundify(b *Base, bounds Bounds, ctx *Re
 	px := bounds.Dx(out.X) - bg.Start.X
 	py := bounds.Dy(out.Y) - bg.Start.Y
 	delta := Clamp(((dx*px)+(dy*py))/lenSq, 0, 1)
+	startColor := bg.StartColor.GetColor(b)
+	endColor := bg.EndColor.GetColor(b)
 
-	out.AddColor(bg.StartColor.Lerp(bg.EndColor, delta))
+	out.AddColor(startColor.Lerp(endColor, delta))
 }
 
 type BackgroundImage struct {
@@ -60,8 +62,8 @@ func (bi BackgroundImage) Backgroundify(b *Base, bounds Bounds, ctx *RenderConte
 }
 
 type BackgroundRadialGradient struct {
-	InnerColor Color
-	OuterColor Color
+	InnerColor Colorable
+	OuterColor Colorable
 	Radius     AmountPoint
 	Offset     AmountPoint
 }
@@ -80,6 +82,8 @@ func (bg BackgroundRadialGradient) Backgroundify(b *Base, bounds Bounds, ctx *Re
 	ny := dy / len
 	olen := Length(nx*rx, ny*ry)
 	delta := Clamp(olen/len, 0, 1)
+	innerColor := bg.InnerColor.GetColor(b)
+	outerColor := bg.OuterColor.GetColor(b)
 
-	out.AddColor(bg.InnerColor.Lerp(bg.OuterColor, delta))
+	out.AddColor(innerColor.Lerp(outerColor, delta))
 }

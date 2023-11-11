@@ -256,7 +256,7 @@ func (o *ParagraphsStylesOverride) HasOverride() bool {
 type TextStyles struct {
 	ParagraphStyles
 	ParagraphsStyles
-	Color    Color
+	Color    Colorable
 	Font     id.Identifier
 	FontSize Amount
 }
@@ -277,7 +277,7 @@ func (s *TextStyles) Override(o *TextStylesOverride) *TextStyles {
 type TextStylesOverride struct {
 	ParagraphStylesOverride  *ParagraphStylesOverride
 	ParagraphsStylesOverride *ParagraphsStylesOverride
-	Color                    *Color
+	Color                    *Colorable
 	Font                     *id.Identifier
 	FontSize                 *Amount
 }
@@ -340,7 +340,7 @@ const (
 
 type Glyph interface {
 	GetState(ctx *RenderContext, wrap TextWrap, prev Glyph) GlyphState
-	Render(ctx *RenderContext, start Coord) RenderedGlyph
+	Render(ctx *RenderContext, start Coord, base *Base) RenderedGlyph
 	String() string
 }
 
@@ -540,7 +540,7 @@ func (paragraph Paragraph) Measure(ctx *RenderContext, paragraphs Paragraphs) Co
 	return size
 }
 
-func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs) RenderedText {
+func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs, b *Base) RenderedText {
 	lines := paragraph.getLines(ctx, paragraphs)
 
 	bounds := Bounds{
@@ -569,7 +569,7 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs) Ren
 			g := paragraph.Glyphs[k]
 			s := lines.states[k]
 			start.Y = offsetY + lines.style.LineVerticalAlignment.Compute(line.height-s.Size.Y)
-			render := g.Render(ctx, start)
+			render := g.Render(ctx, start, b)
 			render.Line = lineIndex
 			render.Column = k - line.start
 			render.Word = wordCount
@@ -634,7 +634,7 @@ func (paragraphs Paragraphs) Measure(ctx *RenderContext) Coord {
 	return size
 }
 
-func (paragraphs Paragraphs) Render(ctx *RenderContext) RenderedText {
+func (paragraphs Paragraphs) Render(ctx *RenderContext, b *Base) RenderedText {
 	style := ctx.TextStyles.ParagraphsStyles.Override(paragraphs.Styles)
 	rendered := make([]RenderedText, len(paragraphs.Paragraphs))
 	totalHeight := float32(0)
@@ -642,7 +642,7 @@ func (paragraphs Paragraphs) Render(ctx *RenderContext) RenderedText {
 	paragraphCtx := ctx.WithParent(max(0, paragraphs.MaxWidth), paragraphs.MaxHeight)
 	paragraphSpacing := style.ParagraphSpacing.Get(paragraphCtx.AmountContext, false)
 	for i, paragraph := range paragraphs.Paragraphs {
-		rendered[i] = paragraph.Render(paragraphCtx, paragraphs)
+		rendered[i] = paragraph.Render(paragraphCtx, paragraphs, b)
 		totalHeight += rendered[i].Bounds.Height()
 		totalGlyphs += len(rendered[i].Glyphs)
 	}
@@ -740,9 +740,10 @@ func (g *BaseGlyph) init(ctx *RenderContext) {
 	}
 }
 
-func (g BaseGlyph) getColor(ctx *RenderContext) Color {
+func (g BaseGlyph) getColor(ctx *RenderContext, b *Base) Color {
 	if g.Color.IsZero() {
-		return ctx.TextStyles.Color
+		color, _ := GetColor(ctx.TextStyles.Color, b)
+		return color
 	} else {
 		return g.Color
 	}
@@ -785,12 +786,12 @@ func (g *BaseGlyph) GetState(ctx *RenderContext, wrap TextWrap, prev Glyph) Glyp
 	return state
 }
 
-func (g *BaseGlyph) Render(ctx *RenderContext, topLeft Coord) RenderedGlyph {
+func (g *BaseGlyph) Render(ctx *RenderContext, topLeft Coord, b *Base) RenderedGlyph {
 	g.init(ctx)
 	if g.font == nil {
 		return RenderedGlyph{}
 	}
-	color := g.getColor(ctx)
+	color := g.getColor(ctx, b)
 	size := g.getSize(ctx)
 	extents := g.fontRune.Extent
 	baselineOffset := g.font.Baseline * size

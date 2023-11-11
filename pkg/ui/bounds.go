@@ -16,6 +16,9 @@ func NewBounds(left, top, right, bottom float32) Bounds {
 }
 
 func (b Bounds) IsZero() bool {
+	return !(b.Left != 0 || b.Right != 0 || b.Top != 0 || b.Bottom != 0)
+}
+func (b Bounds) IsEmpty() bool {
 	return b.Left >= b.Right && b.Top >= b.Bottom
 }
 func (b Bounds) IsUniform() bool {

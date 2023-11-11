@@ -63,13 +63,11 @@ type VisualBorderScale struct {
 }
 
 type VisualBordered struct {
-	Width         float32
-	OuterColor    Color
-	HasOuterColor bool
-	InnerColor    Color
-	HasInnerColor bool
-	Scales        []VisualBorderScale
-	Shape         Shape
+	Width      float32
+	OuterColor Colorable
+	InnerColor Colorable
+	Scales     []VisualBorderScale
+	Shape      Shape
 }
 
 func (s VisualBordered) Init(b *Base, init Init) {
@@ -120,6 +118,9 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 		i1 = i2
 	}
 
+	outerColor, hasOuterColor := GetColor(s.OuterColor, b)
+	innerColor, hasInnerColor := GetColor(s.InnerColor, b)
+
 	prev := last
 	buffer := out.Buffer()
 	for next := 0; next <= last; next++ {
@@ -134,10 +135,10 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 		}
 
 		buffer.AddQuad(
-			Vertex{X: prevOuter.X, Y: prevOuter.Y, Color: s.OuterColor, HasColor: s.HasOuterColor},
-			Vertex{X: nextOuter.X, Y: nextOuter.Y, Color: s.OuterColor, HasColor: s.HasOuterColor},
-			Vertex{X: nextInner.X, Y: nextInner.Y, Color: s.InnerColor, HasColor: s.HasInnerColor},
-			Vertex{X: prevInner.X, Y: prevInner.Y, Color: s.InnerColor, HasColor: s.HasInnerColor},
+			Vertex{X: prevOuter.X, Y: prevOuter.Y, Color: outerColor, HasColor: hasOuterColor},
+			Vertex{X: nextOuter.X, Y: nextOuter.Y, Color: outerColor, HasColor: hasOuterColor},
+			Vertex{X: nextInner.X, Y: nextInner.Y, Color: innerColor, HasColor: hasInnerColor},
+			Vertex{X: prevInner.X, Y: prevInner.Y, Color: innerColor, HasColor: hasInnerColor},
 		)
 	}
 }
@@ -176,12 +177,10 @@ func (s VisualShadow) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out 
 	innerShape := ShapePolygon{Points: points, Absolute: true}
 
 	bordered := VisualBordered{
-		Shape:         innerShape,
-		Width:         1,
-		InnerColor:    ColorWhite,
-		HasInnerColor: true,
-		OuterColor:    ColorTransparent,
-		HasOuterColor: true,
+		Shape:      innerShape,
+		Width:      1,
+		InnerColor: ColorWhite,
+		OuterColor: ColorTransparent,
 	}
 	if blur.IsUniform() {
 		bordered.Width = blur.Left
@@ -195,7 +194,7 @@ func (s VisualShadow) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out 
 	}
 	bordered.Visualize(b, offsetBounds, ctx, out)
 
-	if s.AlwaysFill || offsets.IsPositive() {
+	if s.AlwaysFill || !bounds.Contains(offsetBounds) {
 		filled := VisualFilled{
 			Shape: innerShape,
 		}
@@ -315,7 +314,7 @@ func (s *VisualText) WillClip() bool {
 func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
 	if s.renderedBounds != bounds {
 		s.Paragraphs.MaxWidth, s.Paragraphs.MaxHeight = bounds.Dimensions()
-		s.rendered = s.Paragraphs.Render(ctx)
+		s.rendered = s.Paragraphs.Render(ctx, b)
 		s.rendered.Translate(bounds.Left, bounds.Top)
 		s.renderedBounds = bounds
 

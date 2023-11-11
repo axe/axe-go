@@ -347,7 +347,7 @@ func renderBuffers(buffers *ui.VertexBuffers, game *axe.Game, windowHeight int32
 		vb := buffers.At(b)
 		vbClip := vb.Clip()
 
-		if vbClip.IsZero() {
+		if vbClip.IsEmpty() {
 			if clipping {
 				if began {
 					gl.End()

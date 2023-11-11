@@ -40,6 +40,7 @@ func NewUI() *UI {
 				id.WithArea(Area),
 				id.WithCapacity(16),
 			),
+			Colors: NewColors(map[ThemeColor]Colorable{}),
 			TextStyles: TextStyles{
 				ParagraphStyles: ParagraphStyles{
 					LineVerticalAlignment: AlignmentBottom,

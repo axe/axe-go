@@ -14,7 +14,7 @@ type Animation interface {
 
 type AnimationFactory func(base *Base) Animation
 
-type AnimationEvent int
+type AnimationEvent uint
 
 const (
 	AnimationEventNone AnimationEvent = iota

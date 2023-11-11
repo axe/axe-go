@@ -16,7 +16,7 @@ func TestTextMeasure(t *testing.T) {
 	para.MaxWidth = 88
 	measure := para.Measure(ctx)
 	para.MaxWidth = measure.X
-	rendered := para.Render(ctx)
+	rendered := para.Render(ctx, nil)
 
 	fmt.Printf("Measure: %+v\n", measure)
 	fmt.Printf("Rendered Text Bounds: %+v\n", rendered.Bounds)
