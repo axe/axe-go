@@ -9,6 +9,7 @@ type Visual interface {
 
 var _ Visual = VisualFilled{}
 var _ Visual = VisualBordered{}
+var _ Visual = VisualShadow{}
 var _ Visual = VisualFrame{}
 var _ Visual = &VisualText{}
 
@@ -145,9 +146,75 @@ func (s VisualBordered) PreferredSize(b *Base, ctx *RenderContext, maxWidth floa
 	return Coord{}
 }
 
+type VisualShadow struct {
+	Shape      Shape
+	Blur       AmountBounds
+	Offsets    AmountBounds
+	AlwaysFill bool
+}
+
+func (s VisualShadow) Init(b *Base, init Init) {
+	if s.Shape != nil {
+		s.Shape.Init(init)
+	}
+}
+
+func (s VisualShadow) Update(b *Base, update Update) Dirty {
+	return DirtyNone
+}
+
+func (s VisualShadow) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
+	blur := s.Blur.GetBounds(ctx.AmountContext)
+	offsets := s.Offsets.GetBounds(ctx.AmountContext)
+	shape := coalesceShape(s.Shape, b.Shape)
+	offsetBounds := bounds
+	if !offsets.IsZero() {
+		offsetBounds = offsetBounds.Add(offsets)
+	}
+	points := shape.Shapify(offsetBounds, ctx)
+
+	innerShape := ShapePolygon{Points: points, Absolute: true}
+
+	bordered := VisualBordered{
+		Shape:         innerShape,
+		Width:         1,
+		InnerColor:    ColorWhite,
+		HasInnerColor: true,
+		OuterColor:    ColorTransparent,
+		HasOuterColor: true,
+	}
+	if blur.IsUniform() {
+		bordered.Width = blur.Left
+	} else {
+		bordered.Scales = []VisualBorderScale{
+			{NormalX: -1, NormalY: 0, Weight: blur.Left},
+			{NormalX: 0, NormalY: -1, Weight: blur.Top},
+			{NormalX: 1, NormalY: 0, Weight: blur.Right},
+			{NormalX: 0, NormalY: 1, Weight: blur.Bottom},
+		}
+	}
+	bordered.Visualize(b, offsetBounds, ctx, out)
+
+	if s.AlwaysFill || offsets.IsPositive() {
+		filled := VisualFilled{
+			Shape: innerShape,
+		}
+		start := NewVertexIterator(out)
+		filled.Visualize(b, offsetBounds, ctx, out)
+		for start.HasNext() {
+			start.Next().AddColor(ColorWhite)
+		}
+	}
+}
+
+func (s VisualShadow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
+	return Coord{}
+}
+
 type VisualFrame struct {
-	Sizes AmountBounds
-	Tile  []Tile
+	Sizes   AmountBounds
+	Tile    []Tile
+	Columns int
 }
 
 func (r VisualFrame) Init(b *Base, init Init) {
@@ -163,10 +230,22 @@ func (r VisualFrame) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 	axisX := []float32{bounds.Left, bounds.Left + sizes.Left, bounds.Right - sizes.Right, bounds.Right}
 	axisY := []float32{bounds.Top, bounds.Top + sizes.Top, bounds.Bottom - sizes.Bottom, bounds.Bottom}
 
+	columns := r.Columns
+	if columns == 0 {
+		switch len(r.Tile) {
+		case 4, 8:
+			columns = 2
+		case 6, 9:
+			columns = 3
+		default:
+			columns = len(r.Tile)
+		}
+	}
+
 	buffer := out.Buffer()
 	for i, tile := range r.Tile {
-		indexX := i % 3
-		indexY := i / 3
+		indexX := i % columns
+		indexY := i / columns
 		buffer.AddQuad(
 			Vertex{X: axisX[indexX+0], Y: axisY[indexY+0], Coord: tile.Coord(0, 0), HasCoord: true},
 			Vertex{X: axisX[indexX+1], Y: axisY[indexY+0], Coord: tile.Coord(1, 0), HasCoord: true},

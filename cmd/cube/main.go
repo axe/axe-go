@@ -668,39 +668,19 @@ var buttonTemplate = &ui.Template{
 		UnitToPoints: 0.5,
 	},
 	PreLayers: []ui.Layer{{
-		// Shadow filled
-		Placement:  ui.Maximized().Shrink(4).Shift(1, 4),
-		Visual:     ui.VisualFilled{},
-		Background: ui.BackgroundColor{Color: buttonColor.Darken(0.5).Alpha(0.5)},
-		States:     (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
-	}, {
-		// Shadow blur
-		Placement: ui.Maximized().Shrink(4).Shift(1, 4),
-		Visual: ui.VisualBordered{
-			Width:         8,
-			OuterColor:    ui.ColorTransparent,
-			HasOuterColor: true,
-			InnerColor:    buttonColor.Darken(0.5).Alpha(0.5),
-			HasInnerColor: true,
+		Visual: ui.VisualShadow{
+			Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
+			Offsets: ui.NewAmountBounds(5, 8, -3, 0),
 		},
-		States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
-	}, {
-		// Shadow filled (default)
-		Placement:  ui.Maximized().Shrink(4).Shift(1, 4),
-		Visual:     ui.VisualFilled{},
 		Background: ui.BackgroundColor{Color: buttonColor.Darken(0.5).Alpha(0.2)},
 		States:     (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
 	}, {
-		// Shadow blur (default)
-		Placement: ui.Maximized().Shrink(4).Shift(1, 4),
-		Visual: ui.VisualBordered{
-			Width:         8,
-			OuterColor:    ui.ColorTransparent,
-			HasOuterColor: true,
-			InnerColor:    buttonColor.Darken(0.5).Alpha(0.2),
-			HasInnerColor: true,
+		Visual: ui.VisualShadow{
+			Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
+			Offsets: ui.NewAmountBounds(5, 8, -3, 0),
 		},
-		States: (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
+		Background: ui.BackgroundColor{Color: buttonColor.Darken(0.5).Alpha(0.5)},
+		States:     (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
 	}, {
 		// Background
 		Placement:  ui.Maximized(),

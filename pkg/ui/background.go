@@ -43,6 +43,10 @@ func (bg BackgroundLinearGradient) Backgroundify(b *Base, bounds Bounds, ctx *Re
 
 type BackgroundImage struct {
 	Tile Tile
+	// TODO instead of stretching, support:
+	// TileWidth   Amount
+	// TileHeight  Amount
+	// AspectRatio float32
 }
 
 func (bi BackgroundImage) Init(b *Base, init Init)             {}

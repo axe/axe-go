@@ -86,18 +86,28 @@ func (o ShapeSharpen) Shapify(b Bounds, ctx *RenderContext) []Coord {
 }
 
 type ShapePolygon struct {
-	Points []Coord
+	Points   []Coord
+	Absolute bool
+	Copy     bool
 }
 
 func (o ShapePolygon) Init(init Init) {
 
 }
 func (o ShapePolygon) Shapify(b Bounds, ctx *RenderContext) []Coord {
-	n := len(o.Points)
-	points := make([]Coord, n)
-	for i := 0; i < n; i++ {
-		points[i].X = b.Lerpx(o.Points[i].X)
-		points[i].Y = b.Lerpy(o.Points[i].Y)
+	if o.Absolute {
+		if o.Copy {
+			return append(make([]Coord, 0, len(o.Points)), o.Points...)
+		} else {
+			return o.Points
+		}
+	} else {
+		n := len(o.Points)
+		points := make([]Coord, n)
+		for i := 0; i < n; i++ {
+			points[i].X = b.Lerpx(o.Points[i].X)
+			points[i].Y = b.Lerpy(o.Points[i].Y)
+		}
+		return points
 	}
-	return points
 }

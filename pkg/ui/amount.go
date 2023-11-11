@@ -204,6 +204,23 @@ type AmountBounds struct {
 	Bottom Amount
 }
 
+func NewAmountBounds(left, top, right, bottom float32) AmountBounds {
+	return NewAmountBoundsUnit(left, top, right, bottom, UnitConstant)
+}
+
+func NewAmountBoundsUniform(value float32, unit Unit) AmountBounds {
+	return NewAmountBoundsUnit(value, value, value, value, unit)
+}
+
+func NewAmountBoundsUnit(left, top, right, bottom float32, unit Unit) AmountBounds {
+	return AmountBounds{
+		Left:   Amount{Value: left, Unit: unit},
+		Top:    Amount{Value: top, Unit: unit},
+		Right:  Amount{Value: right, Unit: unit},
+		Bottom: Amount{Value: bottom, Unit: unit},
+	}
+}
+
 func (a AmountBounds) GetBounds(ctx *AmountContext) Bounds {
 	return Bounds{
 		Left:   a.Left.Get(ctx, true),
@@ -218,6 +235,14 @@ func (a *AmountBounds) SetAmount(amount Amount) {
 	a.Top = amount
 	a.Right = amount
 	a.Bottom = amount
+}
+
+func (a AmountBounds) WithAmount(amount Amount) AmountBounds {
+	a.Left = amount
+	a.Top = amount
+	a.Right = amount
+	a.Bottom = amount
+	return a
 }
 
 func (a *AmountBounds) Set(value float32, unit Unit) {

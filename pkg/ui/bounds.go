@@ -18,6 +18,15 @@ func NewBounds(left, top, right, bottom float32) Bounds {
 func (b Bounds) IsZero() bool {
 	return b.Left >= b.Right && b.Top >= b.Bottom
 }
+func (b Bounds) IsUniform() bool {
+	return b.Left == b.Right && b.Left == b.Top && b.Left == b.Bottom
+}
+func (b Bounds) IsPositive() bool {
+	return b.Left > 0 || b.Right > 0 || b.Top > 0 || b.Bottom > 0
+}
+func (b Bounds) IsNegative() bool {
+	return b.Left < 0 || b.Right < 0 || b.Top < 0 || b.Bottom < 0
+}
 func (b Bounds) Width() float32 {
 	return b.Right - b.Left
 }
@@ -67,6 +76,14 @@ func (b Bounds) Expand(a Bounds) Bounds {
 	return Bounds{
 		Left:   b.Left - a.Left,
 		Top:    b.Top - a.Top,
+		Right:  b.Right + a.Right,
+		Bottom: b.Bottom + a.Bottom,
+	}
+}
+func (b Bounds) Add(a Bounds) Bounds {
+	return Bounds{
+		Left:   b.Left + a.Left,
+		Top:    b.Top + a.Top,
 		Right:  b.Right + a.Right,
 		Bottom: b.Bottom + a.Bottom,
 	}
