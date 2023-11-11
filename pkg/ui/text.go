@@ -379,21 +379,22 @@ func (paragraph Paragraph) MinWidth(ctx *RenderContext) float32 {
 	states := paragraph.GetStates(ctx, style)
 
 	lineIndent := style.Indent.Get(ctx.AmountContext, true)
+	kerning := style.Spacing.Get(ctx.AmountContext, true)
 	lineWidth := lineIndent
 	maxWidth := float32(0)
 
 	for _, state := range states {
 		if state.ShouldBreak || state.CanBreak {
-			maxWidth = max(maxWidth, lineWidth)
+			maxWidth = max(maxWidth, lineWidth-kerning)
 			lineWidth = 0
 
 			if state.Empty {
 				continue
 			}
 		}
-		lineWidth += state.Size.X
+		lineWidth += state.Size.X + kerning
 	}
-	maxWidth = max(maxWidth, lineWidth)
+	maxWidth = max(maxWidth, lineWidth-kerning)
 
 	minWidth := maxWidth
 	minWidth += style.ParagraphPadding.Left.Get(ctx.AmountContext, true)
@@ -426,6 +427,7 @@ type paragraphLines struct {
 	lineSpacing float32
 	totalHeight float32
 	maxWidth    float32
+	kerning     float32
 }
 
 func (paragraph Paragraph) getLines(ctx *RenderContext, paragraphs Paragraphs) paragraphLines {
@@ -436,6 +438,7 @@ func (paragraph Paragraph) getLines(ctx *RenderContext, paragraphs Paragraphs) p
 
 	lineSpacing := style.LineSpacing.Get(ctx.AmountContext, false)
 	lineIndent := style.Indent.Get(ctx.AmountContext, true)
+	kerning := style.Spacing.Get(ctx.AmountContext, true)
 	padding := style.ParagraphPadding.GetBounds(ctx.AmountContext)
 	paddingWidth := padding.Left + padding.Right
 
@@ -449,7 +452,7 @@ func (paragraph Paragraph) getLines(ctx *RenderContext, paragraphs Paragraphs) p
 		currentLine.width -= nextLineWidth
 		for i := currentLine.endExclusive - 1; i >= currentLine.start; i-- {
 			if states[i].Empty {
-				currentLine.width -= states[i].Size.X
+				currentLine.width -= states[i].Size.X + kerning
 				currentLine.endExclusive--
 			} else {
 				break
@@ -480,14 +483,14 @@ func (paragraph Paragraph) getLines(ctx *RenderContext, paragraphs Paragraphs) p
 			// Glyphs moving to next line
 			nextLineWidth := float32(0)
 			for k := endLineAt; k < glyphIndex; k++ {
-				nextLineWidth += states[k].Size.X
+				nextLineWidth += states[k].Size.X + kerning
 			}
 
 			// End line and start next
 			endLine(nextLineWidth, endLineAt)
 		}
 
-		currentLine.width += state.Size.X
+		currentLine.width += state.Size.X + kerning
 		currentLine.endExclusive++
 		if state.CanBreak {
 			lastBreak = glyphIndex
@@ -520,6 +523,7 @@ func (paragraph Paragraph) getLines(ctx *RenderContext, paragraphs Paragraphs) p
 		style:       style,
 		states:      states,
 		padding:     padding,
+		kerning:     kerning,
 		lineSpacing: lineSpacing,
 		maxWidth:    maxWidth,
 		totalHeight: totalHeight,
@@ -575,7 +579,7 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs) Ren
 				wordCount++
 			}
 
-			start.X += s.Size.X
+			start.X += s.Size.X + lines.kerning
 		}
 
 		offsetY += line.height + lines.lineSpacing

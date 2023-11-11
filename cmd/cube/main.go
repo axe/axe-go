@@ -984,7 +984,7 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 			{
 				Layers: []ui.Layer{{
 					Placement: ui.Maximized().Shrink(2).Shift(6, 0),
-					Visual:    ui.MustTextToVisual("{w:none}{s:20}{pv:0.5}" + title),
+					Visual:    ui.MustTextToVisual("{w:none}{s:20}{pv:0.5}{k:-1}" + title),
 				}},
 			},
 			newWindowHide(frame, barSize),
