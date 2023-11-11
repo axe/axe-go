@@ -1064,6 +1064,11 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 			Visual: ui.VisualBordered{
 				Width: 3,
 				Shape: ui.ShapeRectangle{},
+				// Double bottom & right borders
+				Scales: []ui.VisualBorderScale{
+					{NormalX: 1, NormalY: 0, Weight: 2},
+					{NormalX: 0, NormalY: 1, Weight: 2},
+				},
 			},
 			Background: ui.BackgroundColor{Color: ui.ColorBlack},
 		}},

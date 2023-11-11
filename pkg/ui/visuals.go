@@ -56,12 +56,18 @@ func (s VisualFilled) PreferredSize(b *Base, ctx *RenderContext, maxWidth float3
 	return Coord{}
 }
 
+type VisualBorderScale struct {
+	NormalX, NormalY, Weight float32
+	Spread                   bool
+}
+
 type VisualBordered struct {
 	Width         float32
 	OuterColor    Color
 	HasOuterColor bool
 	InnerColor    Color
 	HasInnerColor bool
+	Scales        []VisualBorderScale
 	Shape         Shape
 }
 
@@ -81,17 +87,34 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 	last := len(inner) - 1
 	i0 := last - 1
 	i1 := last
-	hw := s.Width * 0.5
+	w := s.Width * 0.5
+	scaleCount := len(s.Scales)
+	scaleIndex := 0
 	for i2 := 0; i2 <= last; i2++ {
 		p0 := inner[i0]
 		p1 := inner[i1]
 		p2 := inner[i2]
 		n1dx, n1dy := Normal(p0, p1)
 		n2dx, n2dy := Normal(p2, p1)
-		nx := n1dy + -n2dy
-		ny := -n1dx + n2dx
-		outer[i1].X = nx*hw + p1.X
-		outer[i1].Y = ny*hw + p1.Y
+		nx := (n1dy + -n2dy)
+		ny := (-n1dx + n2dx)
+		for scaleIndex = 0; scaleIndex < scaleCount; scaleIndex++ {
+			scale := s.Scales[scaleIndex]
+			dot := scale.NormalX*nx + scale.NormalY*ny
+			if dot > 0 {
+				if scale.Spread {
+					dotScaled := dot * scale.Weight
+					nx *= dotScaled
+					ny *= dotScaled
+				} else {
+					dotScaled := dot*scale.Weight - 1
+					nx += dotScaled * scale.NormalX
+					ny += dotScaled * scale.NormalY
+				}
+			}
+		}
+		outer[i1].X = nx*w + p1.X
+		outer[i1].Y = ny*w + p1.Y
 		i0 = i1
 		i1 = i2
 	}
@@ -103,6 +126,11 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 		nextOuter := outer[next]
 		prevInner := inner[prev]
 		nextInner := inner[next]
+		prev = next
+
+		if Collinear(prevOuter, nextOuter, nextInner) && Collinear(nextInner, prevInner, prevOuter) {
+			continue
+		}
 
 		buffer.AddQuad(
 			Vertex{X: prevOuter.X, Y: prevOuter.Y, Color: s.OuterColor, HasColor: s.HasOuterColor},
@@ -110,7 +138,6 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 			Vertex{X: nextInner.X, Y: nextInner.Y, Color: s.InnerColor, HasColor: s.HasInnerColor},
 			Vertex{X: prevInner.X, Y: prevInner.Y, Color: s.InnerColor, HasColor: s.HasInnerColor},
 		)
-		prev = next
 	}
 }
 
