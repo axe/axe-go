@@ -241,8 +241,27 @@ func main() {
 									lc.FullWidth = !lc.FullWidth
 								})
 							}),
-							newButton(ui.Placement{}, "Update MinSize", false, func() {
-								// layoutColumnWindow.UpdateMinSize()
+							newButton(ui.Absolute(0, 0, 150, 60), "Toggle EqualWidths", false, func() {
+								layoutColumnChange(func(lc *ui.LayoutColumn) {
+									lc.EqualWidths = !lc.EqualWidths
+								})
+							}),
+							newButton(ui.Absolute(0, 0, 150, 60), "Toggle FullHeight", false, func() {
+								layoutColumnChange(func(lc *ui.LayoutColumn) {
+									lc.FullHeight = !lc.FullHeight
+								})
+							}),
+							newButton(ui.Absolute(0, 0, 150, 60), "Toggle FullHeight Weights", false, func() {
+								layoutColumnChange(func(lc *ui.LayoutColumn) {
+									if len(lc.FullHeightWeights) == 0 {
+										lc.FullHeightWeights = ui.LayoutWeights{1, 2, 3, 4}
+									} else {
+										lc.FullHeightWeights = nil
+									}
+								})
+							}),
+							newButton(ui.Placement{}, "Compact", false, func() {
+								layoutColumnWindow.Compact()
 							}),
 						},
 					})
@@ -285,13 +304,22 @@ func main() {
 									lr.FullWidth = !lr.FullWidth
 								})
 							}),
+							newButton(ui.Absolute(0, 0, 150, 60), "Toggle FullWidth Weights", false, func() {
+								layoutRowChange(func(lc *ui.LayoutRow) {
+									if len(lc.FullWidthWeights) == 0 {
+										lc.FullWidthWeights = ui.LayoutWeights{1, 2, 3, 4}
+									} else {
+										lc.FullWidthWeights = nil
+									}
+								})
+							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "Toggle Spacing", false, func() {
 								layoutRowChange(func(lr *ui.LayoutRow) {
 									lr.Spacing.Value = float32(int(lr.Spacing.Value+5) % 15)
 								})
 							}),
-							newButton(ui.Placement{}, "Update MinSize", false, func() {
-								// layoutRowWindow.UpdateMinSize()
+							newButton(ui.Placement{}, "Compact", false, func() {
+								layoutRowWindow.Compact()
 							}),
 						},
 					})
@@ -385,8 +413,8 @@ func main() {
 									}
 								})
 							}),
-							newButton(ui.Placement{}, "Update MinSize", false, func() {
-								// layoutGridWindow.UpdateMinSize()
+							newButton(ui.Placement{}, "Compact", false, func() {
+								layoutGridWindow.Compact()
 							}),
 						},
 					})
@@ -440,8 +468,8 @@ func main() {
 									lg.HorizontalSpacing.Value = float32(math.Mod(float64(lg.HorizontalSpacing.Value)+10, 30))
 								})
 							}),
-							newButton(ui.Placement{}, "Update MinSize", false, func() {
-								// layoutInlineWindow.UpdateMinSize()
+							newButton(ui.Placement{}, "Compact", false, func() {
+								layoutInlineWindow.Compact()
 							}),
 						},
 					})
@@ -525,12 +553,29 @@ var RevealAnimation = ui.BasicAnimation{
 	},
 }
 
+var FadeInAnimation = ui.BasicAnimation{
+	Duration: 0.5,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Transparency: 1},
+		{Time: 1, Transparency: 0},
+	},
+}
+
 var FadeOutSlideUpAnimation = ui.BasicAnimation{
 	Save:     true,
 	Duration: 0.7,
 	Frames: []ui.BasicAnimationFrame{
 		{Time: 0, Origin: OriginCenter},
 		{Time: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter, Transparency: 1},
+	},
+}
+
+var FadeInSlideDownAnimation = ui.BasicAnimation{
+	Save:     true,
+	Duration: 0.7,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Transparency: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter},
+		{Time: 1, Origin: OriginCenter},
 	},
 }
 
@@ -591,7 +636,7 @@ var buttonColor = ui.ColorFromHex("#008080")
 var buttonTemplate = &ui.Template{
 	Animations: &ui.Animations{
 		ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
-			ui.AnimationEventShow: ui.StatelessAnimationFactory(RevealAnimation),
+			ui.AnimationEventShow: ui.StatelessAnimationFactory(FadeInAnimation),
 		}),
 	},
 	Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
@@ -851,6 +896,9 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 			UnitToPoints: 0.5,
 		},
 		Animations: &ui.Animations{
+			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
+				ui.AnimationEventShow: ui.StatelessAnimationFactory(FadeInSlideDownAnimation),
+			}),
 			Named: id.NewDenseKeyMap[ui.AnimationFactory, uint16, uint8](
 				id.WithStringMap(map[string]ui.AnimationFactory{
 					"hide": ui.StatelessAnimationFactory(FadeOutSlideUpAnimation),
@@ -894,9 +942,6 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 				EndColor:   buttonColor.Lighten(0.2),
 				End:        ui.Coord{X: 0, Y: 1},
 			},
-		}, {
-			Placement: ui.Maximized().Shrink(2).Shift(6, 0),
-			Visual:    ui.MustTextToVisual("{s:20}{pv:0.5}" + title),
 		}},
 		Draggable: true,
 		Events: ui.Events{
@@ -915,10 +960,21 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 				}
 			},
 		},
+		Layout: ui.LayoutRow{
+			FullWidth:         true,
+			FullWidthWeights:  ui.LayoutWeights{1, 0, 0, 0},
+			VerticalAlignment: ui.AlignmentCenter,
+		},
 		Children: []*ui.Base{
-			newWindowClose(frame, barSize),
-			newWindowMinimizeMaximize(frame, barSize),
+			{
+				Layers: []ui.Layer{{
+					Placement: ui.Maximized().Shrink(2).Shift(6, 0),
+					Visual:    ui.MustTextToVisual("{w:none}{s:20}{pv:0.5}" + title),
+				}},
+			},
 			newWindowHide(frame, barSize),
+			newWindowMinimizeMaximize(frame, barSize),
+			newWindowClose(frame, barSize),
 		},
 	}
 
@@ -935,11 +991,7 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 
 func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 	return &ui.Base{
-		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: -barSize, Delta: 1},
-			Right:  ui.Anchor{Delta: 1},
-			Bottom: ui.Anchor{Base: barSize},
-		},
+		MinSize: ui.Coord{X: barSize, Y: barSize},
 		Layers: []ui.Layer{{
 			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
@@ -962,6 +1014,7 @@ func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 			ui.CursorEventHover: id.Get("click"),
 			ui.CursorEventDown:  id.Get("clicking"),
 		}),
+		Draggable: true,
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventDown {
@@ -973,6 +1026,10 @@ func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 					}()
 				}
 			},
+			OnDrag: func(ev *ui.DragEvent) {
+				ev.Cancel = true
+				ev.Stop = true
+			},
 		},
 	}
 }
@@ -982,11 +1039,7 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 	maximized := false
 
 	return &ui.Base{
-		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: -barSize * 2, Delta: 1},
-			Right:  ui.Anchor{Base: -barSize, Delta: 1},
-			Bottom: ui.Anchor{Base: barSize},
-		},
+		MinSize: ui.Coord{X: barSize, Y: barSize},
 		Layers: []ui.Layer{{
 			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
@@ -1003,6 +1056,7 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 			ui.CursorEventHover: id.Get("click"),
 			ui.CursorEventDown:  id.Get("clicking"),
 		}),
+		Draggable: true,
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventDown {
@@ -1015,17 +1069,17 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 					maximized = !maximized
 				}
 			},
+			OnDrag: func(ev *ui.DragEvent) {
+				ev.Cancel = true
+				ev.Stop = true
+			},
 		},
 	}
 }
 
 func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 	return &ui.Base{
-		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: -barSize * 3, Delta: 1},
-			Right:  ui.Anchor{Base: -barSize * 2, Delta: 1},
-			Bottom: ui.Anchor{Base: barSize},
-		},
+		MinSize: ui.Coord{X: barSize, Y: barSize},
 		Layers: []ui.Layer{{
 			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
@@ -1041,6 +1095,7 @@ func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 			ui.CursorEventHover: id.Get("click"),
 			ui.CursorEventDown:  id.Get("clicking"),
 		}),
+		Draggable: true,
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventDown {
@@ -1050,6 +1105,10 @@ func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 						win.Play(id.Maybe("show"))
 					}()
 				}
+			},
+			OnDrag: func(ev *ui.DragEvent) {
+				ev.Cancel = true
+				ev.Stop = true
 			},
 		},
 	}

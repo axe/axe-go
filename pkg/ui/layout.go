@@ -18,6 +18,58 @@ var _ Layout = LayoutGrid{}
 var _ Layout = LayoutInline{}
 var _ Layout = LayoutStatic{}
 
+// A way to control the weight of a metric for a component at a given index.
+// All weights for N components will add up to 1
+// If the number of weights is <= 1 then all weights returned are equally distributed.
+type LayoutWeights []float32
+
+func (w LayoutWeights) GetWeight(i, n int) float32 {
+	if len(w) <= 1 {
+		return float32(1) / float32(n)
+	} else {
+		total := w.TotalWeight(n)
+		if total != 0 {
+			return w.WeightAt(i) / total
+		} else {
+			return float32(1) / float32(n)
+		}
+	}
+}
+func (w LayoutWeights) WeightAt(i int) float32 {
+	last := len(w) - 1
+	if i > last {
+		return w[last]
+	} else {
+		return w[i]
+	}
+}
+func (w LayoutWeights) TotalWeight(n int) float32 {
+	last := len(w) - 1
+	totalWeight := float32(0)
+	for i := 0; i < n; i++ {
+		if i <= last {
+			totalWeight += w[i]
+		} else {
+			totalWeight += w[last]
+		}
+	}
+	return totalWeight
+}
+
+// A way to control the dimensions of a metric in a layout.
+type LayoutDimensions []float32
+
+func (d LayoutDimensions) Get(i int) float32 {
+	last := len(d) - 1
+	if last == -1 {
+		return 0
+	} else if i <= last {
+		return d[i]
+	} else {
+		return d[last]
+	}
+}
+
 // A layout which places all children in a column (vertical stack).
 // The children can have their width expanded to the full width or default
 // to their preferred size. If they are not expanded to full width they can
@@ -25,6 +77,9 @@ var _ Layout = LayoutStatic{}
 // can be factored into the preferred size as well (it's not by default).
 type LayoutColumn struct {
 	FullWidth           bool
+	FullHeight          bool
+	FullHeightWeights   LayoutWeights
+	EqualWidths         bool
 	HorizontalAlignment Alignment
 	Spacing             Amount
 }
@@ -43,23 +98,41 @@ func (l LayoutColumn) PreferredSize(b *Base, ctx *RenderContext, maxWidth float3
 	return size
 }
 func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base) {
-	if len(layoutable) == 0 {
+	n := len(layoutable)
+	if n == 0 {
 		return
 	}
 
 	offsetY := float32(0)
 	deltaX := float32(l.HorizontalAlignment)
-	width := bounds.Width()
-	spacing := l.Spacing.Get(ctx.AmountContext, false)
+	width, maxHeight := bounds.Dimensions()
 	sizings := getLayoutSizings(ctx, width, layoutable)
+	spacing := l.Spacing.Get(ctx.AmountContext, false)
+	spacingTotal := spacing * float32(n-1)
+	totalHeight := sizings.TotalHeight + spacingTotal
+
+	if l.FullHeight && maxHeight > totalHeight {
+		remaining := maxHeight - totalHeight
+		for childIndex := range sizings.Sizings {
+			sizing := &sizings.Sizings[childIndex]
+			add := remaining * l.FullHeightWeights.GetWeight(childIndex, n)
+			sizing.FullHeight += add
+			sizing.Height += add
+		}
+	}
 
 	for childIndex, child := range layoutable {
 		sizing := sizings.Sizings[childIndex]
+		paddingWidth := sizing.FullWidth - sizing.Width
 		if l.FullWidth {
 			sizing.FullWidth = width
+			sizing.Width = width - paddingWidth
+		} else if l.EqualWidths {
+			sizing.FullWidth = sizings.MaxWidth
+			sizing.Width = sizings.MaxWidth - paddingWidth
 		}
 		placement := child.Placement.
-			Attach(deltaX, 0, sizing.FullWidth, sizing.FullHeight).
+			Attach(deltaX, 0, sizing.Width, sizing.Height).
 			Shift(sizing.OffsetX, offsetY+sizing.OffsetY)
 		child.SetPlacement(placement)
 		offsetY += sizing.FullHeight + spacing
@@ -72,8 +145,9 @@ func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 // be vertically aligned. Optionally the size inferred by the placement
 // can be factored into the preferred size as well (it's not by default).
 type LayoutRow struct {
-	FullWidth         bool
 	FullHeight        bool
+	FullWidth         bool
+	FullWidthWeights  LayoutWeights
 	EqualHeights      bool
 	VerticalAlignment Alignment
 	Spacing           Amount
@@ -152,11 +226,11 @@ func (l LayoutRow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, 
 	return size
 }
 func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base) {
-	if len(layoutable) == 0 {
+	n := len(layoutable)
+	if n == 0 {
 		return
 	}
 
-	n := len(layoutable)
 	maxWidth, boundsHeight := bounds.Dimensions()
 	spacing := l.Spacing.Get(ctx.AmountContext, false)
 	spacingTotal := spacing * float32(n-1)
@@ -223,11 +297,12 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 			totalWidth += sizing.FullWidth
 		}
 		if totalWidth < maxWidth {
-			perChildAddition := (maxWidth - totalWidth) / float32(n)
+			remaining := maxWidth - totalWidth
 			for i := range sizings {
 				sizing := &sizings[i]
-				sizing.Width += perChildAddition
-				sizing.FullWidth += perChildAddition
+				add := remaining * l.FullWidthWeights.GetWeight(i, n)
+				sizing.Width += add
+				sizing.FullWidth += add
 			}
 		}
 	}
@@ -596,8 +671,9 @@ func (l LayoutStatic) PreferredSize(b *Base, ctx *RenderContext, maxWidth float3
 		return size
 	}
 
+	minWidth := float32(0)
 	for _, child := range layoutable {
-		minSize := child.PreferredSize(ctx, 0)
+		minSize := child.PreferredSize(ctx, minWidth)
 		padding := child.Placement.Padding()
 		if minSize.X+padding.X < maxWidth {
 			minSize = child.PreferredSize(ctx, maxWidth-padding.X)
@@ -607,6 +683,7 @@ func (l LayoutStatic) PreferredSize(b *Base, ctx *RenderContext, maxWidth float3
 			X: minSize.X + padding.X,
 			Y: minSize.Y + padding.Y,
 		})
+		minWidth = max(minWidth, size.X)
 	}
 
 	return size

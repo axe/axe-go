@@ -271,13 +271,17 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 		}
 
 		// If down and it's draggable, start the drag
-		if ui.PointerOver != nil && ui.PointerOver.IsDraggable() && ui.Dragging == nil {
-			dragStart := dragEvent.as(DragEventStart)
-			ui.PointerOver.OnDrag(dragStart)
-			// If not stopped, consider the start accepted
-			if !dragStart.Cancel {
-				ui.Dragging = ui.PointerOver
-				ui.DragStart = ev.Point
+		if ui.PointerOver != nil && ui.Dragging == nil {
+			draggablePath := getDraggablePath(ui.PointerOver)
+			if len(draggablePath) > 0 {
+				dragging := draggablePath[0]
+				dragStart := dragEvent.as(DragEventStart)
+				dragging.OnDrag(dragStart)
+				// If not stopped, consider the start accepted
+				if !dragStart.Cancel {
+					ui.Dragging = dragging
+					ui.DragStart = ev.Point
+				}
 			}
 		}
 	}
@@ -328,8 +332,14 @@ func getDroppablePath(c Component) []Component {
 	})
 }
 
+func getDraggablePath(c Component) []Component {
+	return getPathWhere(c, func(c Component) bool {
+		return c.IsDraggable()
+	})
+}
+
 func getPathWhere(c Component, where func(Component) bool) []Component {
-	path := make([]Component, 0)
+	path := make([]Component, 0, 8)
 	curr := c
 	for curr != nil {
 		if where == nil || where(curr) {

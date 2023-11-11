@@ -198,6 +198,7 @@ func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
 		}
 	}
 	size = size.Max(b.MinSize)
+	maxWidth = max(maxWidth, size.X)
 	if len(b.Children) > 0 {
 		layout := b.Layout
 		if layout == nil {
@@ -214,14 +215,17 @@ func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
 	return size
 }
 
-// func (c *Base) SetToMinSize() {
+func (b *Base) Compact() {
+	b.CompactFor(b.ComputeRenderContext())
+}
 
-// }
-
-// func (c *Base) SetToMinSizeForContext(ctx *RenderContext) {
-// 	size := c.PreferredSize(ctx, 0)
-
-// }
+func (b *Base) CompactFor(ctx *RenderContext) {
+	size := b.PreferredSize(ctx, 0)
+	placement := b.Placement
+	placement.Right.Base = placement.Left.Base + size.X
+	placement.Bottom.Base = placement.Top.Base + size.Y
+	b.SetPlacement(placement)
+}
 
 func (c *Base) Update(update Update) {
 	dirty := DirtyNone
