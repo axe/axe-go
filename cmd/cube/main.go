@@ -242,7 +242,7 @@ func main() {
 								})
 							}),
 							newButton(ui.Placement{}, "Update MinSize", false, func() {
-								layoutColumnWindow.UpdateMinSize()
+								// layoutColumnWindow.UpdateMinSize()
 							}),
 						},
 					})
@@ -275,8 +275,18 @@ func main() {
 									lr.FullHeight = !lr.FullHeight
 								})
 							}),
+							newButton(ui.Absolute(0, 0, 150, 60), "Toggle EqualHeights", false, func() {
+								layoutRowChange(func(lr *ui.LayoutRow) {
+									lr.EqualHeights = !lr.EqualHeights
+								})
+							}),
+							newButton(ui.Absolute(0, 0, 150, 60), "Toggle Spacing", false, func() {
+								layoutRowChange(func(lr *ui.LayoutRow) {
+									lr.Spacing.Value = float32(int(lr.Spacing.Value+5) % 15)
+								})
+							}),
 							newButton(ui.Placement{}, "Update MinSize", false, func() {
-								layoutRowWindow.UpdateMinSize()
+								// layoutRowWindow.UpdateMinSize()
 							}),
 						},
 					})
@@ -305,7 +315,7 @@ func main() {
 							AspectRatio:         0,
 						},
 						TextStyles: &ui.TextStylesOverride{
-							FontSize: &ui.Amount{Value: 20},
+							FontSize: &ui.Amount{Value: 18},
 							ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
 								VerticalAlignment: ui.Override(ui.AlignmentCenter),
 							},
@@ -314,6 +324,11 @@ func main() {
 							},
 						},
 						Children: []*ui.Base{
+							newButton(ui.Placement{}, "Toggle GridFullWidth", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.GridFullWidth = !lg.GridFullWidth
+								})
+							}),
 							newButton(ui.Placement{}, "Toggle FullHeight", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
 									lg.FullHeight = !lg.FullHeight
@@ -322,6 +337,16 @@ func main() {
 							newButton(ui.Placement{}, "Toggle FullWidth", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
 									lg.FullWidth = !lg.FullWidth
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle EqualHeights", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.EqualHeights = !lg.EqualHeights
+								})
+							}),
+							newButton(ui.Placement{}, "Toggle EqualWidths", false, func() {
+								layoutGridChange(func(lg *ui.LayoutGrid) {
+									lg.EqualWidths = !lg.EqualWidths
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle AspectRatio", false, func() {
@@ -356,7 +381,7 @@ func main() {
 								})
 							}),
 							newButton(ui.Placement{}, "Update MinSize", false, func() {
-								layoutGridWindow.UpdateMinSize()
+								// layoutGridWindow.UpdateMinSize()
 							}),
 						},
 					})
@@ -397,6 +422,8 @@ func main() {
 								layoutInlineChange(func(lg *ui.LayoutInline) {
 									lg.HorizontalAlignment = ui.Alignment(math.Mod(float64(lg.HorizontalAlignment)+0.5, 1.5))
 								})
+							}).Edit(func(b *ui.Base) {
+								b.MaxSize.X = 120
 							}),
 							newButton(ui.Placement{}, "Toggle Vertical Spacing", false, func() {
 								layoutInlineChange(func(lg *ui.LayoutInline) {
@@ -409,12 +436,16 @@ func main() {
 								})
 							}),
 							newButton(ui.Placement{}, "Update MinSize", false, func() {
-								layoutInlineWindow.UpdateMinSize()
+								// layoutInlineWindow.UpdateMinSize()
 							}),
 						},
 					})
 
 					userInterface.Root = &ui.Base{
+						Layout: ui.LayoutStatic{
+							EnforcePreferredSize: true,
+							KeepInside:           true,
+						},
 						Children: []*ui.Base{
 							newDraggable(),
 							btnPress,
@@ -873,11 +904,7 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 					frame.Transparency.Set(0.2)
 					frame.BringToFront()
 				case ui.DragEventMove:
-					parent := frame.Parent().(*ui.Base)
-					shifted := frame.Placement.
-						Shift(ev.DeltaMove.X, ev.DeltaMove.Y).
-						FitInside(parent.Bounds.Width(), parent.Bounds.Height(), true)
-					frame.SetPlacement(shifted)
+					frame.SetPlacement(frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y))
 				case ui.DragEventEnd:
 					frame.Transparency.Set(0)
 				}

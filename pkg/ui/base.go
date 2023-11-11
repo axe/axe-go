@@ -93,23 +93,28 @@ func (c *Base) isDirtyForState(state State) bool {
 	return false
 }
 
-func (c *Base) RemoveStates(state State) {
-	c.SetState(c.States.WithRemove(state))
+func (b *Base) Edit(editor func(*Base)) *Base {
+	editor(b)
+	return b
 }
 
-func (c *Base) AddStates(state State) {
-	c.SetState(c.States.WithAdd(state))
+func (b *Base) RemoveStates(state State) {
+	b.SetState(b.States.WithRemove(state))
 }
 
-func (c *Base) SetPlacement(placement Placement) {
-	if c.Placement != placement {
-		c.Placement = placement
-		c.Dirty(DirtyPlacement)
+func (b *Base) AddStates(state State) {
+	b.SetState(b.States.WithAdd(state))
+}
+
+func (b *Base) SetPlacement(placement Placement) {
+	if b.Placement != placement {
+		b.Placement = placement
+		b.Dirty(DirtyPlacement)
 	}
 }
 
-func (c *Base) GetPlacement() Placement {
-	return c.Placement
+func (b *Base) GetPlacement() Placement {
+	return b.Placement
 }
 
 func (b *Base) Init(init Init) {
@@ -176,48 +181,47 @@ func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 	}
 }
 
+// PreferredSize computes the preferred size possibly given a width we are fitting this component into.
+// If maxWidth = 0 then the preferred size return will present one with a minimum possible width.
 // ctx should be relative to this component
-// ignorePlacement will ignore the inferred preferred width & height of the placement on this component
-// maxWidth should be relative to the size of this component
-func (b *Base) PreferredSize(ctx *RenderContext, ignorePlacement bool, maxWidth float32) Coord {
+// maxWidth is the width we're aiming for for this component
+func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
+	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
+
 	size := Coord{}
+	if b.MaxSize.X > 0 && b.MaxSize.X < maxWidth {
+		maxWidth = b.MaxSize.X
+	}
 	for _, layer := range b.Layers {
 		if layer.ForStates(b.States) {
-			size = size.Max(layer.PreferredSize(b, ctx, maxWidth))
+			size = size.Max(layer.PreferredSize(b, baseCtx, maxWidth))
 		}
 	}
-	if !ignorePlacement {
-		size = size.Max(Coord{
-			X: b.Placement.PreferredWidth(),
-			Y: b.Placement.PreferredHeight(),
-		})
-	}
 	size = size.Max(b.MinSize)
-	// if b.Layout == nil {
-	// 	for _, child := range b.Children {
-	// 		size = size.Max(child.Placement.MinParentSize())
-	// 		size = size.Max(child.PreferredSize(ctx, ignorePlacement, maxWidth))
-	// 	}
-	// } else {
-	// 	size = size.Max(b.Layout.PreferredSize(b, ctx, maxWidth, b.Children))
-	// }
+	if len(b.Children) > 0 {
+		layout := b.Layout
+		if layout == nil {
+			layout = LayoutStatic{}
+		}
+		size = size.Max(layout.PreferredSize(b, baseCtx, maxWidth, b.Children))
+	}
+	if b.MaxSize.X > 0 {
+		size.X = min(b.MaxSize.X, size.X)
+	}
+	if b.MaxSize.Y > 0 {
+		size.Y = min(b.MaxSize.Y, size.Y)
+	}
 	return size
 }
 
-func (c *Base) UpdateMinSize() {
-	ctx := c.ComputeRenderContext()
-	c.UpdateMinSizeForContext(ctx)
-}
+// func (c *Base) SetToMinSize() {
 
-func (c *Base) UpdateMinSizeForContext(ctx *RenderContext) {
-	c.MinSize = Coord{}
-	preferredSize := c.PreferredSize(ctx, true, 0)
-	if preferredSize != c.MinSize {
-		c.MinSize = preferredSize
-		// TODO
-		c.Dirty(DirtyPlacement)
-	}
-}
+// }
+
+// func (c *Base) SetToMinSizeForContext(ctx *RenderContext) {
+// 	size := c.PreferredSize(ctx, 0)
+
+// }
 
 func (c *Base) Update(update Update) {
 	dirty := DirtyNone

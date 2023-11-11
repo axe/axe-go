@@ -10,9 +10,7 @@ type Layer struct {
 
 func (l *Layer) Init(b *Base, init Init) {
 	l.Placement.Init(Maximized())
-	if l.Visual != nil {
-		l.Visual.Init(b, init)
-	}
+	l.Visual.Init(b, init)
 	if l.Background != nil {
 		l.Background.Init(b, init)
 	}
@@ -24,9 +22,7 @@ func (l *Layer) Place(b *Base, parent Bounds) {
 
 func (l *Layer) Update(b *Base, update Update) Dirty {
 	dirty := DirtyNone
-	if l.Visual != nil {
-		dirty.Add(l.Visual.Update(b, update))
-	}
+	dirty.Add(l.Visual.Update(b, update))
 	if l.Background != nil {
 		dirty.Add(l.Background.Update(b, update))
 	}
@@ -34,26 +30,32 @@ func (l *Layer) Update(b *Base, update Update) Dirty {
 }
 
 func (l Layer) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
-	size := Coord{}
-	if l.Visual != nil {
-		padding := l.Placement.ParentSize(0, 0)
-		if maxWidth > 0 {
-			maxWidth -= padding.X
-		}
-		size = l.Visual.PreferredSize(b, ctx, maxWidth)
-		size.X += padding.X
-		size.Y += padding.Y
-	}
+	layerCtx := ctx.WithBounds(l.Bounds)
+	padding := l.Placement.Padding()
+	size := l.Visual.PreferredSize(b, layerCtx, maxWidth-padding.X)
+	size.X += padding.X
+	size.Y += padding.Y
+
+	// if text, ok := l.Visual.(*VisualText); ok {
+	// 	if text.Paragraphs.String() == "Toggle Vertical Spacing" {
+	// 		fmt.Printf("PreferredSize Bounds %v, Padding: %v, maxWidth: %v, size: %v\n", l.Bounds, padding, maxWidth, size)
+	// 	}
+	// }
+
 	return size
 }
 
 func (l Layer) Render(b *Base, ctx *RenderContext, out *VertexBuffers) {
 	layerCtx := ctx.WithBounds(l.Bounds)
-
 	iter := NewVertexIterator(out)
 
-	l.Visual.Visualize(b, l.Bounds, layerCtx, out)
+	// if text, ok := l.Visual.(*VisualText); ok {
+	// 	if text.Paragraphs.String() == "Toggle Vertical Spacing" {
+	// 		fmt.Printf("Render Bounds %v, Padding: %v\n", l.Bounds, l.Placement.Padding())
+	// 	}
+	// }
 
+	l.Visual.Visualize(b, l.Bounds, layerCtx, out)
 	if l.Background != nil {
 		for iter.HasNext() {
 			l.Background.Backgroundify(b, l.Bounds, layerCtx, iter.Next())

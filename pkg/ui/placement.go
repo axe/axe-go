@@ -69,34 +69,34 @@ func (p Placement) Shift(dx, dy float32) Placement {
 
 func (p Placement) FitInside(width, height float32, keepSize bool) Placement {
 	b := p.GetBounds(width, height)
-	if b.Left < 0 {
-		p.Left.Base -= b.Left
-		if keepSize {
-			p.Right.Base -= b.Left
-		}
-		b.Right -= b.Left
-		b.Left = 0
-	}
 	if b.Right > width {
 		over := b.Right - width
 		p.Right.Base -= over
 		if keepSize {
 			p.Left.Base -= over
 		}
+		b.Left -= over
+		b.Right = width
 	}
-	if b.Top < 0 {
-		p.Top.Base -= b.Top
+	if b.Left < 0 {
+		p.Left.Base -= b.Left
 		if keepSize {
-			p.Bottom.Base -= b.Top
+			p.Right.Base -= b.Left
 		}
-		b.Bottom -= b.Top
-		b.Top = 0
 	}
 	if b.Bottom > height {
 		over := b.Bottom - height
 		p.Bottom.Base -= over
 		if keepSize {
 			p.Top.Base -= over
+		}
+		b.Bottom = height
+		b.Top -= over
+	}
+	if b.Top < 0 {
+		p.Top.Base -= b.Top
+		if keepSize {
+			p.Bottom.Base -= b.Top
 		}
 	}
 	return p
@@ -253,6 +253,13 @@ func (p Placement) PreferredHeight() float32 {
 
 func (p Placement) MinParentHeight() float32 {
 	return p.ParentHeight(p.PreferredHeight())
+}
+
+func (p Placement) Padding() Coord {
+	return Coord{
+		X: p.ParentWidth(0),
+		Y: p.ParentHeight(0),
+	}
 }
 
 func (p Placement) ParentSize(minWidth, minHeight float32) Coord {

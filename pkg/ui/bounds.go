@@ -24,6 +24,9 @@ func (b Bounds) Width() float32 {
 func (b Bounds) Height() float32 {
 	return b.Bottom - b.Top
 }
+func (b Bounds) Size() Coord {
+	return Coord{X: b.Width(), Y: b.Height()}
+}
 func (b Bounds) Dimensions() (float32, float32) {
 	return b.Width(), b.Height()
 }
