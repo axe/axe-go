@@ -72,6 +72,7 @@ func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 // be vertically aligned. Optionally the size inferred by the placement
 // can be factored into the preferred size as well (it's not by default).
 type LayoutRow struct {
+	FullWidth         bool
 	FullHeight        bool
 	EqualHeights      bool
 	VerticalAlignment Alignment
@@ -130,8 +131,9 @@ func (l LayoutRow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, 
 				maxSizing := maxSizings.Sizings[i]
 				if maxSizing.FullWidth > targetWidth {
 					if extraWidth < 0 {
-						maxHeight = max(maxHeight, maxSizing.FullHeight)
-						totalWidth += maxSizing.FullWidth
+						newSizing := getLayoutSizing(ctx, targetWidth, layoutable[i])
+						maxHeight = max(maxHeight, newSizing.FullHeight)
+						totalWidth += newSizing.FullWidth
 					} else {
 						availableWidth := targetWidth + extraWidth
 						newSizing := getLayoutSizing(ctx, availableWidth, layoutable[i])
@@ -200,7 +202,9 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 				maxSizing := maxSizings.Sizings[i]
 				if maxSizing.FullWidth > targetWidth {
 					if extraWidth <= 0 {
-						maxHeight = max(maxHeight, maxSizing.FullHeight)
+						newSizing := getLayoutSizing(ctx, targetWidth, layoutable[i])
+						maxHeight = max(maxHeight, newSizing.FullHeight)
+						sizings[i] = newSizing
 					} else {
 						availableWidth := targetWidth + extraWidth
 						newSizing := getLayoutSizing(ctx, availableWidth, layoutable[i])
@@ -209,6 +213,21 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 						sizings[i] = newSizing
 					}
 				}
+			}
+		}
+	}
+
+	if l.FullWidth {
+		totalWidth := spacingTotal
+		for _, sizing := range sizings {
+			totalWidth += sizing.FullWidth
+		}
+		if totalWidth < maxWidth {
+			perChildAddition := (maxWidth - totalWidth) / float32(n)
+			for i := range sizings {
+				sizing := &sizings[i]
+				sizing.Width += perChildAddition
+				sizing.FullWidth += perChildAddition
 			}
 		}
 	}
@@ -580,7 +599,7 @@ func (l LayoutStatic) PreferredSize(b *Base, ctx *RenderContext, maxWidth float3
 	for _, child := range layoutable {
 		minSize := child.PreferredSize(ctx, 0)
 		padding := child.Placement.Padding()
-		if minSize.X /*+padding.X*/ < maxWidth {
+		if minSize.X+padding.X < maxWidth {
 			minSize = child.PreferredSize(ctx, maxWidth-padding.X)
 		}
 

@@ -280,6 +280,11 @@ func main() {
 									lr.EqualHeights = !lr.EqualHeights
 								})
 							}),
+							newButton(ui.Absolute(0, 0, 150, 60), "Toggle FullWidth", false, func() {
+								layoutRowChange(func(lr *ui.LayoutRow) {
+									lr.FullWidth = !lr.FullWidth
+								})
+							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "Toggle Spacing", false, func() {
 								layoutRowChange(func(lr *ui.LayoutRow) {
 									lr.Spacing.Value = float32(int(lr.Spacing.Value+5) % 15)

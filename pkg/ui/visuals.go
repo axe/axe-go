@@ -209,7 +209,6 @@ func (s *VisualText) WillClip() bool {
 func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
 	if s.renderedBounds != bounds {
 		s.Paragraphs.MaxWidth, s.Paragraphs.MaxHeight = bounds.Dimensions()
-
 		s.rendered = s.Paragraphs.Render(ctx)
 		s.rendered.Translate(bounds.Left, bounds.Top)
 		s.renderedBounds = bounds
@@ -238,6 +237,8 @@ func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 	})
 }
 
+var TextMeasureErrorAmount float32 = 5
+
 func (s VisualText) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
 	if maxWidth <= 0 {
 		maxWidth = s.Paragraphs.MinWidth(ctx)
@@ -245,6 +246,7 @@ func (s VisualText) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32)
 	existingMaxWidth := s.Paragraphs.MaxWidth
 	s.Paragraphs.MaxWidth = maxWidth
 	size := s.Paragraphs.Measure(ctx)
+	size.X += TextMeasureErrorAmount
 	s.Paragraphs.MaxWidth = existingMaxWidth
 	return size
 }
