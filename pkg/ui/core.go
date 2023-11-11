@@ -25,6 +25,10 @@ const (
 	StateDragging
 	StateDragOver
 	StateSelected // checked, chosen option
+	// States that only occur when there is an animation for Show/Hide/Remove. The component is considered disabled.
+	StateRemoving
+	StateHiding
+	StateShowing
 )
 
 type StateFn = func(s State) bool

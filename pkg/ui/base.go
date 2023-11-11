@@ -2,36 +2,37 @@ package ui
 
 import (
 	"github.com/axe/axe-go/pkg/id"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type Base struct {
-	Name         id.Identifier
-	Layers       []Layer
-	Placement    Placement
-	Bounds       Bounds
-	Children     []*Base
-	Focusable    bool
-	Draggable    bool
-	Droppable    bool
-	Events       Events
-	States       State
-	Clip         Placement
-	Transform    Transform
-	TextStyles   *TextStylesOverride
-	Shape        Shape
-	OverShape    []Coord
-	Transparency Watch[float32]
-	Animation    AnimationState
-	Animations   *Animations
-	Cursors      Cursors
-	Hooks        Hooks
-	Colors       Colors
-
-	Margin       AmountBounds
-	MarginBounds Bounds
-	MinSize      Coord
-	MaxSize      Coord
-	Layout       Layout
+	Name              id.Identifier
+	Layers            []Layer
+	Placement         Placement
+	Bounds            Bounds
+	Children          []*Base
+	ChildrenOrderless bool
+	Focusable         bool
+	Draggable         bool
+	Droppable         bool
+	Events            Events
+	States            State
+	Clip              Placement
+	Transform         Transform
+	TextStyles        *TextStylesOverride
+	Shape             Shape
+	OverShape         []Coord
+	Transparency      Watch[float32]
+	Animation         AnimationState
+	Animations        *Animations
+	Cursors           Cursors
+	Hooks             Hooks
+	Colors            Colors
+	Margin            AmountBounds
+	MarginBounds      Bounds
+	MinSize           Coord
+	MaxSize           Coord
+	Layout            Layout
 
 	visualBounds  Bounds
 	dirty         Dirty
@@ -228,24 +229,32 @@ func (b *Base) CompactFor(ctx *RenderContext) {
 	b.SetPlacement(placement)
 }
 
-func (c *Base) Update(update Update) {
+func (b *Base) Update(update Update) {
 	dirty := DirtyNone
 
-	for i := range c.Layers {
-		dirty.Add(c.Layers[i].Update(c, update))
+	for i := range b.Layers {
+		dirty.Add(b.Layers[i].Update(b, update))
 	}
-	for _, child := range c.Children {
+	for childIndex := 0; childIndex < len(b.Children); childIndex++ {
+		child := b.Children[childIndex]
 		child.Update(update)
+		if child.parent != b {
+			childIndex--
+		}
 	}
 
-	dirty.Add(c.Animation.Update(c, update))
-	dirty.Add(c.CheckForChanges())
+	dirty.Add(b.Animation.Update(b, update))
+	dirty.Add(b.CheckForChanges())
 
-	if c.Hooks.OnUpdate != nil {
-		dirty.Add(c.Hooks.OnUpdate(c, update))
+	if b.Hooks.OnUpdate != nil {
+		dirty.Add(b.Hooks.OnUpdate(b, update))
 	}
 
-	c.Dirty(dirty)
+	b.Dirty(dirty)
+
+	if b.States.Is(StateRemoving) && !b.Animation.IsAnimating() {
+		b.removeNow()
+	}
 }
 
 func (c *Base) CheckForChanges() Dirty {
@@ -403,11 +412,33 @@ func (b *Base) At(pt Coord) Component {
 	return b
 }
 
+func (b *Base) Remove() {
+	if b.parent != nil {
+		if b.PlayEvent(AnimationEventRemove) {
+			b.SetState(StateRemoving)
+		} else {
+			b.removeNow()
+		}
+	}
+}
+
+func (b *Base) removeNow() {
+	index := b.Order()
+	if index != -1 {
+		if b.parent.ChildrenOrderless {
+			b.parent.Children = util.SliceRemoveAtReplace(b.parent.Children, index)
+		} else {
+			b.parent.Children = util.SliceRemoveAt(b.parent.Children, index)
+		}
+		b.parent.Dirty(DirtyPlacement)
+	}
+}
+
 func (c *Base) Order() int {
 	if c.parent == nil {
 		return -1
 	}
-	return sliceIndexOf(c.parent.Children, c)
+	return util.SliceIndexOf(c.parent.Children, c)
 }
 
 func (c *Base) SetOrder(order int) {
@@ -415,7 +446,7 @@ func (c *Base) SetOrder(order int) {
 	if currentOrder == -1 || order == currentOrder {
 		return
 	}
-	sliceMove(c.parent.Children, currentOrder, order)
+	util.SliceMove(c.parent.Children, currentOrder, order)
 	c.Dirty(DirtyVisual)
 }
 
@@ -444,7 +475,7 @@ func (c Base) IsDroppable() bool {
 }
 
 func (c Base) IsDisabled() bool {
-	return c.States.Is(StateDisabled)
+	return c.States.Is(StateDisabled | StateRemoving | StateShowing | StateHiding)
 }
 
 func (c *Base) SetDisabled(disabled bool) {

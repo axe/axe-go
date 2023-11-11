@@ -20,6 +20,7 @@ const (
 	AnimationEventNone AnimationEvent = iota
 	AnimationEventShow
 	AnimationEventHide
+	AnimationEventRemove
 	AnimationEventFocus
 	AnimationEventBlur
 	AnimationEventPointerEnter
@@ -108,38 +109,46 @@ func (c *Base) PlayMaybe(name string) bool {
 	return c.Play(id.Maybe(name))
 }
 
-func (c *Base) Play(name id.Identifier) bool {
-	var named AnimationFactory
-	if c.Animations != nil {
-		named = c.Animations.Named.Get(name)
-	}
-	if named == nil {
-		named = c.ui.Theme.Animations.Named.Get(name)
-	}
-	return c.playFactory(named, AnimationEventNone)
+func (b *Base) Play(name id.Identifier) bool {
+	return b.playFactory(b.AnimationNamed(name), AnimationEventNone)
 }
 
-func (c *Base) PlayEvent(ev AnimationEvent) bool {
-	if c.Animation.CurrentEvent == ev {
+func (b *Base) PlayEvent(ev AnimationEvent) bool {
+	if b.Animation.CurrentEvent == ev {
 		return true
 	}
-	var factory AnimationFactory
-	if c.Animations != nil {
-		factory = c.Animations.ForEvent.Get(ev)
-	}
-	if factory == nil {
-		factory = c.ui.Theme.Animations.ForEvent.Get(ev)
-	}
-	return c.playFactory(factory, ev)
+	return b.playFactory(b.AnimationFor(ev), ev)
 }
 
-func (c *Base) playFactory(factory AnimationFactory, ev AnimationEvent) bool {
+func (b *Base) AnimationFor(ev AnimationEvent) AnimationFactory {
+	var factory AnimationFactory
+	if b.Animations != nil {
+		factory = b.Animations.ForEvent.Get(ev)
+	}
+	if factory == nil {
+		factory = b.ui.Theme.Animations.ForEvent.Get(ev)
+	}
+	return factory
+}
+
+func (b *Base) AnimationNamed(name id.Identifier) AnimationFactory {
+	var named AnimationFactory
+	if b.Animations != nil {
+		named = b.Animations.Named.Get(name)
+	}
+	if named == nil {
+		named = b.ui.Theme.Animations.Named.Get(name)
+	}
+	return named
+}
+
+func (b *Base) playFactory(factory AnimationFactory, ev AnimationEvent) bool {
 	if factory == nil {
 		return false
 	}
-	animation := factory(c)
+	animation := factory(b)
 	if animation != nil {
-		c.Animation.Set(animation, ev)
+		b.Animation.Set(animation, ev)
 		return true
 	}
 	return false

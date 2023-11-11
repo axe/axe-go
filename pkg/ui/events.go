@@ -2,6 +2,8 @@ package ui
 
 import (
 	"time"
+
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type CanStop interface {
@@ -29,7 +31,7 @@ func listenerJoin[E CanStop](first Listener[E], second Listener[E]) Listener[E] 
 }
 
 func (a *Listener[E]) Add(b Listener[E], before bool) {
-	*a = CoalesceJoin(*a, b, before, listenerNil[E], listenerJoin[E])
+	*a = util.CoalesceJoin(*a, b, before, listenerNil[E], listenerJoin[E])
 }
 
 type Events struct {

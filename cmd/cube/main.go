@@ -439,6 +439,21 @@ func main() {
 							newButton(ui.Placement{}, "Compact", false, func() {
 								layoutGridWindow.Compact()
 							}),
+							newButton(ui.Placement{}, "Remove Instantly", false, nil).Edit(func(b *ui.Base) {
+								b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
+									if !ev.Capture && ev.Type == ui.PointerEventDown {
+										b.Remove()
+									}
+								}, false)
+							}),
+							newButton(ui.Placement{}, "Remove Animating", false, nil).Edit(func(b *ui.Base) {
+								b.Animations.ForEvent.Set(ui.AnimationEventRemove, ui.StatelessAnimationFactory(FadeOutAnimation))
+								b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
+									if !ev.Capture && ev.Type == ui.PointerEventDown {
+										b.Remove()
+									}
+								}, false)
+							}),
 						},
 					})
 
@@ -505,6 +520,7 @@ func main() {
 							EnforcePreferredSize: true,
 							KeepInside:           true,
 						},
+						ChildrenOrderless: true,
 						Children: []*ui.Base{
 							newDraggable(),
 							btnPress,
@@ -595,6 +611,15 @@ var FadeInAnimation = ui.BasicAnimation{
 	Frames: []ui.BasicAnimationFrame{
 		{Time: 0, Transparency: 1},
 		{Time: 1, Transparency: 0},
+	},
+}
+
+var FadeOutAnimation = ui.BasicAnimation{
+	Save:     true,
+	Duration: 0.5,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Transparency: 0},
+		{Time: 1, Transparency: 1},
 	},
 }
 

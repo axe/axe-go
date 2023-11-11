@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/axe/axe-go/pkg/id"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type FontRune struct {
@@ -174,14 +175,14 @@ func (s *ParagraphStyles) Override(o *ParagraphStylesOverride) *ParagraphStyles 
 		return s
 	}
 	return &ParagraphStyles{
-		Spacing:               Coalesce(o.Spacing, s.Spacing),
-		LineSpacing:           Coalesce(o.LineSpacing, s.LineSpacing),
-		LineHeight:            Coalesce(o.LineHeight, s.LineHeight),
-		LineVerticalAlignment: Coalesce(o.LineVerticalAlignment, s.LineVerticalAlignment),
-		Indent:                Coalesce(o.Indent, s.Indent),
-		HorizontalAlignment:   Coalesce(o.HorizontalAlignment, s.HorizontalAlignment),
-		Wrap:                  Coalesce(o.Wrap, s.Wrap),
-		ParagraphPadding:      Coalesce(o.ParagraphPadding, s.ParagraphPadding),
+		Spacing:               util.Coalesce(o.Spacing, s.Spacing),
+		LineSpacing:           util.Coalesce(o.LineSpacing, s.LineSpacing),
+		LineHeight:            util.Coalesce(o.LineHeight, s.LineHeight),
+		LineVerticalAlignment: util.Coalesce(o.LineVerticalAlignment, s.LineVerticalAlignment),
+		Indent:                util.Coalesce(o.Indent, s.Indent),
+		HorizontalAlignment:   util.Coalesce(o.HorizontalAlignment, s.HorizontalAlignment),
+		Wrap:                  util.Coalesce(o.Wrap, s.Wrap),
+		ParagraphPadding:      util.Coalesce(o.ParagraphPadding, s.ParagraphPadding),
 	}
 }
 
@@ -209,14 +210,14 @@ func (o *ParagraphStylesOverride) Clone() *ParagraphStylesOverride {
 		return nil
 	}
 	return &ParagraphStylesOverride{
-		Spacing:               Clone(o.Spacing),
-		LineSpacing:           Clone(o.LineSpacing),
-		LineHeight:            Clone(o.LineHeight),
-		LineVerticalAlignment: Clone(o.LineVerticalAlignment),
-		Indent:                Clone(o.Indent),
-		HorizontalAlignment:   Clone(o.HorizontalAlignment),
-		Wrap:                  Clone(o.Wrap),
-		ParagraphPadding:      Clone(o.ParagraphPadding),
+		Spacing:               util.Clone(o.Spacing),
+		LineSpacing:           util.Clone(o.LineSpacing),
+		LineHeight:            util.Clone(o.LineHeight),
+		LineVerticalAlignment: util.Clone(o.LineVerticalAlignment),
+		Indent:                util.Clone(o.Indent),
+		HorizontalAlignment:   util.Clone(o.HorizontalAlignment),
+		Wrap:                  util.Clone(o.Wrap),
+		ParagraphPadding:      util.Clone(o.ParagraphPadding),
 	}
 }
 
@@ -232,10 +233,10 @@ func (s *ParagraphsStyles) Override(o *ParagraphsStylesOverride) *ParagraphsStyl
 		return s
 	}
 	return &ParagraphsStyles{
-		ParagraphSpacing:  Coalesce(o.ParagraphSpacing, s.ParagraphSpacing),
-		VerticalAlignment: Coalesce(o.VerticalAlignment, s.VerticalAlignment),
-		ClipShowX:         Coalesce(o.ClipShowX, s.ClipShowX),
-		ClipShowY:         Coalesce(o.ClipShowY, s.ClipShowY),
+		ParagraphSpacing:  util.Coalesce(o.ParagraphSpacing, s.ParagraphSpacing),
+		VerticalAlignment: util.Coalesce(o.VerticalAlignment, s.VerticalAlignment),
+		ClipShowX:         util.Coalesce(o.ClipShowX, s.ClipShowX),
+		ClipShowY:         util.Coalesce(o.ClipShowY, s.ClipShowY),
 	}
 }
 
@@ -268,9 +269,9 @@ func (s *TextStyles) Override(o *TextStylesOverride) *TextStyles {
 	return &TextStyles{
 		ParagraphStyles:  *s.ParagraphStyles.Override(o.ParagraphStylesOverride),
 		ParagraphsStyles: *s.ParagraphsStyles.Override(o.ParagraphsStylesOverride),
-		Color:            Coalesce(o.Color, s.Color),
-		Font:             Coalesce(o.Font, s.Font),
-		FontSize:         Coalesce(o.FontSize, s.FontSize),
+		Color:            util.Coalesce(o.Color, s.Color),
+		Font:             util.Coalesce(o.Font, s.Font),
+		FontSize:         util.Coalesce(o.FontSize, s.FontSize),
 	}
 }
 

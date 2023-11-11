@@ -9,6 +9,12 @@ func SliceRemoveAt[E any](slice []E, index int) []E {
 	return append(slice[:index], slice[index+1:]...)
 }
 
+func SliceRemoveAtReplace[E any](slice []E, index int) []E {
+	last := len(slice) - 1
+	slice[index] = slice[last]
+	return slice[:last]
+}
+
 func SliceRemove[E comparable](slice []E, value E) []E {
 	for i := range slice {
 		if slice[i] == value {
@@ -26,6 +32,30 @@ func SliceMap[S any, T any](source []S, transform func(value S) T) []T {
 	return transformed
 }
 
+func SliceMove[V any](slice []V, from, to int) {
+	if from == to || to < 0 || from < 0 || from >= len(slice) || to >= len(slice) {
+		return
+	}
+	if from < to {
+		value := slice[from]
+		copy(slice[from:to], slice[from+1:to+1])
+		slice[to] = value
+	} else {
+		value := slice[to]
+		copy(slice[to+1:from+1], slice[to:from])
+		slice[from] = value
+	}
+}
+
+func SliceIndexOf[V comparable](slice []V, value V) int {
+	for i := range slice {
+		if slice[i] == value {
+			return i
+		}
+	}
+	return -1
+}
+
 func MapKeys[K comparable, V any](m map[K]V) []K {
 	keys := make([]K, 0, len(m))
 	for k := range m {
@@ -40,6 +70,39 @@ func MapValues[K comparable, V any](m map[K]V) []V {
 		values = append(values, m[k])
 	}
 	return values
+}
+
+func CoalesceJoin[V any](a, b V, swap bool, isNil func(V) bool, join func(V, V) V) V {
+	if isNil(a) {
+		return b
+	} else if !isNil(b) {
+		var first, second V
+		if swap {
+			first = b
+			second = a
+		} else {
+			first = a
+			second = b
+		}
+
+		return join(first, second)
+	}
+	return a
+}
+
+func Coalesce[V any](nilable *V, nonNil V) V {
+	if nilable != nil {
+		return *nilable
+	}
+	return nonNil
+}
+
+func Clone[V any](nilable *V) *V {
+	if nilable == nil {
+		return nil
+	}
+	copy := *nilable
+	return &copy
 }
 
 func Copy(dst any, src any) {

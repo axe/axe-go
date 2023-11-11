@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/axe/axe-go/pkg/util"
+
 type PostProcess func(b *Base, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator)
 
 func PostProcessVertex(modify VertexModifier) PostProcess {
@@ -28,5 +30,5 @@ func postProcessJoin(first, second PostProcess) PostProcess {
 }
 
 func (pp *PostProcess) Add(other PostProcess, before bool) {
-	*pp = CoalesceJoin(*pp, other, before, postProcessNil, postProcessJoin)
+	*pp = util.CoalesceJoin(*pp, other, before, postProcessNil, postProcessJoin)
 }
