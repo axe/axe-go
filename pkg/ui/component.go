@@ -2,10 +2,6 @@ package ui
 
 import "time"
 
-type Init struct {
-	Theme *Theme
-}
-
 type Update struct {
 	DeltaTime time.Duration
 }
@@ -55,7 +51,8 @@ func (ctx *RenderContext) WithBoundsAndTextStyles(parent Bounds, styles *TextSty
 }
 
 type Component interface {
-	Init(init Init)
+	// Should be called after ui is set, and if it's going to have a parent - it's parent
+	Init()
 	Place(ctx *RenderContext, parent Bounds, force bool)
 	Update(update Update)
 	Render(ctx *RenderContext, out *VertexBuffers)

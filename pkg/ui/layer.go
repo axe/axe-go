@@ -8,11 +8,11 @@ type Layer struct {
 	States     StateFn
 }
 
-func (l *Layer) Init(b *Base, init Init) {
+func (l *Layer) Init(b *Base) {
 	l.Placement.Init(Maximized())
-	l.Visual.Init(b, init)
+	l.Visual.Init(b)
 	if l.Background != nil {
-		l.Background.Init(b, init)
+		l.Background.Init(b)
 	}
 }
 

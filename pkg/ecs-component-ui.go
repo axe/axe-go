@@ -122,9 +122,7 @@ func (sys UserInterfaceSystem) OnLive(data *UserInterface, e *ecs.Entity, ctx ec
 		}
 	}
 
-	data.Init(ui.Init{
-		Theme: data.Theme,
-	})
+	data.Init()
 }
 func (sys UserInterfaceSystem) OnRemove(data *UserInterface, e *ecs.Entity, ctx ecs.Context) {
 }

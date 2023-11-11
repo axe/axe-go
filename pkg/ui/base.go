@@ -39,6 +39,8 @@ type Base struct {
 	parent        *Base
 	ui            *UI
 	lastTransform Transform
+	shown         []*Base
+	shownDirty    bool
 }
 
 var _ Component = &Base{}
@@ -119,33 +121,34 @@ func (b *Base) GetPlacement() Placement {
 	return b.Placement
 }
 
-func (b *Base) Init(init Init) {
+func (b *Base) Init() {
 	if b.ui != nil && !b.Name.Empty() {
 		b.ui.Named.Set(b.Name, b)
 	}
+	b.shownDirty = true
 	b.Placement.Init(Maximized())
 	if b.States == 0 {
 		b.States = StateDefault
 	}
 	if b.Shape != nil {
-		b.Shape.Init(init)
+		b.Shape.Init()
 	}
 	for i := range b.Layers {
-		b.Layers[i].Init(b, init)
+		b.Layers[i].Init(b)
 	}
 	if b.Layout != nil {
-		b.Layout.Init(b, init)
+		b.Layout.Init(b)
 	}
 	for _, child := range b.Children {
 		child.parent = b
 		child.ui = b.ui
-		child.Init(init)
+		child.Init()
 	}
 	b.Dirty(DirtyPlacement)
 	b.PlayEvent(AnimationEventShow)
 
 	if b.Hooks.OnInit != nil {
-		b.Hooks.OnInit(b, init)
+		b.Hooks.OnInit(b)
 	}
 }
 
@@ -170,17 +173,36 @@ func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 		b.dirty.Remove(DirtyPlacement)
 	}
 
+	shown := b.ShownChildren()
+
 	if b.Layout != nil {
-		b.Layout.Layout(b, baseCtx, b.Bounds, b.Children)
+		b.Layout.Layout(b, baseCtx, b.Bounds, shown)
 	}
 
-	for _, child := range b.Children {
+	for _, child := range shown {
 		child.Place(baseCtx, b.Bounds, force)
 	}
 
 	if b.Hooks.OnPlace != nil {
 		b.Hooks.OnPlace(b, parent, baseCtx, force)
 	}
+}
+
+func (b *Base) ShownChildren() []*Base {
+	if b.shownDirty {
+		b.shown = util.SliceEnsureSize(b.shown, len(b.Children))
+		shownCount := 0
+		for _, child := range b.Children {
+			if !child.IsHidden() {
+				b.shown[shownCount] = child
+				shownCount++
+			}
+		}
+		b.shown = util.SliceResize(b.shown, shownCount)
+		b.shownDirty = false
+	}
+
+	return b.shown
 }
 
 // PreferredSize computes the preferred size possibly given a width we are fitting this component into.
@@ -201,12 +223,13 @@ func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
 	}
 	size = size.Max(b.MinSize)
 	maxWidth = max(maxWidth, size.X)
-	if len(b.Children) > 0 {
+	shown := b.ShownChildren()
+	if len(shown) > 0 {
 		layout := b.Layout
 		if layout == nil {
 			layout = LayoutStatic{}
 		}
-		size = size.Max(layout.PreferredSize(b, baseCtx, maxWidth, b.Children))
+		size = size.Max(layout.PreferredSize(b, baseCtx, maxWidth, shown))
 	}
 	if b.MaxSize.X > 0 {
 		size.X = min(b.MaxSize.X, size.X)
@@ -229,8 +252,24 @@ func (b *Base) CompactFor(ctx *RenderContext) {
 	b.SetPlacement(placement)
 }
 
+func (b *Base) Tighten() {
+	b.TightenFor(b.ComputeRenderContext())
+}
+
+func (b *Base) TightenFor(ctx *RenderContext) {
+	size := b.PreferredSize(ctx, b.Bounds.Width())
+	placement := b.Placement
+	placement.Right.Base = placement.Left.Base + size.X
+	placement.Bottom.Base = placement.Top.Base + size.Y
+	b.SetPlacement(placement)
+}
+
 func (b *Base) Update(update Update) {
 	dirty := DirtyNone
+
+	if b.IsHidden() && !b.ui.UpdateHidden {
+		return
+	}
 
 	for i := range b.Layers {
 		dirty.Add(b.Layers[i].Update(b, update))
@@ -252,8 +291,16 @@ func (b *Base) Update(update Update) {
 
 	b.Dirty(dirty)
 
-	if b.States.Is(StateRemoving) && !b.Animation.IsAnimating() {
-		b.removeNow()
+	if !b.Animation.IsAnimating() {
+		if b.States.Is(StateRemoving) {
+			b.removeNow()
+		}
+		if b.States.Is(StateHiding) {
+			b.hideNow()
+		}
+		if b.States.Is(StateShowing) {
+			b.showNow()
+		}
 	}
 }
 
@@ -280,51 +327,62 @@ func (c *Base) ComputeRenderContext() *RenderContext {
 	}
 }
 
-func (c *Base) Render(ctx *RenderContext, out *VertexBuffers) {
-	if c.Transparency.Get() == 1 && !c.Animation.IsAnimating() {
+func (b *Base) WillRender() bool {
+	if b.Transparency.Get() == 1 && !b.Animation.IsAnimating() {
+		return false
+	}
+	if b.IsHidden() {
+		return false
+	}
+	return true
+}
+
+func (b *Base) Render(ctx *RenderContext, out *VertexBuffers) {
+	if !b.WillRender() {
 		return
 	}
 
-	c.visualBounds.Clear()
+	b.visualBounds.Clear()
 
-	baseCtx := ctx.WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
+	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 	rendered := NewVertexIterator(out)
 	renderedIndex := NewIndexIterator(out)
 
-	if len(c.Layers) > 0 {
-		for _, layer := range c.Layers {
-			if layer.ForStates(c.States) {
-				layer.Render(c, baseCtx, out)
+	if len(b.Layers) > 0 {
+		for _, layer := range b.Layers {
+			if layer.ForStates(b.States) {
+				layer.Render(b, baseCtx, out)
 			}
 		}
 
-		c.PostProcess(baseCtx, out, renderedIndex, rendered)
-		c.Hooks.OnPostProcessLayers.Run(c, baseCtx, out, renderedIndex, rendered)
+		b.PostProcess(baseCtx, out, renderedIndex, rendered)
+		b.Hooks.OnPostProcessLayers.Run(b, baseCtx, out, renderedIndex, rendered)
 	}
 
-	if len(c.Children) > 0 {
-		clipBounds := c.Clip.GetBoundsIn(c.Bounds)
+	if len(b.Children) > 0 {
+		clipBounds := b.Clip.GetBoundsIn(b.Bounds)
 
 		out.ClipMaybe(clipBounds, func(inner *VertexBuffers) {
 			renderedChildren := NewVertexIterator(inner)
 			renderedIndex := NewIndexIterator(inner)
 
-			for _, child := range c.Children {
+			shown := b.ShownChildren()
+			for _, child := range shown {
 				child.Render(baseCtx, inner)
 			}
 
-			c.PostProcess(baseCtx, inner, renderedIndex, renderedChildren)
-			c.Hooks.OnPostProcessChildren.Run(c, baseCtx, out, renderedIndex, renderedChildren)
+			b.PostProcess(baseCtx, inner, renderedIndex, renderedChildren)
+			b.Hooks.OnPostProcessChildren.Run(b, baseCtx, out, renderedIndex, renderedChildren)
 		})
 	}
 
-	c.dirty.Remove(DirtyVisual)
+	b.dirty.Remove(DirtyVisual)
 
-	if c.Hooks.OnRender != nil {
-		c.Hooks.OnRender(c, baseCtx, out)
+	if b.Hooks.OnRender != nil {
+		b.Hooks.OnRender(b, baseCtx, out)
 	}
 
-	c.updateVisualBounds(rendered)
+	b.updateVisualBounds(rendered)
 }
 
 func (c *Base) PostProcess(ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
@@ -401,9 +459,10 @@ func (b *Base) At(pt Coord) Component {
 		return nil
 	}
 
-	last := len(b.Children) - 1
+	shown := b.ShownChildren()
+	last := len(shown) - 1
 	for i := last; i >= 0; i-- {
-		at := b.Children[i].At(pt)
+		at := shown[i].At(pt)
 		if at != nil {
 			return at
 		}
@@ -412,8 +471,47 @@ func (b *Base) At(pt Coord) Component {
 	return b
 }
 
+func (b *Base) SetVisible(show bool) {
+	if show {
+		b.Show()
+	} else {
+		b.Hide()
+	}
+}
+
+func (b *Base) Hide() {
+	if !b.States.Is(StateHidden | StateHiding) {
+		if b.PlayEvent(AnimationEventHide) {
+			b.SetState(b.States.WithAdd(StateHiding).WithRemove(StateShowing))
+		} else {
+			b.hideNow()
+		}
+	}
+}
+
+func (b *Base) hideNow() {
+	b.SetState(b.States.WithAdd(StateHidden).WithRemove(StateHiding | StateShowing))
+	b.parent.ChildrenUpdated()
+}
+
+func (b *Base) Show() {
+	if !b.States.Is(StateShowing) && b.States.Is(StateHidden|StateHiding) {
+		if b.PlayEvent(AnimationEventShow) {
+			b.SetState(b.States.WithAdd(StateShowing).WithRemove(StateHidden | StateHiding))
+			b.parent.ChildrenUpdated()
+		} else {
+			b.showNow()
+		}
+	}
+}
+
+func (b *Base) showNow() {
+	b.RemoveStates(StateHidden | StateHiding | StateShowing)
+	b.parent.ChildrenUpdated()
+}
+
 func (b *Base) Remove() {
-	if b.parent != nil {
+	if b.parent != nil && !b.States.Is(StateRemoving) {
 		if b.PlayEvent(AnimationEventRemove) {
 			b.SetState(StateRemoving)
 		} else {
@@ -430,73 +528,97 @@ func (b *Base) removeNow() {
 		} else {
 			b.parent.Children = util.SliceRemoveAt(b.parent.Children, index)
 		}
-		b.parent.Dirty(DirtyPlacement)
+		b.parent.ChildrenUpdated()
+		b.parent = nil
 	}
 }
 
-func (c *Base) Order() int {
-	if c.parent == nil {
+func (b *Base) Order() int {
+	if b.parent == nil {
 		return -1
 	}
-	return util.SliceIndexOf(c.parent.Children, c)
+	return util.SliceIndexOf(b.parent.Children, b)
 }
 
-func (c *Base) SetOrder(order int) {
-	currentOrder := c.Order()
+func (b *Base) SetOrder(order int) {
+	currentOrder := b.Order()
 	if currentOrder == -1 || order == currentOrder {
 		return
 	}
-	util.SliceMove(c.parent.Children, currentOrder, order)
-	c.Dirty(DirtyVisual)
+	util.SliceMove(b.parent.Children, currentOrder, order)
+	b.parent.ChildrenUpdated()
 }
 
-func (c *Base) BringToFront() {
-	if c.parent != nil {
-		c.SetOrder(len(c.parent.Children) - 1)
+func (b *Base) ChildrenUpdated() {
+	if b != nil {
+		b.Dirty(DirtyPlacement)
+		b.shownDirty = true
 	}
 }
 
-func (c *Base) SendToBack() {
-	if c.parent != nil {
-		c.SetOrder(0)
+func (b *Base) AddChildren(children ...*Base) {
+	for _, child := range children {
+		child.parent = b
+		child.ui = b.ui
+		child.Init()
+	}
+	b.Children = append(b.Children, children...)
+	b.ChildrenUpdated()
+}
+
+func (b *Base) BringToFront() {
+	if b.parent != nil {
+		b.SetOrder(len(b.parent.Children) - 1)
 	}
 }
 
-func (c Base) IsFocusable() bool {
-	return c.Focusable && !c.IsDisabled()
+func (b *Base) SendToBack() {
+	b.SetOrder(0)
 }
 
-func (c Base) IsDraggable() bool {
-	return c.Draggable && !c.IsDisabled()
+func (b Base) IsFocusable() bool {
+	return b.Focusable && !b.IsDisabled()
 }
 
-func (c Base) IsDroppable() bool {
-	return c.Droppable && !c.IsDisabled()
+func (b Base) IsDraggable() bool {
+	return b.Draggable && !b.IsDisabled()
 }
 
-func (c Base) IsDisabled() bool {
-	return c.States.Is(StateDisabled | StateRemoving | StateShowing | StateHiding)
+func (b Base) IsDroppable() bool {
+	return b.Droppable && !b.IsDisabled()
 }
 
-func (c *Base) SetDisabled(disabled bool) {
-	if disabled == c.IsDisabled() {
+func (b Base) IsDisabled() bool {
+	return b.States.Is(StatesDisabled)
+}
+
+func (b Base) IsShown() bool {
+	return b.States.Not(StateHidden)
+}
+
+func (b Base) IsHidden() bool {
+	return b.States.Is(StateHidden)
+}
+
+func (b *Base) SetDisabled(disabled bool) {
+	if disabled == b.IsDisabled() {
 		return
 	}
 	if disabled {
-		c.AddStates(StateDisabled)
-		c.PlayEvent(AnimationEventDisabled)
+		b.AddStates(StateDisabled)
+		b.PlayEvent(AnimationEventDisabled)
 	} else {
-		c.RemoveStates(StateDisabled)
-		c.PlayEvent(AnimationEventEnabled)
+		b.RemoveStates(StateDisabled)
+		b.PlayEvent(AnimationEventEnabled)
 	}
 }
 
-func (c *Base) OnPointer(ev *PointerEvent) {
-	if c.IsDisabled() {
+func (b *Base) OnPointer(ev *PointerEvent) {
+	if b.IsDisabled() {
 		return
 	}
 
-	c.Events.OnPointer.Trigger(ev)
+	b.Events.OnPointer.Trigger(ev)
 
 	if ev.Cancel || ev.Capture {
 		return
@@ -504,66 +626,66 @@ func (c *Base) OnPointer(ev *PointerEvent) {
 
 	switch ev.Type {
 	case PointerEventEnter:
-		c.AddStates(StateHover)
-		c.PlayEvent(AnimationEventPointerEnter)
+		b.AddStates(StateHover)
+		b.PlayEvent(AnimationEventPointerEnter)
 	case PointerEventDown:
-		c.AddStates(StatePressed)
-		c.PlayEvent(AnimationEventPointerDown)
+		b.AddStates(StatePressed)
+		b.PlayEvent(AnimationEventPointerDown)
 	case PointerEventLeave:
-		c.RemoveStates(StateHover | StateDragOver)
-		c.PlayEvent(AnimationEventPointerLeave)
+		b.RemoveStates(StateHover | StateDragOver)
+		b.PlayEvent(AnimationEventPointerLeave)
 	case PointerEventUp:
-		c.RemoveStates(StatePressed | StateDragOver)
-		c.PlayEvent(AnimationEventPointerUp)
+		b.RemoveStates(StatePressed | StateDragOver)
+		b.PlayEvent(AnimationEventPointerUp)
 	}
 
-	c.Cursors.HandlePointer(ev, c)
+	b.Cursors.HandlePointer(ev, b)
 }
 
-func (c *Base) OnKey(ev *KeyEvent) {
-	if c.IsDisabled() {
+func (b *Base) OnKey(ev *KeyEvent) {
+	if b.IsDisabled() {
 		return
 	}
 
-	c.Events.OnKey.Trigger(ev)
+	b.Events.OnKey.Trigger(ev)
 }
 
-func (c *Base) OnFocus(ev *Event) {
-	if c.IsDisabled() {
+func (b *Base) OnFocus(ev *Event) {
+	if b.IsDisabled() {
 		return
 	}
 
-	c.Events.OnFocus.Trigger(ev)
+	b.Events.OnFocus.Trigger(ev)
 
 	if ev.Cancel || ev.Capture {
 		return
 	}
 
-	c.AddStates(StateFocused)
-	c.PlayEvent(AnimationEventFocus)
+	b.AddStates(StateFocused)
+	b.PlayEvent(AnimationEventFocus)
 }
 
-func (c *Base) OnBlur(ev *Event) {
-	if c.IsDisabled() {
+func (b *Base) OnBlur(ev *Event) {
+	if b.IsDisabled() {
 		return
 	}
 
-	c.Events.OnBlur.Trigger(ev)
+	b.Events.OnBlur.Trigger(ev)
 
 	if ev.Cancel || ev.Capture {
 		return
 	}
 
-	c.RemoveStates(StateFocused)
-	c.PlayEvent(AnimationEventBlur)
+	b.RemoveStates(StateFocused)
+	b.PlayEvent(AnimationEventBlur)
 }
 
-func (c *Base) OnDrag(ev *DragEvent) {
-	if c.IsDisabled() {
+func (b *Base) OnDrag(ev *DragEvent) {
+	if b.IsDisabled() {
 		return
 	}
 
-	c.Events.OnDrag.Trigger(ev)
+	b.Events.OnDrag.Trigger(ev)
 
 	if ev.Cancel || ev.Capture {
 		return
@@ -571,23 +693,23 @@ func (c *Base) OnDrag(ev *DragEvent) {
 
 	switch ev.Type {
 	case DragEventStart:
-		c.AddStates(StateDragging)
-		c.PlayEvent(AnimationEventDragStart)
+		b.AddStates(StateDragging)
+		b.PlayEvent(AnimationEventDragStart)
 	case DragEventEnd:
-		c.RemoveStates(StateDragging)
-		c.PlayEvent(AnimationEventDragStop)
+		b.RemoveStates(StateDragging)
+		b.PlayEvent(AnimationEventDragStop)
 	case DragEventOver:
-		if !c.States.Is(StateDragOver) {
-			c.PlayEvent(AnimationEventDragEnter)
+		if !b.States.Is(StateDragOver) {
+			b.PlayEvent(AnimationEventDragEnter)
 		}
-		c.AddStates(StateDragOver)
+		b.AddStates(StateDragOver)
 	case DragEventCancel:
-		c.PlayEvent(AnimationEventDragCancel)
+		b.PlayEvent(AnimationEventDragCancel)
 	case DragEventDrop:
-		c.PlayEvent(AnimationEventDrop)
+		b.PlayEvent(AnimationEventDrop)
 	}
 
-	c.Cursors.HandleDrag(ev, c)
+	b.Cursors.HandleDrag(ev, b)
 }
 
 type Template struct {

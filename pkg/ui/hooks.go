@@ -22,15 +22,15 @@ func (h *Hooks) Add(add Hooks, before bool) {
 	h.OnPostProcessChildren.Add(add.OnPostProcessChildren, before)
 }
 
-type HookInit func(b *Base, init Init)
+type HookInit func(b *Base)
 
 func hookInitNil(h HookInit) bool {
 	return h == nil
 }
 func hookInitJoin(first, second HookInit) HookInit {
-	return func(b *Base, init Init) {
-		first(b, init)
-		second(b, init)
+	return func(b *Base) {
+		first(b)
+		second(b)
 	}
 }
 

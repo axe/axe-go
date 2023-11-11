@@ -166,7 +166,7 @@ func main() {
 					})
 
 					// Global Animations
-					userInterface.Theme.Animations.ForEvent.Set(ui.AnimationEventEnabled, ui.StatelessAnimationFactory(WiggleAnimation))
+					userInterface.Theme.Animations.ForEvent.Set(ui.AnimationEventEnabled, WiggleAnimation)
 
 					// Cursors
 					cursors := ui.TileGrid(10, 8, 56, 56, 559, 449, 0, 0, "cursors")
@@ -271,6 +271,9 @@ func main() {
 							newButton(ui.Placement{}, "Compact", false, func() {
 								layoutColumnWindow.Compact()
 							}),
+							newButton(ui.Placement{}, "Tighten", false, func() {
+								layoutColumnWindow.Tighten()
+							}),
 						},
 					})
 
@@ -328,6 +331,9 @@ func main() {
 							}),
 							newButton(ui.Placement{}, "Compact", false, func() {
 								layoutRowWindow.Compact()
+							}),
+							newButton(ui.Placement{}, "Tighten", false, func() {
+								layoutRowWindow.Tighten()
 							}),
 						},
 					})
@@ -439,6 +445,24 @@ func main() {
 							newButton(ui.Placement{}, "Compact", false, func() {
 								layoutGridWindow.Compact()
 							}),
+							newButton(ui.Placement{}, "Tighten", false, func() {
+								layoutGridWindow.Tighten()
+							}),
+							newButton(ui.Placement{}, "Hide & Show", false, nil).Edit(func(b *ui.Base) {
+								b.Colors.Set(BackgroundColor, ui.ColorOrange)
+								b.Colors.Set(TextColor, ui.ColorBlack)
+								b.Animations.ForEvent.Set(ui.AnimationEventShow, FadeInAnimation)
+								b.Animations.ForEvent.Set(ui.AnimationEventHide, FadeOutAnimation)
+								b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
+									if !ev.Capture && ev.Type == ui.PointerEventDown {
+										b.Hide()
+										go func() {
+											time.Sleep(time.Second * 3)
+											b.Show()
+										}()
+									}
+								}, false)
+							}),
 							newButton(ui.Placement{}, "Remove Instantly", false, nil).Edit(func(b *ui.Base) {
 								b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
 									if !ev.Capture && ev.Type == ui.PointerEventDown {
@@ -447,7 +471,7 @@ func main() {
 								}, false)
 							}),
 							newButton(ui.Placement{}, "Remove Animating", false, nil).Edit(func(b *ui.Base) {
-								b.Animations.ForEvent.Set(ui.AnimationEventRemove, ui.StatelessAnimationFactory(FadeOutAnimation))
+								b.Animations.ForEvent.Set(ui.AnimationEventRemove, ExplodeAnimation)
 								b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
 									if !ev.Capture && ev.Type == ui.PointerEventDown {
 										b.Remove()
@@ -465,55 +489,63 @@ func main() {
 						frame.Dirty(ui.DirtyPlacement)
 					}
 					layoutInlineWindow := newWindow("Layout Inline", ui.Absolute(20, 700, 300, 300))
-					layoutInlineWindow.Children = append(layoutInlineWindow.Children, &ui.Base{
-						Name:      layoutInlineName,
-						Placement: ui.MaximizeOffset(8, 44, 8, 8),
-						Layout: &ui.LayoutInline{
-							VerticalAlignment:   ui.AlignmentTop,
-							HorizontalAlignment: ui.AlignmentLeft,
-							VerticalSpacing:     ui.Amount{Value: 10},
-							HorizontalSpacing:   ui.Amount{Value: 10},
-						},
-						TextStyles: &ui.TextStylesOverride{
-							FontSize: &ui.Amount{Value: 20},
-							ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
-								VerticalAlignment: ui.Override(ui.AlignmentCenter),
+					layoutInlineWindow.Children = append(layoutInlineWindow.Children,
+						newCollapsibleSection("Show/Hide Inline Components",
+							&ui.Base{
+								Name: layoutInlineName,
+								Layout: &ui.LayoutInline{
+									VerticalAlignment:   ui.AlignmentTop,
+									HorizontalAlignment: ui.AlignmentLeft,
+									VerticalSpacing:     ui.Amount{Value: 10},
+									HorizontalSpacing:   ui.Amount{Value: 10},
+								},
+								TextStyles: &ui.TextStylesOverride{
+									FontSize: &ui.Amount{Value: 20},
+									ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
+										VerticalAlignment: ui.Override(ui.AlignmentCenter),
+									},
+									ParagraphStylesOverride: &ui.ParagraphStylesOverride{
+										HorizontalAlignment: ui.Override(ui.AlignmentCenter),
+									},
+								},
+								Children: []*ui.Base{
+									newButton(ui.Placement{}, "Toggle Vertical Alignment", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.VerticalAlignment = ui.Alignment(math.Mod(float64(lg.VerticalAlignment)+0.5, 1.5))
+										})
+									}),
+									newButton(ui.Placement{}, "Toggle Horizontal Alignment", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.HorizontalAlignment = ui.Alignment(math.Mod(float64(lg.HorizontalAlignment)+0.5, 1.5))
+										})
+									}).Edit(func(b *ui.Base) {
+										b.MaxSize.X = 120
+									}),
+									newButton(ui.Placement{}, "Toggle Vertical Spacing", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.VerticalSpacing.Value = float32(math.Mod(float64(lg.VerticalSpacing.Value)+10, 30))
+										})
+									}),
+									newButton(ui.Placement{}, "Toggle Horizontal Spacing", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.HorizontalSpacing.Value = float32(math.Mod(float64(lg.HorizontalSpacing.Value)+10, 30))
+										})
+									}),
+									newButton(ui.Placement{}, "Compact", false, func() {
+										layoutInlineWindow.Compact()
+									}).Edit(func(b *ui.Base) {
+										b.Colors.Set(BackgroundColor, ui.ColorPurple)
+										b.Colors.Set(TextColor, ui.ColorWhite)
+									}),
+									newButton(ui.Placement{}, "Tighten", false, func() {
+										layoutInlineWindow.Tighten()
+									}),
+								},
 							},
-							ParagraphStylesOverride: &ui.ParagraphStylesOverride{
-								HorizontalAlignment: ui.Override(ui.AlignmentCenter),
-							},
-						},
-						Children: []*ui.Base{
-							newButton(ui.Placement{}, "Toggle Vertical Alignment", false, func() {
-								layoutInlineChange(func(lg *ui.LayoutInline) {
-									lg.VerticalAlignment = ui.Alignment(math.Mod(float64(lg.VerticalAlignment)+0.5, 1.5))
-								})
-							}),
-							newButton(ui.Placement{}, "Toggle Horizontal Alignment", false, func() {
-								layoutInlineChange(func(lg *ui.LayoutInline) {
-									lg.HorizontalAlignment = ui.Alignment(math.Mod(float64(lg.HorizontalAlignment)+0.5, 1.5))
-								})
-							}).Edit(func(b *ui.Base) {
-								b.MaxSize.X = 120
-							}),
-							newButton(ui.Placement{}, "Toggle Vertical Spacing", false, func() {
-								layoutInlineChange(func(lg *ui.LayoutInline) {
-									lg.VerticalSpacing.Value = float32(math.Mod(float64(lg.VerticalSpacing.Value)+10, 30))
-								})
-							}),
-							newButton(ui.Placement{}, "Toggle Horizontal Spacing", false, func() {
-								layoutInlineChange(func(lg *ui.LayoutInline) {
-									lg.HorizontalSpacing.Value = float32(math.Mod(float64(lg.HorizontalSpacing.Value)+10, 30))
-								})
-							}),
-							newButton(ui.Placement{}, "Compact", false, func() {
-								layoutInlineWindow.Compact()
-							}).Edit(func(b *ui.Base) {
-								b.Colors.Set(BackgroundColor, ui.ColorPurple)
-								b.Colors.Set(TextColor, ui.ColorWhite)
-							}),
-						},
-					})
+						).Edit(func(b *ui.Base) {
+							b.Placement = ui.MaximizeOffset(8, 44, 8, 8)
+						}),
+					)
 
 					userInterface.Root = &ui.Base{
 						Layout: ui.LayoutStatic{
@@ -577,10 +609,7 @@ const (
 
 // Animations
 
-var OriginCenter = ui.AmountPoint{
-	X: ui.Amount{Value: 0.5, Unit: ui.UnitParent},
-	Y: ui.Amount{Value: 0.5, Unit: ui.UnitParent},
-}
+var OriginCenter = ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)
 
 var WiggleAnimation = ui.BasicAnimation{
 	Save:     true, // save on component so the pointer is inverse transformed against it
@@ -650,7 +679,70 @@ var FadeInSlideRightAnimation = ui.BasicAnimation{
 	},
 }
 
+var ExplodeAnimation = ui.BasicAnimation{
+	Duration: 0.2,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Transparency: 0, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
+		{Time: 1, Transparency: 1, Scale: &ui.Coord{X: 4, Y: 4}, Origin: OriginCenter},
+	},
+}
+
+var CollapseOpenAnimation = ui.BasicAnimation{
+	Duration: 0.3,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Scale: &ui.Coord{X: 1, Y: 0}, Transparency: 1},
+		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Transparency: 0},
+	},
+}
+
+var CollapseCloseAnimation = ui.BasicAnimation{
+	Duration: 0.3,
+	Frames: []ui.BasicAnimationFrame{
+		{Time: 0, Scale: &ui.Coord{X: 1, Y: 1}, Transparency: 0},
+		{Time: 1, Scale: &ui.Coord{X: 1, Y: 0}, Transparency: 1},
+	},
+}
+
 // Temporary component generators
+
+func newCollapsibleSection(text string, children ...*ui.Base) *ui.Base {
+	section := &ui.Base{
+		Animations: &ui.Animations{
+			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
+				ui.AnimationEventShow: CollapseOpenAnimation,
+				ui.AnimationEventHide: CollapseCloseAnimation,
+			}),
+		},
+		Children: children,
+	}
+
+	return &ui.Base{
+		Layout: ui.LayoutColumn{
+			Spacing:   ui.Amount{Value: 8},
+			FullWidth: true,
+		},
+		Children: []*ui.Base{
+			{
+				Layers: []ui.Layer{{
+					Visual: ui.MustTextToVisual(text),
+				}},
+				Events: ui.Events{
+					OnPointer: func(ev *ui.PointerEvent) {
+						if !ev.Capture && ev.Type == ui.PointerEventDown {
+							section.SetVisible(section.IsHidden())
+							ev.Stop = true
+						}
+					},
+				},
+				Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+					ui.CursorEventHover: id.Get("click"),
+					ui.CursorEventDown:  id.Get("clicking"),
+				}),
+			},
+			section,
+		},
+	}
+}
 
 func newDraggable() *ui.Base {
 	var draggable *ui.Base
@@ -700,7 +792,7 @@ func newDraggable() *ui.Base {
 var buttonTemplate = &ui.Template{
 	Animations: &ui.Animations{
 		ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
-			ui.AnimationEventShow: ui.StatelessAnimationFactory(FadeInAnimation),
+			ui.AnimationEventShow: FadeInAnimation,
 		}),
 	},
 	Colors: ui.NewColors(map[ui.ThemeColor]ui.Colorable{
@@ -816,7 +908,7 @@ type RippleLayer struct {
 	animatingOn *ui.Base
 }
 
-func (r *RippleLayer) Init(b *ui.Base, init ui.Init) {
+func (r *RippleLayer) Init(b *ui.Base) {
 	b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
 		if ev.Capture && ev.Type == ui.PointerEventDown {
 			r.Center.X, r.Center.Y = b.Bounds.Delta(ev.Point.X, ev.Point.Y)
@@ -886,7 +978,7 @@ type PulseLayer struct {
 	Shape                ui.Shape
 }
 
-func (r *PulseLayer) Init(b *ui.Base, init ui.Init) {}
+func (r *PulseLayer) Init(b *ui.Base) {}
 func (r *PulseLayer) Update(b *ui.Base, update ui.Update) ui.Dirty {
 	r.Time += float32(update.DeltaTime.Seconds())
 	if r.Time > r.Duration {
@@ -949,12 +1041,12 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 		},
 		Animations: &ui.Animations{
 			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
-				ui.AnimationEventShow: ui.StatelessAnimationFactory(FadeInSlideDownAnimation),
+				ui.AnimationEventShow: FadeInSlideDownAnimation,
 			}),
 			Named: id.NewDenseKeyMap[ui.AnimationFactory, uint16, uint8](
 				id.WithStringMap(map[string]ui.AnimationFactory{
-					"hide": ui.StatelessAnimationFactory(FadeOutSlideUpAnimation),
-					"show": ui.StatelessAnimationFactory(FadeInSlideRightAnimation),
+					"hide": FadeOutSlideUpAnimation,
+					"show": FadeInSlideRightAnimation,
 				}),
 			),
 		},

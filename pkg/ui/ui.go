@@ -24,6 +24,7 @@ type UI struct {
 	Named                 id.DenseMap[Component, uint16, uint16]
 	TransformPointer      bool
 	TransparencyThreshold float32
+	UpdateHidden          bool
 
 	amountContext AmountContext
 	renderContext RenderContext
@@ -69,11 +70,11 @@ func NewUI() *UI {
 	}
 }
 
-func (ui *UI) Init(init Init) {
+func (ui *UI) Init() {
 	if base, ok := ui.Root.(*Base); ok {
 		base.ui = ui
 	}
-	ui.Root.Init(init)
+	ui.Root.Init()
 }
 
 func (ui *UI) Place(newBounds Bounds) {

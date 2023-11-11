@@ -7,7 +7,7 @@ type Layoutable interface {
 }
 
 type Layout interface {
-	Init(b *Base, init Init)
+	Init(b *Base)
 	PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord
 	Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base)
 }
@@ -84,7 +84,7 @@ type LayoutColumn struct {
 	Spacing             Amount
 }
 
-func (l LayoutColumn) Init(b *Base, init Init) {}
+func (l LayoutColumn) Init(b *Base) {}
 func (l LayoutColumn) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
 	size := Coord{}
 
@@ -154,7 +154,7 @@ type LayoutRow struct {
 	ExpandRight       bool
 }
 
-func (l LayoutRow) Init(b *Base, init Init) {}
+func (l LayoutRow) Init(b *Base) {}
 func (l LayoutRow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
 	size := Coord{}
 
@@ -483,7 +483,7 @@ func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGr
 	return sizings
 }
 
-func (l LayoutGrid) Init(b *Base, init Init) {}
+func (l LayoutGrid) Init(b *Base) {}
 func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layoutable []*Base) layoutGridInfo {
 	info := layoutGridInfo{
 		spacingX: l.HorizontalSpacing.Get(ctx.AmountContext, true),
@@ -631,7 +631,7 @@ type layoutInlineLine struct {
 	width, height       float32
 }
 
-func (l LayoutInline) Init(b *Base, init Init) {}
+func (l LayoutInline) Init(b *Base) {}
 func (l LayoutInline) getLines(ctx *RenderContext, maxWidth float32, layoutable []*Base) ([]layoutInlineLine, LayoutSizings) {
 	spacingX := l.HorizontalSpacing.Get(ctx.AmountContext, true)
 	sizings := getLayoutSizings(ctx, maxWidth, layoutable)
@@ -644,7 +644,7 @@ func (l LayoutInline) getLines(ctx *RenderContext, maxWidth float32, layoutable 
 		if childIndex > currentLine.start {
 			nextWidth += spacingX
 		}
-		if nextWidth >= maxWidth && childIndex > currentLine.start {
+		if nextWidth > maxWidth && childIndex > currentLine.start {
 			currentLine.endExclusive = childIndex
 			lines = append(lines, currentLine)
 			currentLine = layoutInlineLine{start: childIndex}
@@ -721,7 +721,7 @@ type LayoutStatic struct {
 	KeepInsideIgnoreMargins bool
 }
 
-func (l LayoutStatic) Init(b *Base, init Init) {}
+func (l LayoutStatic) Init(b *Base) {}
 func (l LayoutStatic) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
 	size := Coord{}
 

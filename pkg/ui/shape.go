@@ -3,7 +3,7 @@ package ui
 import "math"
 
 type Shape interface {
-	Init(init Init)
+	Init()
 	Shapify(b Bounds, ctx *RenderContext) []Coord
 }
 
@@ -14,7 +14,7 @@ var _ Shape = ShapePolygon{}
 
 type ShapeRectangle struct{}
 
-func (o ShapeRectangle) Init(init Init) {}
+func (o ShapeRectangle) Init() {}
 func (o ShapeRectangle) Shapify(b Bounds, ctx *RenderContext) []Coord {
 	return []Coord{
 		{X: b.Left, Y: b.Top},
@@ -32,7 +32,7 @@ type ShapeRounded struct {
 var ShapeRoundedAngles = [][]float32{{math.Pi, math.Pi * 0.5}, {math.Pi * 0.5, 0}, {math.Pi * 2, math.Pi * 1.5}, {math.Pi * 1.5, math.Pi}}
 var ShapeRoundedPlacements = [][]float32{{0, 0}, {1, 0}, {1, 1}, {0, 1}} // 0=1, 1=-1     *2 (0,2) -1 (-1,1)
 
-func (o ShapeRounded) Init(init Init) {}
+func (o ShapeRounded) Init() {}
 func (o ShapeRounded) Shapify(b Bounds, ctx *RenderContext) []Coord {
 	amounts := []Amount{o.Radius.TopLeft, o.Radius.TopRight, o.Radius.BottomRight, o.Radius.BottomLeft}
 	coords := make([]Coord, 0, 16)
@@ -63,8 +63,8 @@ type ShapeSharpen struct {
 	Times int
 }
 
-func (o ShapeSharpen) Init(init Init) {
-	o.Shape.Init(init)
+func (o ShapeSharpen) Init() {
+	o.Shape.Init()
 }
 func (o ShapeSharpen) Shapify(b Bounds, ctx *RenderContext) []Coord {
 	points := o.Shape.Shapify(b, ctx)
@@ -91,7 +91,7 @@ type ShapePolygon struct {
 	Copy     bool
 }
 
-func (o ShapePolygon) Init(init Init) {
+func (o ShapePolygon) Init() {
 
 }
 func (o ShapePolygon) Shapify(b Bounds, ctx *RenderContext) []Coord {

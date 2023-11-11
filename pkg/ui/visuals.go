@@ -1,7 +1,7 @@
 package ui
 
 type Visual interface {
-	Init(b *Base, init Init)
+	Init(b *Base)
 	Update(b *Base, update Update) Dirty
 	Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers)
 	PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord
@@ -17,9 +17,9 @@ type VisualFilled struct {
 	Shape Shape
 }
 
-func (s VisualFilled) Init(b *Base, init Init) {
+func (s VisualFilled) Init(b *Base) {
 	if s.Shape != nil {
-		s.Shape.Init(init)
+		s.Shape.Init()
 	}
 }
 
@@ -70,9 +70,9 @@ type VisualBordered struct {
 	Shape      Shape
 }
 
-func (s VisualBordered) Init(b *Base, init Init) {
+func (s VisualBordered) Init(b *Base) {
 	if s.Shape != nil {
-		s.Shape.Init(init)
+		s.Shape.Init()
 	}
 }
 
@@ -154,9 +154,9 @@ type VisualShadow struct {
 	AlwaysFill bool
 }
 
-func (s VisualShadow) Init(b *Base, init Init) {
+func (s VisualShadow) Init(b *Base) {
 	if s.Shape != nil {
-		s.Shape.Init(init)
+		s.Shape.Init()
 	}
 }
 
@@ -216,7 +216,7 @@ type VisualFrame struct {
 	Columns int
 }
 
-func (r VisualFrame) Init(b *Base, init Init) {
+func (r VisualFrame) Init(b *Base) {
 
 }
 
@@ -264,13 +264,11 @@ type VisualText struct {
 	Clip             bool
 
 	dirty          Dirty
-	theme          *Theme
 	rendered       RenderedText
 	renderedBounds Bounds
 }
 
-func (s *VisualText) Init(b *Base, init Init) {
-	s.theme = init.Theme
+func (s *VisualText) Init(b *Base) {
 }
 
 func (s *VisualText) Update(b *Base, update Update) Dirty {

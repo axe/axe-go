@@ -1,7 +1,7 @@
 package ui
 
 type Background interface {
-	Init(b *Base, init Init)
+	Init(b *Base)
 	Update(b *Base, update Update) Dirty
 	Backgroundify(b *Base, bounds Bounds, ctx *RenderContext, out *Vertex)
 }
@@ -15,7 +15,7 @@ type BackgroundColor struct {
 	Color Colorable
 }
 
-func (bc BackgroundColor) Init(b *Base, init Init)             {}
+func (bc BackgroundColor) Init(b *Base)                        {}
 func (bc BackgroundColor) Update(b *Base, update Update) Dirty { return DirtyNone }
 func (bc BackgroundColor) Backgroundify(b *Base, bounds Bounds, ctx *RenderContext, out *Vertex) {
 	out.AddColor(bc.Color.GetColor(b))
@@ -28,7 +28,7 @@ type BackgroundLinearGradient struct {
 	End        Coord
 }
 
-func (bc BackgroundLinearGradient) Init(b *Base, init Init)             {}
+func (bc BackgroundLinearGradient) Init(b *Base)                        {}
 func (bc BackgroundLinearGradient) Update(b *Base, update Update) Dirty { return DirtyNone }
 func (bg BackgroundLinearGradient) Backgroundify(b *Base, bounds Bounds, ctx *RenderContext, out *Vertex) {
 	dx := bg.End.X - bg.Start.X
@@ -51,7 +51,7 @@ type BackgroundImage struct {
 	// AspectRatio float32
 }
 
-func (bi BackgroundImage) Init(b *Base, init Init)             {}
+func (bi BackgroundImage) Init(b *Base)                        {}
 func (bc BackgroundImage) Update(b *Base, update Update) Dirty { return DirtyNone }
 func (bi BackgroundImage) Backgroundify(b *Base, bounds Bounds, ctx *RenderContext, out *Vertex) {
 	out.SetCoord(
@@ -68,7 +68,7 @@ type BackgroundRadialGradient struct {
 	Offset     AmountPoint
 }
 
-func (bg BackgroundRadialGradient) Init(b *Base, init Init)             {}
+func (bg BackgroundRadialGradient) Init(b *Base)                        {}
 func (bc BackgroundRadialGradient) Update(b *Base, update Update) Dirty { return DirtyNone }
 func (bg BackgroundRadialGradient) Backgroundify(b *Base, bounds Bounds, ctx *RenderContext, out *Vertex) {
 	offX, offY := bg.Offset.Get(ctx.AmountContext)

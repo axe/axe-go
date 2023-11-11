@@ -275,6 +275,17 @@ type AmountPoint struct {
 	Y Amount
 }
 
+func NewAmountPoint(x, y float32) AmountPoint {
+	return NewAmountPointUnit(x, y, UnitConstant)
+}
+
+func NewAmountPointUnit(x, y float32, unit Unit) AmountPoint {
+	return AmountPoint{
+		X: Amount{Value: x, Unit: unit},
+		Y: Amount{Value: y, Unit: unit},
+	}
+}
+
 func (a AmountPoint) Get(ctx *AmountContext) (float32, float32) {
 	return a.X.Get(ctx, true), a.Y.Get(ctx, false)
 }

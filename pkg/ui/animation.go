@@ -12,7 +12,9 @@ type Animation interface {
 	PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator)
 }
 
-type AnimationFactory func(base *Base) Animation
+type AnimationFactory interface {
+	GetAnimation(base *Base) Animation
+}
 
 type AnimationEvent uint
 
@@ -146,18 +148,12 @@ func (b *Base) playFactory(factory AnimationFactory, ev AnimationEvent) bool {
 	if factory == nil {
 		return false
 	}
-	animation := factory(b)
+	animation := factory.GetAnimation(b)
 	if animation != nil {
 		b.Animation.Set(animation, ev)
 		return true
 	}
 	return false
-}
-
-func StatelessAnimationFactory(a Animation) AnimationFactory {
-	return func(base *Base) Animation {
-		return a
-	}
 }
 
 type BasicAnimationFrame struct {
@@ -175,6 +171,10 @@ type BasicAnimation struct {
 	Easing   func(float32) float32
 	Save     bool
 	Frames   []BasicAnimationFrame
+}
+
+func (a BasicAnimation) GetAnimation(b *Base) Animation {
+	return a
 }
 
 func (a BasicAnimation) WithDuration(duration float32) BasicAnimation {

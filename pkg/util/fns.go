@@ -56,6 +56,26 @@ func SliceIndexOf[V comparable](slice []V, value V) int {
 	return -1
 }
 
+func SliceResize[V any](slice []V, size int) []V {
+	existingSize := len(slice)
+	if size == existingSize {
+		return slice
+	} else if size < existingSize {
+		return slice[:size]
+	} else {
+		return append(slice, make([]V, size-existingSize)...)
+	}
+}
+
+func SliceEnsureSize[V any](slice []V, size int) []V {
+	existingSize := len(slice)
+	if size > existingSize {
+		return append(slice, make([]V, size-existingSize)...)
+	} else {
+		return slice
+	}
+}
+
 func MapKeys[K comparable, V any](m map[K]V) []K {
 	keys := make([]K, 0, len(m))
 	for k := range m {
