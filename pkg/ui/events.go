@@ -55,12 +55,12 @@ type Event struct {
 	Stop    bool
 	Capture bool
 	Cancel  bool
-	Target  Component
+	Target  *Base
 }
 
 var _ CanStop = &Event{}
 
-func (e Event) withTarget(target Component) Event {
+func (e Event) withTarget(target *Base) Event {
 	e.Target = target
 	return e
 }
@@ -95,9 +95,8 @@ type DragEvent struct {
 	DeltaStart Coord
 	DeltaMove  Coord
 	Type       DragEventType
-	Dragging   Component
+	Dragging   *Base
 	*HasCursor
-	*HasPointer
 }
 
 func (ev DragEvent) as(dragType DragEventType) *DragEvent {
@@ -124,7 +123,6 @@ type PointerEvent struct {
 	Amount int
 	Type   PointerEventType
 	*HasCursor
-	*HasPointer
 }
 
 func (e PointerEvent) as(eventType PointerEventType) PointerEvent {
@@ -133,7 +131,7 @@ func (e PointerEvent) as(eventType PointerEventType) PointerEvent {
 	return e
 }
 
-func (e PointerEvent) withTarget(target Component) PointerEvent {
+func (e PointerEvent) withTarget(target *Base) PointerEvent {
 	e.Target = target
 	return e
 }
@@ -156,14 +154,4 @@ type KeyEvent struct {
 	Key  string
 	Char rune
 	Type KeyEventType
-}
-
-type HasPointer struct {
-	setPointer func(Coord)
-}
-
-func (h HasPointer) SetPointer(pointer Coord) {
-	if h.setPointer != nil {
-		h.setPointer(pointer)
-	}
 }

@@ -11,20 +11,23 @@ var Area = id.NewArea[uint32, uint16](
 )
 
 type UI struct {
-	PointerButtons        []PointerButtons
-	PointerPoint          Coord
-	Root                  Component
-	PointerOver           Component
-	Focused               Component
-	Dragging              Component
-	DragStart             Coord
-	DragCancels           ds.Set[string]
-	Theme                 *Theme
-	Cursor                id.Identifier
-	Named                 id.DenseMap[Component, uint16, uint16]
+	PointerButtons []PointerButtons
+	PointerPoint   Coord
+	Root           *Base
+	PointerOver    *Base
+	Focused        *Base
+	Dragging       *Base
+	DragStart      Coord
+	DragCancels    ds.Set[string]
+	Theme          *Theme
+	Cursor         id.Identifier
+	Named          id.DenseMap[*Base, uint16, uint16]
+
 	TransformPointer      bool
 	TransparencyThreshold float32
 	UpdateHidden          bool
+	PointerEntersOnDrag   bool
+	PointerMovesOnDrag    bool
 
 	amountContext AmountContext
 	renderContext RenderContext
@@ -63,7 +66,7 @@ func NewUI() *UI {
 		},
 		PointerButtons: make([]PointerButtons, 3),
 		PointerPoint:   Coord{X: -1, Y: -1},
-		Named: id.NewDenseMap[Component, uint16, uint16](
+		Named: id.NewDenseMap[*Base, uint16, uint16](
 			id.WithArea(Area),
 			id.WithCapacity(128),
 		),
@@ -71,9 +74,7 @@ func NewUI() *UI {
 }
 
 func (ui *UI) Init() {
-	if base, ok := ui.Root.(*Base); ok {
-		base.ui = ui
-	}
+	ui.Root.ui = ui
 	ui.Root.Init()
 }
 
@@ -162,14 +163,13 @@ func (ui *UI) ProcessKeyEvent(ev KeyEvent) error {
 	return nil
 }
 
-func (ui *UI) ProcessPointerEvent(ev PointerEvent, setPointer func(Coord)) error {
+func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 	if ui.Root == nil {
 		return nil
 	}
 
 	// Set to current cursor
 	ev.HasCursor = &HasCursor{Cursor: &ui.Cursor}
-	ev.HasPointer = &HasPointer{setPointer: setPointer}
 
 	// Cached drag event with accurate deltas
 	dragEvent := ui.dragEvent(ev, DragEventCancel)
@@ -231,16 +231,18 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent, setPointer func(Coord)) error
 			triggerPointerEvent(leavePath, ev.as(PointerEventLeave))
 
 			// Only trigger enter & move if we're not dragging
-			if ui.Dragging == nil {
+			if ui.Dragging == nil || ui.PointerEntersOnDrag {
 				// For every component in over not in ui.MouseOver we need to trigger enter
 				triggerPointerEvent(enterPath, ev.as(PointerEventEnter))
+			}
 
+			if ui.Dragging == nil || ui.PointerMovesOnDrag {
 				// For every component in both and ev.Type = move we need to trigger move
 				triggerPointerEvent(movePath, ev.as(PointerEventMove))
 			}
 
 			ui.PointerOver = over
-		} else if over != nil && ui.Dragging == nil {
+		} else if over != nil && (ui.Dragging == nil || ui.PointerMovesOnDrag) {
 			// For every component in over's lineage we need to trigger move if we're not dragging
 			triggerPointerEvent(getPath(over), ev.as(PointerEventMove))
 		}
@@ -312,8 +314,7 @@ func (ui UI) dragEvent(ev PointerEvent, dragType DragEventType) *DragEvent {
 			X: ev.Point.X - ui.PointerPoint.X,
 			Y: ev.Point.Y - ui.PointerPoint.Y,
 		},
-		HasCursor:  ev.HasCursor,
-		HasPointer: ev.HasPointer,
+		HasCursor: ev.HasCursor,
 	}
 }
 
@@ -325,30 +326,30 @@ func (ui *UI) triggerDrag(ev *DragEvent, clear bool) *DragEvent {
 	return ev
 }
 
-func getPath(c Component) []Component {
+func getPath(c *Base) []*Base {
 	return getPathWhere(c, nil)
 }
 
-func getFocusablePath(c Component) []Component {
-	return getPathWhere(c, func(c Component) bool {
+func getFocusablePath(c *Base) []*Base {
+	return getPathWhere(c, func(c *Base) bool {
 		return c.IsFocusable()
 	})
 }
 
-func getDroppablePath(c Component) []Component {
-	return getPathWhere(c, func(c Component) bool {
+func getDroppablePath(c *Base) []*Base {
+	return getPathWhere(c, func(c *Base) bool {
 		return c.IsDroppable()
 	})
 }
 
-func getDraggablePath(c Component) []Component {
-	return getPathWhere(c, func(c Component) bool {
+func getDraggablePath(c *Base) []*Base {
+	return getPathWhere(c, func(c *Base) bool {
 		return c.IsDraggable()
 	})
 }
 
-func getPathWhere(c Component, where func(Component) bool) []Component {
-	path := make([]Component, 0, 8)
+func getPathWhere(c *Base, where func(*Base) bool) []*Base {
+	path := make([]*Base, 0, 8)
 	curr := c
 	for curr != nil {
 		if where == nil || where(curr) {
@@ -360,37 +361,37 @@ func getPathWhere(c Component, where func(Component) bool) []Component {
 	return path
 }
 
-func triggerPointerEvent(path []Component, ev PointerEvent) {
-	triggerEvent(path, &ev.Event, func(c Component) {
+func triggerPointerEvent(path []*Base, ev PointerEvent) {
+	triggerEvent(path, &ev.Event, func(c *Base) {
 		c.OnPointer(&ev)
 	})
 }
 
-func triggerKeyEvent(path []Component, ev KeyEvent) {
-	triggerEvent(path, &ev.Event, func(c Component) {
+func triggerKeyEvent(path []*Base, ev KeyEvent) {
+	triggerEvent(path, &ev.Event, func(c *Base) {
 		c.OnKey(&ev)
 	})
 }
 
-func triggerFocusEvent(path []Component, ev Event) {
-	triggerEvent(path, &ev, func(c Component) {
+func triggerFocusEvent(path []*Base, ev Event) {
+	triggerEvent(path, &ev, func(c *Base) {
 		c.OnFocus(&ev)
 	})
 }
 
-func triggerBlurEvent(path []Component, ev Event) {
-	triggerEvent(path, &ev, func(c Component) {
+func triggerBlurEvent(path []*Base, ev Event) {
+	triggerEvent(path, &ev, func(c *Base) {
 		c.OnBlur(&ev)
 	})
 }
 
-func triggerDragEvent(path []Component, ev *DragEvent) {
-	triggerEvent(path, &ev.Event, func(c Component) {
+func triggerDragEvent(path []*Base, ev *DragEvent) {
+	triggerEvent(path, &ev.Event, func(c *Base) {
 		c.OnDrag(ev)
 	})
 }
 
-func triggerEvent(path []Component, ev *Event, trigger func(Component)) {
+func triggerEvent(path []*Base, ev *Event, trigger func(*Base)) {
 	ev.Capture = true
 	ev.Stop = false
 	for i := len(path) - 1; i >= 0; i-- {

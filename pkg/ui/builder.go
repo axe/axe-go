@@ -225,6 +225,6 @@ func (b Builder) AddKeyEvent(handler func(ev *KeyEvent)) Builder {
 	return b
 }
 
-func (b Builder) End() Component {
+func (b Builder) End() *Base {
 	return &b.base
 }

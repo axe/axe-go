@@ -182,6 +182,7 @@ func main() {
 						"resizer":  ui.NewExtentTile(cursors[4][3], ui.NewBounds(-43, -27, 13, 29).Scale(0.75)),
 						"resizeb":  ui.NewExtentTile(cursors[4][4], ui.NewBounds(-26, -42, 30, 24).Scale(0.75)),
 						"resizebl": ui.NewExtentTile(cursors[4][8], ui.NewBounds(-11, -41, 45, 15).Scale(0.75)),
+						"resizel":  ui.NewExtentTile(cursors[4][5], ui.NewBounds(-10, -27, 46, 29).Scale(0.75)),
 					})
 
 					// Colors
@@ -221,10 +222,11 @@ func main() {
 							}},
 						},
 					)
+					textWindow.Colors.Set(BackgroundColor, ui.ColorGray)
 
 					layoutColumnName := id.Get("layoutColumn")
 					layoutColumnChange := func(change func(*ui.LayoutColumn)) {
-						frame := userInterface.Named.Get(layoutColumnName).(*ui.Base)
+						frame := userInterface.Named.Get(layoutColumnName)
 						layout := frame.Layout.(*ui.LayoutColumn)
 						change(layout)
 						frame.Dirty(ui.DirtyPlacement)
@@ -280,7 +282,7 @@ func main() {
 
 					layoutRowName := id.Get("layoutRow")
 					layoutRowChange := func(change func(*ui.LayoutRow)) {
-						frame := userInterface.Named.Get(layoutRowName).(*ui.Base)
+						frame := userInterface.Named.Get(layoutRowName)
 						layout := frame.Layout.(*ui.LayoutRow)
 						change(layout)
 						frame.Dirty(ui.DirtyPlacement)
@@ -341,7 +343,7 @@ func main() {
 
 					layoutGridName := id.Get("layoutGrid")
 					layoutGridChange := func(change func(*ui.LayoutGrid)) {
-						frame := userInterface.Named.Get(layoutGridName).(*ui.Base)
+						frame := userInterface.Named.Get(layoutGridName)
 						layout := frame.Layout.(*ui.LayoutGrid)
 						change(layout)
 						frame.Dirty(ui.DirtyPlacement)
@@ -484,7 +486,7 @@ func main() {
 
 					layoutInlineName := id.Get("layoutInline")
 					layoutInlineChange := func(change func(*ui.LayoutInline)) {
-						frame := userInterface.Named.Get(layoutInlineName).(*ui.Base)
+						frame := userInterface.Named.Get(layoutInlineName)
 						layout := frame.Layout.(*ui.LayoutInline)
 						change(layout)
 						frame.Dirty(ui.DirtyPlacement)
@@ -1089,6 +1091,9 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 				}),
 			),
 		},
+		Colors: ui.NewColors(map[ui.ThemeColor]ui.Colorable{
+			BackgroundColor: ui.ColorLightGray,
+		}),
 		Layers: []ui.Layer{{
 			Visual: activePulse,
 			States: ui.StateFocused.Is,
@@ -1100,17 +1105,12 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 			Background: ui.BackgroundColor{Color: PrimaryColor.Modify(ui.Darken(0.5).Then(ui.Alpha(0.2)))},
 		}, {
 			Visual:     ui.VisualFilled{},
-			Background: ui.BackgroundColor{Color: ui.ColorGray.Lighten(0.2)},
+			Background: ui.BackgroundColor{Color: BackgroundColor},
 		}},
 	}
 
 	bar := &ui.Base{
-		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: 0, Delta: 0},
-			Right:  ui.Anchor{Base: 0, Delta: 1},
-			Top:    ui.Anchor{Base: 0, Delta: 0},
-			Bottom: ui.Anchor{Base: barSize, Delta: 0},
-		},
+		Placement: ui.Placement{}.TopFixedHeight(0, barSize, 0, 0),
 		Shape: ui.ShapeRounded{
 			Radius: ui.AmountCorners{
 				TopLeft:  ui.Amount{Value: 8},
@@ -1167,10 +1167,15 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 
 	frame.Children = append(
 		frame.Children, bar,
-		newWindowResizeRight(frame, barSize),
-		newWindowResizeBottom(frame),
-		newWindowResizeBottomRight(frame),
-		newWindowResizeBottomLeft(frame),
+		newWindowResizer(frame, id.Get("resizer"), ui.Placement{}.RightFixedWidth(0, ResizerSize, barSize, ResizerSize), ui.Bounds{Right: 1}),
+		newWindowResizer(frame, id.Get("resizebr"), ui.Placement{}.Attach(1, 1, ResizerSize, ResizerSize), ui.Bounds{Right: 1, Bottom: 1}),
+		newWindowResizer(frame, id.Get("resizeb"), ui.Placement{}.BottomFixedHeight(0, ResizerSize, ResizerSize, ResizerSize), ui.Bounds{Bottom: 1}),
+		newWindowResizer(frame, id.Get("resizebl"), ui.Placement{}.Attach(0, 1, ResizerSize, ResizerSize), ui.Bounds{Left: 1, Bottom: 1}),
+		newWindowResizer(frame, id.Get("resizel"), ui.Placement{}.LeftFixedWidth(0, ResizerSize, barSize, ResizerSize), ui.Bounds{Left: 1}),
+		// newWindowResizeRight(frame, barSize),
+		// newWindowResizeBottom(frame),
+		// newWindowResizeBottomRight(frame),
+		// newWindowResizeBottomLeft(frame),
 	)
 
 	return frame
@@ -1306,159 +1311,27 @@ func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 	}
 }
 
-var DragContainHooks = ui.Hooks{
-	OnUpdate: func(b *ui.Base, update ui.Update) ui.Dirty {
-		if b.IsDragging() {
-			input := axe.ActiveGame().Input
-			point := input.Points()[0]
-			current := ui.Coord{X: point.X, Y: point.Y}
-			clipped := b.Bounds. /*.Expand(ui.NewBounds(-4, -4, -8, -8))*/ ClipCoord(current)
-			if current != clipped {
-				// point.X = clipped.X
-				// point.Y = clipped.Y
-				// point.Set = true
+const ResizerSize = 12
+
+func newWindowResizer(win *ui.Base, cursor id.Identifier, placement ui.Placement, dirs ui.Bounds) *ui.Base {
+	start := win.Placement
+	var resizer *ui.Base
+
+	move := func(base *float32, dir, available, move float32, towardsEdge, onlyIf bool) {
+		if onlyIf && dir != 0 && move != 0 {
+			if towardsEdge {
+				*base += axe.ClampMagnitude(move, available)
+			} else {
+				*base += move
 			}
 		}
-		return ui.DirtyNone
-	},
-}
-
-func newWindowResizeBottomRight(win *ui.Base) *ui.Base {
-	start := win.Placement
-	var resizer *ui.Base
-
-	resizer = &ui.Base{
-		Draggable: true,
-		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: -8, Delta: 1},
-			Right:  ui.Anchor{Base: 0, Delta: 1},
-			Top:    ui.Anchor{Base: -8, Delta: 1},
-			Bottom: ui.Anchor{Base: 0, Delta: 1},
-		},
-		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
-			ui.CursorEventHover: id.Get("resizebr"),
-		}),
-		Events: ui.Events{
-			OnDrag: func(ev *ui.DragEvent) {
-				if !ev.Capture && !win.Placement.IsMaximized() {
-					ev.Stop = true
-					switch ev.Type {
-					case ui.DragEventStart:
-						win.Transparency.Set(0.2)
-						start = win.Placement
-					case ui.DragEventMove:
-						current := win.Placement
-						current.Right.Base += ev.DeltaMove.X
-						current.Bottom.Base += ev.DeltaMove.Y
-						win.SetPlacement(current)
-					case ui.DragEventCancel:
-						win.SetPlacement(start)
-					case ui.DragEventEnd:
-						win.Transparency.Set(0)
-					}
-				}
-			},
-		},
-		Hooks: DragContainHooks,
-	}
-	return resizer
-}
-
-func newWindowResizeRight(win *ui.Base, barSize float32) *ui.Base {
-	start := win.Placement
-	var resizer *ui.Base
-
-	resizer = &ui.Base{
-		Draggable: true,
-		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: -8, Delta: 1},
-			Right:  ui.Anchor{Base: 0, Delta: 1},
-			Top:    ui.Anchor{Base: barSize, Delta: 0},
-			Bottom: ui.Anchor{Base: -8, Delta: 1},
-		},
-		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
-			ui.CursorEventHover: id.Get("resizer"),
-		}),
-		Events: ui.Events{
-			OnDrag: func(ev *ui.DragEvent) {
-				if !ev.Capture && !win.Placement.IsMaximized() {
-					ev.Stop = true
-					switch ev.Type {
-					case ui.DragEventStart:
-						win.Transparency.Set(0.2)
-						start = win.Placement
-					case ui.DragEventMove:
-						current := win.Placement
-						current.Right.Base += ev.DeltaMove.X
-						win.SetPlacement(current)
-					case ui.DragEventCancel:
-						win.SetPlacement(start)
-					case ui.DragEventEnd:
-						win.Transparency.Set(0)
-					}
-				}
-			},
-		},
-		Hooks: DragContainHooks,
-	}
-	return resizer
-}
-
-func newWindowResizeBottom(win *ui.Base) *ui.Base {
-	start := win.Placement
-	var resizer *ui.Base
-
-	resizer = &ui.Base{
-		Draggable: true,
-		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: 8, Delta: 0},
-			Right:  ui.Anchor{Base: -8, Delta: 1},
-			Top:    ui.Anchor{Base: -8, Delta: 1},
-			Bottom: ui.Anchor{Base: 0, Delta: 1},
-		},
-		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
-			ui.CursorEventHover: id.Get("resizeb"),
-		}),
-		Events: ui.Events{
-			OnDrag: func(ev *ui.DragEvent) {
-				if !ev.Capture && !win.Placement.IsMaximized() {
-					ev.Stop = true
-					switch ev.Type {
-					case ui.DragEventStart:
-						win.Transparency.Set(0.2)
-						start = win.Placement
-					case ui.DragEventMove:
-						current := win.Placement
-						current.Bottom.Base += ev.DeltaMove.Y
-						win.SetPlacement(current)
-					case ui.DragEventCancel:
-						win.SetPlacement(start)
-					case ui.DragEventEnd:
-						win.Transparency.Set(0)
-					}
-				}
-			},
-		},
-		Hooks: DragContainHooks,
 	}
 
-	return resizer
-}
-
-func newWindowResizeBottomLeft(win *ui.Base) *ui.Base {
-	start := win.Placement
-	var resizer *ui.Base
-
 	resizer = &ui.Base{
 		Draggable: true,
-		Placement: ui.Placement{
-			Left:   ui.Anchor{Base: 0, Delta: 0},
-			Right:  ui.Anchor{Base: 8, Delta: 0},
-			Top:    ui.Anchor{Base: -8, Delta: 1},
-			Bottom: ui.Anchor{Base: 0, Delta: 1},
-		},
+		Placement: placement,
 		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
-			ui.CursorEventHover: id.Get("resizebl"),
+			ui.CursorEventHover: cursor,
 		}),
 		Events: ui.Events{
 			OnDrag: func(ev *ui.DragEvent) {
@@ -1470,8 +1343,15 @@ func newWindowResizeBottomLeft(win *ui.Base) *ui.Base {
 						start = win.Placement
 					case ui.DragEventMove:
 						current := win.Placement
-						current.Bottom.Base += ev.DeltaMove.Y
-						current.Left.Base += ev.DeltaMove.X
+						winParentBounds := win.Parent().Bounds
+						win.Bounds = win.Placement.GetBoundsIn(winParentBounds)
+						available := winParentBounds.Sub(win.Bounds)
+
+						move(&current.Left.Base, dirs.Left, -available.Left, ev.DeltaMove.X, ev.DeltaMove.X < 0, (ev.Point.X < resizer.Bounds.Left-ev.DeltaMove.X) || ev.DeltaMove.X > 0)
+						move(&current.Top.Base, dirs.Top, -available.Top, ev.DeltaMove.Y, ev.DeltaMove.Y < 0, (ev.Point.Y < resizer.Bounds.Top-ev.DeltaMove.Y) || ev.DeltaMove.Y > 0)
+						move(&current.Right.Base, dirs.Right, available.Right, ev.DeltaMove.X, ev.DeltaMove.X > 0, (ev.Point.X > resizer.Bounds.Right-ev.DeltaMove.X) || ev.DeltaMove.X < 0)
+						move(&current.Bottom.Base, dirs.Bottom, available.Bottom, ev.DeltaMove.Y, ev.DeltaMove.Y > 0, (ev.Point.Y > resizer.Bounds.Bottom-ev.DeltaMove.Y) || ev.DeltaMove.Y < 0)
+
 						win.SetPlacement(current)
 					case ui.DragEventCancel:
 						win.SetPlacement(start)
@@ -1481,7 +1361,6 @@ func newWindowResizeBottomLeft(win *ui.Base) *ui.Base {
 				}
 			},
 		},
-		Hooks: DragContainHooks,
 	}
 
 	return resizer

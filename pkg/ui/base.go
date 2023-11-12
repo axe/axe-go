@@ -43,8 +43,6 @@ type Base struct {
 	shownDirty    bool
 }
 
-var _ Component = &Base{}
-
 func (c *Base) UI() *UI {
 	return c.ui
 }
@@ -418,7 +416,7 @@ func (c *Base) updateVisualBounds(vertex VertexIterator) {
 	}
 }
 
-func (c *Base) Parent() Component {
+func (c *Base) Parent() *Base {
 	if c == nil || c.parent == nil {
 		return nil
 	}
@@ -443,7 +441,7 @@ func (c *Base) IsInside(pt Coord) bool {
 	return true
 }
 
-func (b *Base) At(pt Coord) Component {
+func (b *Base) At(pt Coord) *Base {
 	transparency := b.Transparency.Get()
 	if transparency > 0 && b.ui.TransparencyThreshold > 0 && transparency >= b.ui.TransparencyThreshold {
 		return nil

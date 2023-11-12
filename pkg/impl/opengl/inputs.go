@@ -269,15 +269,6 @@ func (in *inputSystem) Update(game *axe.Game) {
 	for _, input := range in.Inputs() {
 		input.UpdateDuration(in.InputTime())
 	}
-
-	for _, point := range in.Points() {
-		if point.Set {
-			if win, ok := game.Windows.MainWindow().(*window); ok {
-				win.window.SetCursorPos(float64(point.X), float64(point.Y))
-			}
-			point.Set = false
-		}
-	}
 }
 
 func (in *inputSystem) Destroy() {

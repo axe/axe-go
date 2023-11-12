@@ -86,7 +86,6 @@ type Point struct {
 	X     float32
 	Y     float32
 	Index int
-	Set   bool
 	// Window *Window
 	// Screen *Screen
 }

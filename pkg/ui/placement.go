@@ -140,7 +140,7 @@ func (p Placement) Center(width float32, height float32) Placement {
 
 func (p Placement) TopFixedHeight(topOffset float32, height float32, leftOffset float32, rightOffset float32) Placement {
 	p.Left.Set(leftOffset, 0)
-	p.Right.Set(rightOffset, 1)
+	p.Right.Set(-rightOffset, 1)
 	p.Top.Set(topOffset, 0)
 	p.Bottom.Set(topOffset+height, 0)
 	return p
@@ -148,7 +148,7 @@ func (p Placement) TopFixedHeight(topOffset float32, height float32, leftOffset 
 
 func (p Placement) BottomFixedHeight(bottomOffset float32, height float32, leftOffset float32, rightOffset float32) Placement {
 	p.Left.Set(leftOffset, 0)
-	p.Right.Set(rightOffset, 1)
+	p.Right.Set(-rightOffset, 1)
 	p.Top.Set(-bottomOffset-height, 1)
 	p.Bottom.Set(-bottomOffset, 1)
 	return p
@@ -158,7 +158,7 @@ func (p Placement) LeftFixedWidth(leftOffset float32, width float32, topOffset f
 	p.Left.Set(leftOffset, 0)
 	p.Right.Set(leftOffset+width, 0)
 	p.Top.Set(topOffset, 0)
-	p.Bottom.Set(bottomOffset, 1)
+	p.Bottom.Set(-bottomOffset, 1)
 	return p
 }
 
@@ -166,7 +166,7 @@ func (p Placement) RightFixedWidth(rightOffset float32, width float32, topOffset
 	p.Left.Set(-rightOffset-width, 1)
 	p.Right.Set(-rightOffset, 1)
 	p.Top.Set(topOffset, 0)
-	p.Bottom.Set(bottomOffset, 1)
+	p.Bottom.Set(-bottomOffset, 1)
 	return p
 }
 

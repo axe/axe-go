@@ -91,6 +91,14 @@ func (b Bounds) Add(a Bounds) Bounds {
 		Bottom: b.Bottom + a.Bottom,
 	}
 }
+func (b Bounds) Sub(a Bounds) Bounds {
+	return Bounds{
+		Left:   b.Left - a.Left,
+		Top:    b.Top - a.Top,
+		Right:  b.Right - a.Right,
+		Bottom: b.Bottom - a.Bottom,
+	}
+}
 func (b Bounds) Union(a Bounds) Bounds {
 	if b.IsZero() {
 		return a

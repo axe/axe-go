@@ -82,6 +82,17 @@ func Max[D Numeric](a D, b D) D {
 	return b
 }
 
+// Returns the largest number between a & b.
+func ClampMagnitude[D Numeric](value D, max D) D {
+	if value < 0 && value < -max {
+		value = -max
+	}
+	if value > 0 && value > max {
+		value = max
+	}
+	return value
+}
+
 // Computes the absolute value of the given value.
 func Abs[D Numeric](v D) D {
 	return D(math.Abs(float64(v)))

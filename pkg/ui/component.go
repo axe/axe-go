@@ -73,21 +73,21 @@ type Component interface {
 }
 
 type ComponentMap struct {
-	set     map[uintptr]Component
-	ordered []Component
+	set     map[uintptr]*Base
+	ordered []*Base
 }
 
 func NewComponentMap() ComponentMap {
 	return ComponentMap{
-		set: make(map[uintptr]Component),
+		set: make(map[uintptr]*Base),
 	}
 }
 
-func (cm ComponentMap) Components() []Component {
+func (cm ComponentMap) Components() []*Base {
 	return cm.ordered
 }
 
-func (cm *ComponentMap) Add(c Component) {
+func (cm *ComponentMap) Add(c *Base) {
 	key := toPtr(c)
 	if _, exists := cm.set[key]; !exists {
 		cm.set[key] = c
@@ -95,18 +95,18 @@ func (cm *ComponentMap) Add(c Component) {
 	}
 }
 
-func (cm *ComponentMap) AddMany(c []Component) {
+func (cm *ComponentMap) AddMany(c []*Base) {
 	for _, m := range c {
 		cm.Add(m)
 	}
 }
 
-func (cm ComponentMap) Has(c Component) bool {
+func (cm ComponentMap) Has(c *Base) bool {
 	_, exists := cm.set[toPtr(c)]
 	return exists
 }
 
-func (cm *ComponentMap) AddLineage(c Component) {
+func (cm *ComponentMap) AddLineage(c *Base) {
 	curr := c
 	for curr != nil {
 		cm.Add(curr)
@@ -114,10 +114,10 @@ func (cm *ComponentMap) AddLineage(c Component) {
 	}
 }
 
-func (old ComponentMap) Compare(new ComponentMap) (inOld []Component, inBoth []Component, inNew []Component) {
-	inOld = make([]Component, 0)
-	inBoth = make([]Component, 0)
-	inNew = make([]Component, 0)
+func (old ComponentMap) Compare(new ComponentMap) (inOld []*Base, inBoth []*Base, inNew []*Base) {
+	inOld = make([]*Base, 0)
+	inBoth = make([]*Base, 0)
+	inNew = make([]*Base, 0)
 
 	for _, oldOverAncestor := range old.ordered {
 		if !new.Has(oldOverAncestor) {
