@@ -651,7 +651,7 @@ func (b *Base) OnKey(ev *KeyEvent) {
 }
 
 func (b *Base) OnFocus(ev *Event) {
-	if b.IsDisabled() {
+	if b.IsDisabled() || b.States.Is(StateFocused) {
 		return
 	}
 
@@ -666,7 +666,7 @@ func (b *Base) OnFocus(ev *Event) {
 }
 
 func (b *Base) OnBlur(ev *Event) {
-	if b.IsDisabled() {
+	if b.IsDisabled() || b.States.Not(StateFocused) {
 		return
 	}
 
@@ -678,6 +678,10 @@ func (b *Base) OnBlur(ev *Event) {
 
 	b.RemoveStates(StateFocused)
 	b.PlayEvent(AnimationEventBlur)
+}
+
+func (b *Base) IsDragging() bool {
+	return b.ui.Dragging == b
 }
 
 func (b *Base) OnDrag(ev *DragEvent) {

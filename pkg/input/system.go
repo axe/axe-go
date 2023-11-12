@@ -166,7 +166,7 @@ func (in *System) SetInputValue(ia *Input, newValue float32) {
 	}
 }
 
-func (in *System) SetInputPoint(ia *Point, x int, y int) {
+func (in *System) SetInputPoint(ia *Point, x, y float32) {
 	if ia != nil {
 		ia.X = x
 		ia.Y = y

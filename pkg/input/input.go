@@ -83,8 +83,10 @@ type Vector struct {
 }
 
 type Point struct {
-	X int
-	Y int
+	X     float32
+	Y     float32
+	Index int
+	Set   bool
 	// Window *Window
 	// Screen *Screen
 }

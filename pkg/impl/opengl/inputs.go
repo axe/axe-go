@@ -216,7 +216,7 @@ func (in *inputSystem) listenToWindow(axeWindow axe.Window) {
 			in.onInputAction(in.buttons[button], action)
 		})
 		glfwWindow.SetCursorPosCallback(func(w *glfw.Window, xpos, ypos float64) {
-			in.SetInputPoint(in.Points()[0], int(xpos), int(ypos))
+			in.SetInputPoint(in.Points()[0], float32(xpos), float32(ypos))
 		})
 		glfwWindow.SetCursorEnterCallback(func(w *glfw.Window, entered bool) {
 			if entered {
@@ -268,6 +268,15 @@ func (in *inputSystem) Update(game *axe.Game) {
 
 	for _, input := range in.Inputs() {
 		input.UpdateDuration(in.InputTime())
+	}
+
+	for _, point := range in.Points() {
+		if point.Set {
+			if win, ok := game.Windows.MainWindow().(*window); ok {
+				win.window.SetCursorPos(float64(point.X), float64(point.Y))
+			}
+			point.Set = false
+		}
 	}
 }
 

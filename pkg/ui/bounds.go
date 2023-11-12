@@ -116,6 +116,11 @@ func (b Bounds) Scale(s float32) Bounds {
 		Bottom: b.Bottom * s,
 	}
 }
+func (b Bounds) ClipCoord(c Coord) Coord {
+	c.X = Clamp(c.X, b.Left, b.Right)
+	c.Y = Clamp(c.Y, b.Top, b.Bottom)
+	return c
+}
 func (b *Bounds) Clear() {
 	b.Left = 0
 	b.Top = 0

@@ -97,6 +97,7 @@ type DragEvent struct {
 	Type       DragEventType
 	Dragging   Component
 	*HasCursor
+	*HasPointer
 }
 
 func (ev DragEvent) as(dragType DragEventType) *DragEvent {
@@ -123,6 +124,7 @@ type PointerEvent struct {
 	Amount int
 	Type   PointerEventType
 	*HasCursor
+	*HasPointer
 }
 
 func (e PointerEvent) as(eventType PointerEventType) PointerEvent {
@@ -154,4 +156,14 @@ type KeyEvent struct {
 	Key  string
 	Char rune
 	Type KeyEventType
+}
+
+type HasPointer struct {
+	setPointer func(Coord)
+}
+
+func (h HasPointer) SetPointer(pointer Coord) {
+	if h.setPointer != nil {
+		h.setPointer(pointer)
+	}
 }

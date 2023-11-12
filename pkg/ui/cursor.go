@@ -43,6 +43,10 @@ func (c Cursors) OverCursor(b *Base, ignoreDragging bool) id.Identifier {
 }
 
 func (c Cursors) HandlePointer(ev *PointerEvent, b *Base) {
+	if b.IsDragging() {
+		return
+	}
+
 	cursorDisabled := c.Get(CursorEventDisabled)
 	cursorHover := c.Get(CursorEventHover)
 	cursorDown := c.Get(CursorEventDown)
@@ -70,13 +74,13 @@ func (c Cursors) HandleDrag(ev *DragEvent, b *Base) {
 
 	switch ev.Type {
 	case DragEventStart:
-		ev.SetCursor(dragCursor, b, false)
+		ev.SetCursor(dragCursor, b, true)
 	case DragEventEnd:
 		ev.RemoveCursor(dragCursor)
-		ev.SetCursor(overCursor, b, false)
+		ev.SetCursor(overCursor, b, true)
 	case DragEventCancel:
 		ev.RemoveCursor(dragCursor)
-		ev.SetCursor(overCursor, b, false)
+		ev.SetCursor(overCursor, b, true)
 	}
 }
 

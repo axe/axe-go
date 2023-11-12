@@ -187,6 +187,7 @@ func main() {
 					// Colors
 					userInterface.Theme.TextStyles.Color = TextColor
 					userInterface.Theme.Colors.Set(PrimaryColor, ui.ColorFromHex("#008080"))
+					userInterface.Theme.Colors.Set(SecondaryColor, ui.ColorPurple)
 					userInterface.Theme.Colors.Set(BackgroundColor, ui.ColorWhite)
 					userInterface.Theme.Colors.Set(TextColor, ui.ColorBlack)
 
@@ -448,7 +449,7 @@ func main() {
 							newButton(ui.Placement{}, "Tighten", false, func() {
 								layoutGridWindow.Tighten()
 							}),
-							newButton(ui.Placement{}, "Hide & Show", false, nil).Edit(func(b *ui.Base) {
+							newButton(ui.Placement{}, "Hide & Show Animation", false, nil).Edit(func(b *ui.Base) {
 								b.Colors.Set(BackgroundColor, ui.ColorOrange)
 								b.Colors.Set(TextColor, ui.ColorBlack)
 								b.Animations.ForEvent.Set(ui.AnimationEventShow, FadeInAnimation)
@@ -490,7 +491,7 @@ func main() {
 					}
 					layoutInlineWindow := newWindow("Layout Inline", ui.Absolute(20, 700, 300, 300))
 					layoutInlineWindow.Children = append(layoutInlineWindow.Children,
-						newCollapsibleSection("Show/Hide Inline Components",
+						newCollapsibleSection("{w:none}Show/Hide Inline Components",
 							&ui.Base{
 								Name: layoutInlineName,
 								Layout: &ui.LayoutInline{
@@ -976,13 +977,31 @@ type PulseLayer struct {
 	Size                 float32
 	Time                 float32
 	Shape                ui.Shape
+	Disabled             bool
+	Times                int
+}
+
+func (r *PulseLayer) Start() {
+	r.Time = 0
+	r.Disabled = false
+}
+
+func (r *PulseLayer) Stop() {
+	r.Disabled = true
 }
 
 func (r *PulseLayer) Init(b *ui.Base) {}
 func (r *PulseLayer) Update(b *ui.Base, update ui.Update) ui.Dirty {
+	if r.Disabled {
+		return ui.DirtyNone
+	}
 	r.Time += float32(update.DeltaTime.Seconds())
 	if r.Time > r.Duration {
 		r.Time -= r.Duration
+		r.Times--
+		if r.Times == 0 {
+			r.Disabled = true
+		}
 	}
 	if r.Time < r.PulseTime {
 		return ui.DirtyVisual
@@ -990,7 +1009,7 @@ func (r *PulseLayer) Update(b *ui.Base, update ui.Update) ui.Dirty {
 	return ui.DirtyNone
 }
 func (r *PulseLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderContext, out *ui.VertexBuffers) {
-	if r.Time <= r.PulseTime {
+	if !r.Disabled && r.Time <= r.PulseTime {
 		delta := r.Time / r.PulseTime
 		size := ui.Lerp(0, r.Size, delta)
 		pulseBounds := ui.Bounds{
@@ -1004,6 +1023,9 @@ func (r *PulseLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderConte
 		color := startColor.Lerp(endColor, delta)
 		background := ui.VisualFilled{
 			Shape: r.Shape,
+		}
+		if background.Shape == nil {
+			background.Shape = b.Shape
 		}
 		visualized := ui.NewVertexIterator(out)
 		background.Visualize(b, pulseBounds, ctx, out)
@@ -1021,13 +1043,29 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 	barSize := float32(36)
 	var frame *ui.Base
 
+	activePulse := &PulseLayer{
+		StartColor: PrimaryColor.Modify(ui.Darken(0.5)),
+		EndColor:   PrimaryColor.Modify(ui.Darken(0.5).Then(ui.Alpha(0))),
+		Duration:   0.3,
+		PulseTime:  0.3,
+		Size:       10,
+		Disabled:   true,
+	}
+
 	frame = &ui.Base{
 		Placement: placement,
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
-				if !ev.Capture && ev.Type == ui.PointerEventDown {
+				if ev.Capture && ev.Type == ui.PointerEventDown {
 					frame.BringToFront()
 				}
+			},
+			OnFocus: func(ev *ui.Event) {
+				activePulse.Times = 1
+				activePulse.Start()
+			},
+			OnBlur: func(ev *ui.Event) {
+				activePulse.Stop()
 			},
 		},
 		Shape: ui.ShapeRounded{
@@ -1039,6 +1077,7 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 			},
 			UnitToPoints: 0.5,
 		},
+		Focusable: true,
 		Animations: &ui.Animations{
 			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
 				ui.AnimationEventShow: FadeInSlideDownAnimation,
@@ -1051,6 +1090,9 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 			),
 		},
 		Layers: []ui.Layer{{
+			Visual: activePulse,
+			States: ui.StateFocused.Is,
+		}, {
 			Visual: ui.VisualShadow{
 				Blur:    ui.NewAmountBoundsUniform(8, ui.UnitConstant),
 				Offsets: ui.NewAmountBounds(5, 8, -3, 0),
@@ -1084,6 +1126,10 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 				End:        ui.Coord{X: 0, Y: 1},
 			},
 		}},
+		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
+			ui.CursorEventHover: id.Get("drag"),
+			ui.CursorEventDrag:  id.Get("dragging"),
+		}),
 		Draggable: true,
 		Events: ui.Events{
 			OnDrag: func(ev *ui.DragEvent) {
@@ -1158,7 +1204,7 @@ func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 		Draggable: true,
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
-				if !ev.Capture && ev.Type == ui.PointerEventDown {
+				if !ev.Capture && ev.Type == ui.PointerEventUp {
 					win.Transparency.Set(1)
 
 					go func() {
@@ -1205,7 +1251,7 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 		Draggable: true,
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
-				if !ev.Capture && ev.Type == ui.PointerEventDown {
+				if !ev.Capture && ev.Type == ui.PointerEventUp {
 					if maximized {
 						win.SetPlacement(minimized)
 					} else {
@@ -1244,7 +1290,7 @@ func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 		Draggable: true,
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
-				if !ev.Capture && ev.Type == ui.PointerEventDown {
+				if !ev.Capture && ev.Type == ui.PointerEventUp {
 					win.PlayMaybe("hide")
 					go func() {
 						time.Sleep(time.Second * 3)
@@ -1260,10 +1306,28 @@ func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 	}
 }
 
+var DragContainHooks = ui.Hooks{
+	OnUpdate: func(b *ui.Base, update ui.Update) ui.Dirty {
+		if b.IsDragging() {
+			input := axe.ActiveGame().Input
+			point := input.Points()[0]
+			current := ui.Coord{X: point.X, Y: point.Y}
+			clipped := b.Bounds. /*.Expand(ui.NewBounds(-4, -4, -8, -8))*/ ClipCoord(current)
+			if current != clipped {
+				// point.X = clipped.X
+				// point.Y = clipped.Y
+				// point.Set = true
+			}
+		}
+		return ui.DirtyNone
+	},
+}
+
 func newWindowResizeBottomRight(win *ui.Base) *ui.Base {
 	start := win.Placement
+	var resizer *ui.Base
 
-	return &ui.Base{
+	resizer = &ui.Base{
 		Draggable: true,
 		Placement: ui.Placement{
 			Left:   ui.Anchor{Base: -8, Delta: 1},
@@ -1295,13 +1359,16 @@ func newWindowResizeBottomRight(win *ui.Base) *ui.Base {
 				}
 			},
 		},
+		Hooks: DragContainHooks,
 	}
+	return resizer
 }
 
 func newWindowResizeRight(win *ui.Base, barSize float32) *ui.Base {
 	start := win.Placement
+	var resizer *ui.Base
 
-	return &ui.Base{
+	resizer = &ui.Base{
 		Draggable: true,
 		Placement: ui.Placement{
 			Left:   ui.Anchor{Base: -8, Delta: 1},
@@ -1332,13 +1399,16 @@ func newWindowResizeRight(win *ui.Base, barSize float32) *ui.Base {
 				}
 			},
 		},
+		Hooks: DragContainHooks,
 	}
+	return resizer
 }
 
 func newWindowResizeBottom(win *ui.Base) *ui.Base {
 	start := win.Placement
+	var resizer *ui.Base
 
-	return &ui.Base{
+	resizer = &ui.Base{
 		Draggable: true,
 		Placement: ui.Placement{
 			Left:   ui.Anchor{Base: 8, Delta: 0},
@@ -1369,13 +1439,17 @@ func newWindowResizeBottom(win *ui.Base) *ui.Base {
 				}
 			},
 		},
+		Hooks: DragContainHooks,
 	}
+
+	return resizer
 }
 
 func newWindowResizeBottomLeft(win *ui.Base) *ui.Base {
 	start := win.Placement
+	var resizer *ui.Base
 
-	return &ui.Base{
+	resizer = &ui.Base{
 		Draggable: true,
 		Placement: ui.Placement{
 			Left:   ui.Anchor{Base: 0, Delta: 0},
@@ -1407,5 +1481,8 @@ func newWindowResizeBottomLeft(win *ui.Base) *ui.Base {
 				}
 			},
 		},
+		Hooks: DragContainHooks,
 	}
+
+	return resizer
 }

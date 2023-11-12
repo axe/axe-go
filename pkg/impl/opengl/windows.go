@@ -153,6 +153,9 @@ func (ws *windowSystem) createWindow(stageWindow axe.StageWindow) *window {
 	ws.loaded[stageWindow.Name] = win
 
 	gwin.SetSizeCallback(func(w *glfw.Window, width, height int) {
+		if width == 0 || height == 0 {
+			return
+		}
 		ws.events.Trigger(func(listener axe.WindowSystemEvents) bool {
 			if listener.WindowResize != nil {
 				oldSize := win.size

@@ -162,13 +162,14 @@ func (ui *UI) ProcessKeyEvent(ev KeyEvent) error {
 	return nil
 }
 
-func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
+func (ui *UI) ProcessPointerEvent(ev PointerEvent, setPointer func(Coord)) error {
 	if ui.Root == nil {
 		return nil
 	}
 
 	// Set to current cursor
 	ev.HasCursor = &HasCursor{Cursor: &ui.Cursor}
+	ev.HasPointer = &HasPointer{setPointer: setPointer}
 
 	// Cached drag event with accurate deltas
 	dragEvent := ui.dragEvent(ev, DragEventCancel)
@@ -229,21 +230,24 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 			// For every component in ui.MouseOver not in over we need to trigger leave
 			triggerPointerEvent(leavePath, ev.as(PointerEventLeave))
 
-			// For every component in over not in ui.MouseOver we need to trigger enter
-			triggerPointerEvent(enterPath, ev.as(PointerEventEnter))
+			// Only trigger enter & move if we're not dragging
+			if ui.Dragging == nil {
+				// For every component in over not in ui.MouseOver we need to trigger enter
+				triggerPointerEvent(enterPath, ev.as(PointerEventEnter))
 
-			// For every component in both and ev.Type = move we need to trigger move
-			triggerPointerEvent(movePath, ev.as(PointerEventMove))
+				// For every component in both and ev.Type = move we need to trigger move
+				triggerPointerEvent(movePath, ev.as(PointerEventMove))
+			}
 
 			ui.PointerOver = over
-		} else if over != nil {
-			// For every component in over's lineage we need to trigger move
+		} else if over != nil && ui.Dragging == nil {
+			// For every component in over's lineage we need to trigger move if we're not dragging
 			triggerPointerEvent(getPath(over), ev.as(PointerEventMove))
 		}
 	}
 
 	// Handle down/up/wheel event
-	if (ev.Type == PointerEventDown || ev.Type == PointerEventUp || ev.Type == PointerEventWheel) && ui.PointerOver != nil {
+	if (ev.Type == PointerEventDown || ev.Type == PointerEventUp || ev.Type == PointerEventWheel) && ui.PointerOver != nil && ui.Dragging == nil {
 		triggerPointerEvent(getPath(ui.PointerOver), ev.withTarget(ui.PointerOver))
 	}
 
@@ -255,8 +259,8 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 		ui.triggerDrag(dragEvent.as(DragEventEnd), true)
 	}
 
-	// Change focus on down
-	if ev.Type == PointerEventDown {
+	// Change focus on down if not dragging
+	if ev.Type == PointerEventDown && ui.Dragging == nil {
 		if ui.Focused != ui.PointerOver {
 			old := getFocusablePath(ui.Focused)
 			new := getFocusablePath(ui.PointerOver)
@@ -308,7 +312,8 @@ func (ui UI) dragEvent(ev PointerEvent, dragType DragEventType) *DragEvent {
 			X: ev.Point.X - ui.PointerPoint.X,
 			Y: ev.Point.Y - ui.PointerPoint.Y,
 		},
-		HasCursor: ev.HasCursor,
+		HasCursor:  ev.HasCursor,
+		HasPointer: ev.HasPointer,
 	}
 }
 
