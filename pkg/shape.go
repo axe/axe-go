@@ -1,5 +1,7 @@
 package axe
 
+import "github.com/axe/axe-go/pkg/util"
+
 type Shape[A Attr[A]] interface {
 	Finite() bool
 	Distance(point A) float32
@@ -123,7 +125,7 @@ type Round[A Attr[A]] struct {
 
 func (round Round[A]) PlaneSign(plane Plane[A]) PlaneSign {
 	d := plane.Distance(round.Center)
-	return PlaneSign(Sign(d - float32(Sign(d))*round.Radius))
+	return PlaneSign(util.Sign(d - float32(util.Sign(d))*round.Radius))
 }
 
 type Circle = Round[Vec2f]

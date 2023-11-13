@@ -1,6 +1,10 @@
 package axe
 
-import "math"
+import (
+	"math"
+
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type Numeric interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~float32 | ~float64
@@ -47,143 +51,12 @@ type Attr[V any] interface {
 	Lerp(end V, delta float32, out *V)
 }
 
-// Divides a by b, unless b is zero then zero is returned.
-func Div[D Numeric](a D, b D) D {
-	if b == 0 {
-		return 0
-	}
-	return a / b
-}
-
-// Returns v but no larger than the max or smaller than the min.
-func Clamp[D Numeric](v D, min D, max D) D {
-	if v < min {
-		return min
-	}
-	if v > max {
-		return max
-	}
-	return v
-}
-
-// Returns the smallest number between a & b.
-func Min[D Numeric](a D, b D) D {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// Returns the largest number between a & b.
-func Max[D Numeric](a D, b D) D {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-// Returns the largest number between a & b.
-func ClampMagnitude[D Numeric](value D, max D) D {
-	if value < 0 && value < -max {
-		value = -max
-	}
-	if value > 0 && value > max {
-		value = max
-	}
-	return value
-}
-
-// Computes the absolute value of the given value.
-func Abs[D Numeric](v D) D {
-	return D(math.Abs(float64(v)))
-}
-
-// Computes the floor of the given value.
-func Floor[D Numeric](v D) D {
-	return D(math.Floor(float64(v)))
-}
-
-// Computes the ceil of the given value.
-func Ceil[D Numeric](v D) D {
-	return D(math.Ceil(float64(v)))
-}
-
-// Rounds the value to the largest absolute value.
-// Up(4.5)=5, Up(-4.5)=-5, Up(3)=3
-func Up[D Numeric](v D) D {
-	if v < 0 {
-		return Floor(v)
-	}
-	return Ceil(v)
-}
-
-// Rounds the value to the smallest absolute value.
-// Down(4.5)=4, Down(-4.5)=-4, Down(3)=3
-func Down[D Numeric](v D) D {
-	if v < 0 {
-		return Ceil(v)
-	}
-	return Floor(v)
-}
-
-// Computes the square of the value
-func Sq[D Numeric](x D) D {
-	return x * x
-}
-
-// Computes the sine of the given radians.
-func Sin[D Numeric](rad D) D {
-	return D(math.Sin(float64(rad)))
-}
-
-// Computes the arcsine of the given radians.
-func Asin[D Numeric](rad D) D {
-	return D(math.Asin(float64(rad)))
-}
-
-// Computes the cosine of the given radians.
-func Cos[D Numeric](rad D) D {
-	return D(math.Cos(float64(rad)))
-}
-
-// Computes the arcosine of the given radians.
-func Acos[D Numeric](rad D) D {
-	return D(math.Acos(float64(rad)))
-}
-
-// Computes the square root of the given number.
-func Sqrt[D Numeric](v D) D {
-	return D(math.Sqrt(float64(v)))
-}
-
-// Computes the Atan2 of the given radians.
-func Atan2[D Numeric](y D, x D) D {
-	return D(math.Atan2(float64(y), float64(x)))
-}
-
-// Computes the sign of the given number where 0 has a sign of 0,
-// a negative number returns -1 and a positive number returns 1.
-func Sign[D Numeric](v D) int {
-	if v == 0 {
-		return 0
-	}
-	if v < 0 {
-		return -1
-	}
-	return 1
-}
-
-// Computes the Atan2 of the given radians.
-func CopySign[D Numeric](f D, sign D) D {
-	return D(math.Copysign(float64(f), float64(sign)))
-}
-
 // Computes a value with the given length.
 func Lengthen[A Attr[A]](value A, length float32) A {
 	var out A
 	len := value.LengthSq()
 	if len != 0 && len != length*length {
-		value.Scale(length/Sqrt(len), &out)
+		value.Scale(length/util.Sqrt(len), &out)
 	} else {
 		value.Set(&out)
 	}
@@ -196,10 +69,10 @@ func ClampLength[A Attr[A]](value A, min float32, max float32) A {
 	lenSq := value.LengthSq()
 	if lenSq != 0 {
 		if lenSq < min*min {
-			len := Sqrt(lenSq)
+			len := util.Sqrt(lenSq)
 			value.Scale(min/len, &out)
 		} else if lenSq > max*max {
-			len := Sqrt(lenSq)
+			len := util.Sqrt(lenSq)
 			value.Scale(max/len, &out)
 		} else {
 			value.Set(&out)
@@ -237,9 +110,9 @@ func SlerpAngle[A Attr[A]](start A, end A, angle float32, t float32) A {
 	if angle == 0 {
 		return start
 	}
-	denom := Div(1, Sin(angle))
-	d0 := Sin((1-t)*angle) * denom
-	d1 := Sin(t*angle) * denom
+	denom := util.Div(1, util.Sin(angle))
+	d0 := util.Sin((1-t)*angle) * denom
+	d1 := util.Sin(t*angle) * denom
 
 	var out A
 	end.Scale(d1, &out)
@@ -256,7 +129,7 @@ func Delta[A Attr[A]](start A, end A, point A) float32 {
 	end.Sub(start, &p0)
 	point.Sub(start, &p1)
 
-	delta := Div(p0.Dot(p1), p0.LengthSq())
+	delta := util.Div(p0.Dot(p1), p0.LengthSq())
 	return delta
 }
 
@@ -264,7 +137,7 @@ func Delta[A Attr[A]](start A, end A, point A) float32 {
 func Closest[A Attr[A]](start A, end A, point A, line bool) A {
 	delta := Delta(start, end, point)
 	if !line {
-		delta = Clamp(delta, 0, 1)
+		delta = util.Clamp(delta, 0, 1)
 	}
 	var out A
 	start.Lerp(end, delta, &out)
@@ -275,7 +148,7 @@ func Closest[A Attr[A]](start A, end A, point A, line bool) A {
 func Normalize[A Attr[A]](value A, normal *A) float32 {
 	d := value.LengthSq()
 	if d != 0 && d != 1 {
-		d = Sqrt(d)
+		d = util.Sqrt(d)
 		value.Scale(1/d, normal)
 	}
 	return d
@@ -283,7 +156,7 @@ func Normalize[A Attr[A]](value A, normal *A) float32 {
 
 // Returns if the given value is normalized (has a length of 1).
 func IsNormal[A Attr[A]](value A) bool {
-	return Abs(value.LengthSq()-1) < EPSILON
+	return util.Abs(value.LengthSq()-1) < util.EPSILON
 }
 
 // Returns the shortest distance from the point to the line or segment defined by start and end.
@@ -295,7 +168,7 @@ func DistanceFrom[A Attr[A]](start A, end A, point A, line bool) float32 {
 // Calculates the height triangle given it's base length and two sides.
 func GetTriangleHeight(base float32, side1 float32, side2 float32) float32 {
 	p := (base + side1 + side2) * 0.5
-	area := Sqrt(p * (p - base) * (p - side1) * (p - side2))
+	area := util.Sqrt(p * (p - base) * (p - side1) * (p - side2))
 	height := area * 2.0 / base
 
 	return height
@@ -315,7 +188,7 @@ func IsCircleInView[A Attr[A]](viewOrigin A, viewDirection A, fovTan float32, fo
 	circle.Sub(viewOrigin, &circleToOrigin)
 	distanceAlongDirection := circleToOrigin.Dot(viewDirection)
 	coneRadius := distanceAlongDirection * fovTan
-	distanceFromAxis := Sqrt(circleToOrigin.LengthSq() - distanceAlongDirection*distanceAlongDirection)
+	distanceFromAxis := util.Sqrt(circleToOrigin.LengthSq() - distanceAlongDirection*distanceAlongDirection)
 	distanceFromCenterToCone := distanceFromAxis - coneRadius
 	shortestDistance := distanceFromCenterToCone * fovCos
 
@@ -381,7 +254,7 @@ func CubicCurve[A Attr[A]](delta float32, p0 A, p1 A, p2 A, p3 A, matrix [4][4]f
 func ParametricCubicCurve[A Attr[A]](delta float32, points []A, matrix [4][4]float32, weight float32, inverse bool, loop bool) A {
 	n := len(points) - 1
 	a := delta * float32(n)
-	i := Clamp(Floor(a), 0, float32(n-1))
+	i := util.Clamp(util.Floor(a), 0, float32(n-1))
 	d := a - i
 	index := int(i)
 
@@ -423,7 +296,7 @@ func InterceptTime[A Attr[A]](interceptor A, interceptorSpeed float32, targetPos
 	b := 2 * targetVelocity.Dot(tvec)
 	c := tvec.LengthSq()
 
-	return QuadraticFormula(a, b, c, -1)
+	return util.QuadraticFormula(a, b, c, -1)
 }
 
 // Reflects the direction across a given normal. Imagine the normal is on a plane
@@ -441,120 +314,4 @@ func Refract[A Attr[A]](dir A, normal A) A {
 	normal.Scale(scale, &normal)
 	normal.Sub(dir, &dir)
 	return dir
-}
-
-// Calculates the greatest common denominator between two integer numbers.
-func Gcd[D Integer](a D, b D) D {
-	shift := 0
-
-	if a == 0 || b == 0 {
-		return (a | b)
-	}
-
-	for shift := 0; ((a | b) & 1) == 0; shift++ {
-		a >>= 1
-		b >>= 1
-	}
-
-	for (a & 1) == 0 {
-		a >>= 1
-	}
-
-	for {
-		for (b & 1) == 0 {
-			b >>= 1
-		}
-		if a < b {
-			b -= a
-		} else {
-			d := a - b
-			a = b
-			b = d
-		}
-		b >>= 1
-
-		if b == 0 {
-			break
-		}
-	}
-
-	return (a << shift)
-}
-
-// Computes the factorial of the given number.
-// ex: Factorial(5) = 5*4*3*2*1
-func Factorial[D Numeric](x D) D {
-	n := x
-	x--
-	for x > 1 {
-		n *= x
-		x--
-	}
-	return n
-}
-
-// Computes the number of combinations of size m that can be made with n things.
-func Choose[D Integer](n D, m D) D {
-	num := D(1)
-	den := D(1)
-
-	if m > (n >> 1) {
-		m = n - m
-	}
-
-	for m >= 1 {
-		num *= n
-		n--
-		den *= m
-		m--
-		gcd := Gcd(num, den)
-		num /= gcd
-		den /= gcd
-	}
-
-	return num
-}
-
-var EPSILON = float32(0.00001)
-
-// Computes the quadratic formula between a, b, and c. If it can't be computed
-// then none is returned.
-func QuadraticFormula(a, b, c, none float32) float32 {
-	t0 := float32(math.SmallestNonzeroFloat32)
-	t1 := float32(math.SmallestNonzeroFloat32)
-
-	if Abs(a) < EPSILON {
-		if Abs(b) < EPSILON {
-			if Abs(c) < EPSILON {
-				t0 = 0.0
-				t1 = 0.0
-			}
-		} else {
-			t0 = -c / b
-			t1 = -c / b
-		}
-	} else {
-		disc := b*b - 4*a*c
-
-		if disc >= 0 {
-			disc = Sqrt(disc)
-			a = 2 * a
-			t0 = (-b - disc) / a
-			t1 = (-b + disc) / a
-		}
-	}
-
-	if t0 != math.SmallestNonzeroFloat32 {
-		t := Min(t0, t1)
-
-		if t < 0 {
-			t = Max(t0, t1)
-		}
-
-		if t > 0 {
-			return t
-		}
-	}
-
-	return none
 }

@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/id"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type Animation interface {
@@ -195,7 +196,7 @@ func (a BasicAnimation) IsDone(base *Base, animationTime float32) bool {
 	return animationTime > a.Duration
 }
 func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
-	animationDelta := min(animationTime/a.Duration, 1)
+	animationDelta := util.Min(animationTime/a.Duration, 1)
 	animationEasingDelta := Ease(animationDelta, a.Easing)
 
 	i := len(a.Frames) - 2
@@ -206,7 +207,7 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 	start := a.Frames[i]
 	end := a.Frames[i+1]
 
-	timeDelta := Delta(start.Time, end.Time, animationEasingDelta)
+	timeDelta := util.Delta(start.Time, end.Time, animationEasingDelta)
 	timeEasingDelta := Ease(timeDelta, start.Easing)
 
 	startTx, startTy := start.Translate.Get(ctx.AmountContext)
@@ -217,16 +218,16 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 	scaleX := float32(1)
 	scaleY := float32(1)
 	if start.Scale != nil && end.Scale != nil {
-		scaleX = Lerp(start.Scale.X, end.Scale.X, timeEasingDelta)
-		scaleY = Lerp(start.Scale.Y, end.Scale.Y, timeEasingDelta)
+		scaleX = util.Lerp(start.Scale.X, end.Scale.X, timeEasingDelta)
+		scaleY = util.Lerp(start.Scale.Y, end.Scale.Y, timeEasingDelta)
 	}
-	origX := Lerp(startOx, endOx, timeEasingDelta) + base.Bounds.Left
-	origY := Lerp(startOy, endOy, timeEasingDelta) + base.Bounds.Top
-	transX := Lerp(startTx, endTx, timeEasingDelta)
-	transY := Lerp(startTy, endTy, timeEasingDelta)
+	origX := util.Lerp(startOx, endOx, timeEasingDelta) + base.Bounds.Left
+	origY := util.Lerp(startOy, endOy, timeEasingDelta) + base.Bounds.Top
+	transX := util.Lerp(startTx, endTx, timeEasingDelta)
+	transY := util.Lerp(startTy, endTy, timeEasingDelta)
 
-	rotation := Lerp(start.Rotate, end.Rotate, timeEasingDelta)
-	transparency := Lerp(start.Transparency, end.Transparency, timeEasingDelta)
+	rotation := util.Lerp(start.Rotate, end.Rotate, timeEasingDelta)
+	transparency := util.Lerp(start.Transparency, end.Transparency, timeEasingDelta)
 
 	transform := Transform{}
 	transform.SetRotateDegreesScaleAround(rotation, scaleX, scaleY, origX, origY)

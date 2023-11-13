@@ -1,6 +1,10 @@
 package axe
 
-import "math"
+import (
+	"math"
+
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type Camera[A Attr[A]] interface {
 	GameSystem
@@ -140,8 +144,8 @@ func (c *Camera3d) Update(game *Game) {
 	c.Transform.Position.AddScaled(c.Forward, c.Far.Value, &farCenter)
 
 	fovTheta := c.Fov.Value / 360 * math.Pi
-	cos := Cos(fovTheta)
-	sin := Sin(fovTheta)
+	cos := util.Cos(fovTheta)
+	sin := util.Sin(fovTheta)
 
 	planeLeft := c.Transform.TransformVector(Vec3d{X: -cos, Y: 0, Z: -sin})
 	planeUp := c.Transform.TransformVector(Vec3d{X: 0, Y: cos, Z: -sin})
@@ -276,7 +280,7 @@ func (m *Mat2d) Get() []float32 {
 	return m.v[:]
 }
 func (m *Mat2d) Set(values []float32) {
-	n := Min(len(values), 9)
+	n := util.Min(len(values), 9)
 	for i := 0; i < n; i++ {
 		m.v[i] = values[i]
 	}
@@ -293,7 +297,7 @@ func (m *Mat2d) Identity() {
 	m.v[8] = 1
 }
 func (m *Mat2d) Transform(v Vec2d) Vec2d {
-	invW := Div(1, m.v[2]*v.X+m.v[5]*v.Y+m.v[8])
+	invW := util.Div(1, m.v[2]*v.X+m.v[5]*v.Y+m.v[8])
 
 	return Vec2d{
 		X: (m.v[0]*v.X + m.v[3]*v.Y + m.v[6]) * invW,
@@ -318,8 +322,8 @@ func (m *Mat2d) Determinant() float32 {
 func (m *Mat2d) Ortho(left, top, right, bottom float32) {
 	dx := (right - left)
 	dy := (top - bottom)
-	xo := Div(2, dx)
-	yo := Div(2, dy)
+	xo := util.Div(2, dx)
+	yo := util.Div(2, dy)
 	tx := -(right + left) / dx
 	ty := -(top + bottom) / dy
 
@@ -344,7 +348,7 @@ func (m *Mat3d) Get() []float32 {
 	return m.v[:]
 }
 func (m *Mat3d) Set(values []float32) {
-	n := Min(len(values), 9)
+	n := util.Min(len(values), 9)
 	for i := 0; i < n; i++ {
 		m.v[i] = values[i]
 	}
@@ -476,7 +480,7 @@ func (p *Plane2d) SetPoints(points []Vec2d) {
 	end := points[1]
 	dx := (end.X - start.X)
 	dy := (end.Y - start.Y)
-	d := Div(1.0, Sqrt(dx*dx+dy*dy))
+	d := util.Div(1.0, util.Sqrt(dx*dx+dy*dy))
 
 	p.A = -dy * d
 	p.B = dx * d
@@ -486,7 +490,7 @@ func (p *Plane2d) Distance(point Vec2d) float32 {
 	return (p.A*point.X + p.B*point.Y + p.C)
 }
 func (p *Plane2d) Sign(point Vec2d) PlaneSign {
-	return PlaneSign(Sign(p.Distance(point)))
+	return PlaneSign(util.Sign(p.Distance(point)))
 }
 func (p *Plane2d) Intersection(plane Plane[Vec2d], out *Vec2d) bool {
 	other := plane.(*Plane2d)
@@ -540,20 +544,20 @@ func (p *Plane3d) Distance(point Vec3d) float32 {
 }
 func (p *Plane3d) DistanceRound(round Round[Vec3d]) float32 {
 	d := p.Distance(round.Center)
-	return d - float32(Sign(d))*round.Radius
+	return d - float32(util.Sign(d))*round.Radius
 }
 func (p *Plane3d) DistanceLine(line Line[Vec3d]) float32 {
 	ds := p.Distance(line.Start)
 	de := p.Distance(line.End)
-	ss := float32(Sign(ds))
-	se := float32(Sign(de))
+	ss := float32(util.Sign(ds))
+	se := float32(util.Sign(de))
 	if ss != se {
 		return 0
 	}
-	return Min(ds*ss, de*se)
+	return util.Min(ds*ss, de*se)
 }
 func (p *Plane3d) Sign(point Vec3d) PlaneSign {
-	return PlaneSign(Sign(p.Distance(point)))
+	return PlaneSign(util.Sign(p.Distance(point)))
 }
 func (p *Plane3d) SignPoints(points []Vec3d) PlaneSign {
 	n := len(points)
@@ -584,7 +588,7 @@ func (p *Plane3d) Clip(line Line[Vec3d], side PlaneSign) *Line[Vec3d] {
 
 	d := normal.Dot(dir)
 	sd := p.Distance(line.Start)
-	q := PlaneSign(Sign(sd))
+	q := PlaneSign(util.Sign(sd))
 
 	if d == 0.0 {
 		if q == side || p.Sign(line.End) == side {

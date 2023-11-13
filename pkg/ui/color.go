@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/axe/axe-go/pkg/ds"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 //go:generate go run colors.go
@@ -124,10 +125,10 @@ func (c Color) Lighten(scale float32) Color {
 
 func (c Color) Lerp(to Color, delta float32) Color {
 	return Color{
-		R: Lerp(c.R, to.R, delta),
-		G: Lerp(c.G, to.G, delta),
-		B: Lerp(c.B, to.B, delta),
-		A: Lerp(c.A, to.A, delta),
+		R: util.Lerp(c.R, to.R, delta),
+		G: util.Lerp(c.G, to.G, delta),
+		B: util.Lerp(c.B, to.B, delta),
+		A: util.Lerp(c.A, to.A, delta),
 	}
 }
 
@@ -145,10 +146,10 @@ func (c Color) IsZero() bool {
 }
 
 func (c Color) ToInts() (r, g, b, a int) {
-	r = int(Clamp(c.R*255, 0, 255))
-	g = int(Clamp(c.G*255, 0, 255))
-	b = int(Clamp(c.B*255, 0, 255))
-	a = int(Clamp(c.A*255, 0, 255))
+	r = int(util.Clamp(c.R*255, 0, 255))
+	g = int(util.Clamp(c.G*255, 0, 255))
+	b = int(util.Clamp(c.B*255, 0, 255))
+	a = int(util.Clamp(c.A*255, 0, 255))
 	return
 }
 

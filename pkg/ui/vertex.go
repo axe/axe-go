@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/axe/axe-go/pkg/buf"
+import (
+	"github.com/axe/axe-go/pkg/buf"
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type Coord struct {
 	X float32
@@ -12,11 +15,11 @@ func (mp Coord) Equals(other Coord) bool {
 }
 
 func (c Coord) Max(other Coord) Coord {
-	return Coord{X: max(c.X, other.X), Y: max(c.Y, other.Y)}
+	return Coord{X: util.Max(c.X, other.X), Y: util.Max(c.Y, other.Y)}
 }
 
 func (c Coord) Min(other Coord) Coord {
-	return Coord{X: min(c.X, other.X), Y: min(c.Y, other.Y)}
+	return Coord{X: util.Min(c.X, other.X), Y: util.Min(c.Y, other.Y)}
 }
 
 func (c *Coord) Set(x, y float32) {
@@ -42,8 +45,8 @@ func (t Tile) Coord(dx, dy float32) TexCoord {
 	return TexCoord{
 		Texture: t.Texture,
 		Coord: Coord{
-			X: Lerp(t.Coords.Left, t.Coords.Right, dx),
-			Y: Lerp(t.Coords.Top, t.Coords.Bottom, dy),
+			X: util.Lerp(t.Coords.Left, t.Coords.Right, dx),
+			Y: util.Lerp(t.Coords.Top, t.Coords.Bottom, dy),
 		},
 	}
 }
@@ -107,13 +110,13 @@ func (v *Vertex) SetCoord(texture string, x, y float32) {
 
 func (v Vertex) Lerp(to Vertex, delta float32) Vertex {
 	return Vertex{
-		X:        Lerp(v.X, to.X, delta),
-		Y:        Lerp(v.Y, to.Y, delta),
+		X:        util.Lerp(v.X, to.X, delta),
+		Y:        util.Lerp(v.Y, to.Y, delta),
 		HasCoord: v.HasCoord && to.HasCoord,
 		Coord: TexCoord{
 			Coord: Coord{
-				X: Lerp(v.Coord.X, to.Coord.X, delta),
-				Y: Lerp(v.Coord.Y, to.Coord.Y, delta),
+				X: util.Lerp(v.Coord.X, to.Coord.X, delta),
+				Y: util.Lerp(v.Coord.Y, to.Coord.Y, delta),
 			},
 			Texture: v.Coord.Texture,
 		},

@@ -1,6 +1,10 @@
 package axe
 
-import "math"
+import (
+	"math"
+
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type Vec2[D Numeric] struct {
 	X D
@@ -87,8 +91,8 @@ func (v Vec2[D]) Mul(factor Vec2[D], out *Vec2[D]) {
 	out.Y = v.Y * factor.Y
 }
 func (v Vec2[D]) Div(factor Vec2[D], out *Vec2[D]) {
-	out.X = Div(v.X, factor.X)
-	out.Y = Div(v.Y, factor.Y)
+	out.X = util.Div(v.X, factor.X)
+	out.Y = util.Div(v.Y, factor.Y)
 }
 func (start Vec2[D]) Lerp(end Vec2[D], delta float32, out *Vec2[D]) {
 	out.X = D(float32(end.X-start.X)*delta) + start.X
@@ -209,9 +213,9 @@ func (v Vec3[D]) Mul(value Vec3[D], out *Vec3[D]) {
 	out.Z = v.Z * value.Z
 }
 func (v Vec3[D]) Div(value Vec3[D], out *Vec3[D]) {
-	out.X = Div(v.X, value.X)
-	out.Y = Div(v.Y, value.Y)
-	out.Z = Div(v.Z, value.Z)
+	out.X = util.Div(v.X, value.X)
+	out.Y = util.Div(v.Y, value.Y)
+	out.Z = util.Div(v.Z, value.Z)
 }
 func (start Vec3[D]) Lerp(end Vec3[D], delta float32, out *Vec3[D]) {
 	out.X = D(float32(end.X-start.X)*delta) + start.X
@@ -337,10 +341,10 @@ func (v Vec4[D]) Mul(value Vec4[D], out *Vec4[D]) {
 	out.W = v.W * value.W
 }
 func (v Vec4[D]) Div(value Vec4[D], out *Vec4[D]) {
-	out.X = Div(v.X, value.X)
-	out.Y = Div(v.Y, value.Y)
-	out.Z = Div(v.Z, value.Z)
-	out.W = Div(v.W, value.W)
+	out.X = util.Div(v.X, value.X)
+	out.Y = util.Div(v.Y, value.Y)
+	out.Z = util.Div(v.Z, value.Z)
+	out.W = util.Div(v.W, value.W)
 }
 func (start Vec4[D]) Lerp(end Vec4[D], delta float32, out *Vec4[D]) {
 	out.X = D(float32(end.X-start.X)*delta) + start.X

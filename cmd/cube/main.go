@@ -15,6 +15,7 @@ import (
 	"github.com/axe/axe-go/pkg/impl/opengl"
 	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/ui"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 func main() {
@@ -187,7 +188,7 @@ func main() {
 
 					// Colors
 					userInterface.Theme.TextStyles.Color = TextColor
-					userInterface.Theme.Colors.Set(PrimaryColor, ui.ColorFromHex("#008080"))
+					userInterface.Theme.Colors.Set(PrimaryColor, ui.ColorCornflowerBlue /* ui.ColorFromHex("#009090")*/)
 					userInterface.Theme.Colors.Set(SecondaryColor, ui.ColorPurple)
 					userInterface.Theme.Colors.Set(BackgroundColor, ui.ColorWhite)
 					userInterface.Theme.Colors.Set(TextColor, ui.ColorBlack)
@@ -936,7 +937,7 @@ func (r *RippleLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderCont
 	if r.Animating && b == r.animatingOn {
 		centerX, centerY := bounds.Lerp(r.Center.X, r.Center.Y)
 		delta := r.Time / r.Duration
-		radius := ui.Lerp(r.StartRadius.Get(ctx.AmountContext, true), r.EndRadius.Get(ctx.AmountContext, true), delta)
+		radius := util.Lerp(r.StartRadius.Get(ctx.AmountContext, true), r.EndRadius.Get(ctx.AmountContext, true), delta)
 		startColor := r.StartColor.GetColor(b)
 		endColor := r.EndColor.GetColor(b)
 		color := startColor.Lerp(endColor, delta)
@@ -962,8 +963,8 @@ func (r *RippleLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderCont
 		background.Visualize(b, rippleBounds, ctx, out)
 		for visualized.HasNext() {
 			v := visualized.Next()
-			v.X = ui.Clamp(v.X, bounds.Left, bounds.Right)
-			v.Y = ui.Clamp(v.Y, bounds.Top, bounds.Bottom)
+			v.X = util.Clamp(v.X, bounds.Left, bounds.Right)
+			v.Y = util.Clamp(v.Y, bounds.Top, bounds.Bottom)
 			v.AddColor(color)
 		}
 	}
@@ -1013,7 +1014,7 @@ func (r *PulseLayer) Update(b *ui.Base, update ui.Update) ui.Dirty {
 func (r *PulseLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderContext, out *ui.VertexBuffers) {
 	if !r.Disabled && r.Time <= r.PulseTime {
 		delta := r.Time / r.PulseTime
-		size := ui.Lerp(0, r.Size, delta)
+		size := util.Lerp(0, r.Size, delta)
 		pulseBounds := ui.Bounds{
 			Left:   bounds.Left - size,
 			Right:  bounds.Right + size,
@@ -1320,7 +1321,7 @@ func newWindowResizer(win *ui.Base, cursor id.Identifier, placement ui.Placement
 	move := func(base *float32, dir, available, move float32, towardsEdge, onlyIf bool) {
 		if onlyIf && dir != 0 && move != 0 {
 			if towardsEdge {
-				*base += axe.ClampMagnitude(move, available)
+				*base += util.MaxMagnitude(move, available)
 			} else {
 				*base += move
 			}

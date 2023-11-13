@@ -8,6 +8,7 @@ import (
 	axe "github.com/axe/axe-go/pkg"
 	"github.com/axe/axe-go/pkg/asset"
 	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/impl/opengl"
 	"github.com/axe/axe-go/pkg/ui"
 )
@@ -64,10 +65,10 @@ func main() {
 					}
 
 					userInterface := axe.NewUserInterface()
-					userInterface.Theme.TextStyles.Font = "roboto"
+					userInterface.Theme.TextStyles.Font = id.Get("roboto")
 					userInterface.Root = &ui.Base{
 						TextStyles: &ui.TextStylesOverride{
-							Color:    &ui.ColorWhite,
+							Color:    ui.Override[ui.Colorable](ui.ColorWhite),
 							FontSize: &ui.Amount{Value: 24},
 							ParagraphStylesOverride: &ui.ParagraphStylesOverride{
 								LineSpacing:           &ui.Amount{Value: 1.0, Unit: ui.UnitFont},

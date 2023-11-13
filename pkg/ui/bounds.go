@@ -1,6 +1,10 @@
 package ui
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type Bounds struct {
 	Left, Top, Right, Bottom float32
@@ -104,10 +108,10 @@ func (b Bounds) Union(a Bounds) Bounds {
 		return a
 	}
 	return Bounds{
-		Left:   min(a.Left, b.Left),
-		Top:    min(a.Top, b.Top),
-		Right:  max(a.Right, b.Right),
-		Bottom: max(a.Bottom, b.Bottom),
+		Left:   util.Min(a.Left, b.Left),
+		Top:    util.Min(a.Top, b.Top),
+		Right:  util.Max(a.Right, b.Right),
+		Bottom: util.Max(a.Bottom, b.Bottom),
 	}
 }
 func (b Bounds) Intersects(a Bounds) bool {
@@ -125,8 +129,8 @@ func (b Bounds) Scale(s float32) Bounds {
 	}
 }
 func (b Bounds) ClipCoord(c Coord) Coord {
-	c.X = Clamp(c.X, b.Left, b.Right)
-	c.Y = Clamp(c.Y, b.Top, b.Bottom)
+	c.X = util.Clamp(c.X, b.Left, b.Right)
+	c.Y = util.Clamp(c.Y, b.Top, b.Bottom)
 	return c
 }
 func (b *Bounds) Clear() {
@@ -142,10 +146,10 @@ func (b *Bounds) Include(x, y float32) {
 		b.Top = y
 		b.Bottom = y
 	} else {
-		b.Left = min(x, b.Left)
-		b.Right = max(x, b.Right)
-		b.Top = min(y, b.Top)
-		b.Bottom = max(y, b.Bottom)
+		b.Left = util.Min(x, b.Left)
+		b.Right = util.Max(x, b.Right)
+		b.Top = util.Min(y, b.Top)
+		b.Bottom = util.Max(y, b.Bottom)
 	}
 }
 func (b Bounds) String() string {

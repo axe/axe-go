@@ -1,6 +1,10 @@
 package ui
 
-import "math"
+import (
+	"math"
+
+	"github.com/axe/axe-go/pkg/util"
+)
 
 func Identity() Transform {
 	return Transform{sx: 1, ry: 0, rx: 0, sy: 1, tx: 0, ty: 0}
@@ -28,7 +32,7 @@ func (t Transform) IsIdentity() bool {
 }
 
 func (t Transform) IsEffectivelyIdentity() bool {
-	return equal(t.rx, 0) && equal(t.ry, 0) && equal(t.sx, 1) && equal(t.sy, 1) && equal(t.tx, 0) && equal(t.ty, 0)
+	return util.Equal(t.rx, 0) && util.Equal(t.ry, 0) && util.Equal(t.sx, 1) && util.Equal(t.sy, 1) && util.Equal(t.tx, 0) && util.Equal(t.ty, 0)
 }
 
 func (t Transform) IsZero() bool {
@@ -98,7 +102,7 @@ func (t *Transform) GetInvert() Transform {
 }
 
 func (t *Transform) GetRadians() float32 {
-	return Atan2(t.ry, t.rx)
+	return util.Atan2(t.ry, t.rx)
 }
 
 func (t *Transform) GetDegrees() float32 {
@@ -171,7 +175,7 @@ func (t *Transform) RotateDegrees(degrees float32) {
 }
 
 func (t *Transform) Rotate(radians float32) {
-	cos, sin := CosSin(radians)
+	cos, sin := util.CosSin(radians)
 	tsx := t.sx
 	try := t.ry
 	t.sx = tsx*cos + t.rx*sin
@@ -185,7 +189,7 @@ func (t *Transform) SetRotateDegrees(degrees float32) {
 }
 
 func (t *Transform) SetRotate(radians float32) {
-	cos, sin := CosSin(radians)
+	cos, sin := util.CosSin(radians)
 	t.Set(cos, sin, -sin, cos, 0, 0)
 }
 
@@ -194,7 +198,7 @@ func (t *Transform) SetRotateDegreesAround(radians, anchorX, anchorY float32) {
 }
 
 func (t *Transform) SetRotateAround(radians, anchorX, anchorY float32) {
-	cos, sin := CosSin(radians)
+	cos, sin := util.CosSin(radians)
 	tx := anchorX - anchorX*cos + anchorY*sin
 	ty := anchorY - anchorX*sin - anchorY*cos
 	t.Set(cos, sin, -sin, cos, tx, ty)
@@ -205,7 +209,7 @@ func (t *Transform) SetRotateDegreesScaleAround(degrees, scaleX, scaleY, anchorX
 }
 
 func (t *Transform) SetRotateScaleAround(radians, scaleX, scaleY, anchorX, anchorY float32) {
-	cos, sin := CosSin(radians)
+	cos, sin := util.CosSin(radians)
 	sx := cos * scaleX
 	ry := sin * scaleX
 	rx := -sin * scaleY

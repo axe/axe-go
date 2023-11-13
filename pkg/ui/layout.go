@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/axe/axe-go/pkg/util"
+
 type Layoutable interface {
 	Placement() Placement
 	Margin() Bounds
@@ -195,7 +197,7 @@ func (l LayoutRow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, 
 				// If the max size of this child can fit in its available width, consider it layed out at its max size
 				if maxSizing.FullWidth <= targetWidth {
 					extraWidth += targetWidth - maxSizing.FullWidth
-					maxHeight = max(maxHeight, maxSizing.FullHeight)
+					maxHeight = util.Max(maxHeight, maxSizing.FullHeight)
 					totalWidth += maxSizing.FullWidth
 				}
 			}
@@ -206,12 +208,12 @@ func (l LayoutRow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, 
 				if maxSizing.FullWidth > targetWidth {
 					if extraWidth < 0 {
 						newSizing := getLayoutSizing(ctx, targetWidth, layoutable[i])
-						maxHeight = max(maxHeight, newSizing.FullHeight)
+						maxHeight = util.Max(maxHeight, newSizing.FullHeight)
 						totalWidth += newSizing.FullWidth
 					} else {
 						availableWidth := targetWidth + extraWidth
 						newSizing := getLayoutSizing(ctx, availableWidth, layoutable[i])
-						maxHeight = max(maxHeight, newSizing.FullHeight)
+						maxHeight = util.Max(maxHeight, newSizing.FullHeight)
 						extraWidth -= newSizing.FullWidth - targetWidth
 						totalWidth += newSizing.FullWidth
 					}
@@ -266,7 +268,7 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 			for childIndex, maxSizing := range maxSizings.Sizings {
 				if maxSizing.FullWidth <= targetWidth {
 					extraWidth += targetWidth - maxSizing.FullWidth
-					maxHeight = max(maxHeight, maxSizing.FullHeight)
+					maxHeight = util.Max(maxHeight, maxSizing.FullHeight)
 					sizings[childIndex] = maxSizing
 				}
 			}
@@ -277,12 +279,12 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 				if maxSizing.FullWidth > targetWidth {
 					if extraWidth <= 0 {
 						newSizing := getLayoutSizing(ctx, targetWidth, layoutable[i])
-						maxHeight = max(maxHeight, newSizing.FullHeight)
+						maxHeight = util.Max(maxHeight, newSizing.FullHeight)
 						sizings[i] = newSizing
 					} else {
 						availableWidth := targetWidth + extraWidth
 						newSizing := getLayoutSizing(ctx, availableWidth, layoutable[i])
-						maxHeight = max(maxHeight, newSizing.FullHeight)
+						maxHeight = util.Max(maxHeight, newSizing.FullHeight)
 						extraWidth -= newSizing.FullWidth - targetWidth
 						sizings[i] = newSizing
 					}
@@ -312,7 +314,7 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 
 	for childIndex, child := range layoutable {
 		sizing := sizings[childIndex]
-		heightPadding := sizing.FullHeight - sizing.Height
+		heightPadding := sizing.HeightPadding()
 		if l.FullHeight {
 			sizing.FullHeight = boundsHeight
 			sizing.Height = boundsHeight - heightPadding
@@ -437,16 +439,16 @@ func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGr
 	for childIndex, sizing := range info.sizings.Sizings {
 		col := childIndex % columns
 		row := childIndex / columns
-		sizings.widths[col] = max(sizings.widths[col], sizing.FullWidth)
-		sizings.heights[row] = max(sizings.heights[row], sizing.FullHeight)
+		sizings.widths[col] = util.Max(sizings.widths[col], sizing.FullWidth)
+		sizings.heights[row] = util.Max(sizings.heights[row], sizing.FullHeight)
 	}
 	maxHeight := float32(0)
 	maxWidth := float32(0)
 	for _, width := range sizings.widths {
-		maxWidth = max(maxWidth, width)
+		maxWidth = util.Max(maxWidth, width)
 	}
 	for _, height := range sizings.heights {
-		maxHeight = max(maxHeight, height)
+		maxHeight = util.Max(maxHeight, height)
 	}
 	if grid.EqualWidths {
 		for i := range sizings.widths {
@@ -464,12 +466,18 @@ func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGr
 	}
 	if len(grid.MaxWidths) > 0 {
 		for i := range sizings.widths {
-			sizings.widths[i] = min(sizings.widths[i], grid.MaxWidths.Get(i))
+			maxWidth := grid.MaxWidths.Get(i)
+			if maxWidth > 0 {
+				sizings.widths[i] = util.Min(sizings.widths[i], maxWidth)
+			}
 		}
 	}
 	if len(grid.MaxHeights) > 0 {
 		for i := range sizings.heights {
-			sizings.heights[i] = min(sizings.heights[i], grid.MaxHeights.Get(i))
+			maxHeight := grid.MaxHeights.Get(i)
+			if maxHeight > 0 {
+				sizings.heights[i] = util.Min(sizings.heights[i], maxHeight)
+			}
 		}
 	}
 	sizings.totalSize = sizings.totalSpacing
@@ -502,7 +510,7 @@ func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layouta
 			minWidths := make([]float32, columns)
 			for childIndex, sizing := range info.sizings.Sizings {
 				col := childIndex % columns
-				minWidths[col] = max(minWidths[col], sizing.FullWidth)
+				minWidths[col] = util.Max(minWidths[col], sizing.FullWidth)
 			}
 			totalMinWidths := float32(0)
 			for _, minWidth := range minWidths {
@@ -531,10 +539,10 @@ func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layouta
 		info.sizings = getLayoutSizings(ctx, layoutWidth, layoutable)
 		maxChildWidth := float32(0)
 		for _, width := range l.MinWidths {
-			maxChildWidth = max(maxChildWidth, width)
+			maxChildWidth = util.Max(maxChildWidth, width)
 		}
 		for _, sizing := range info.sizings.Sizings {
-			maxChildWidth = max(maxChildWidth, sizing.FullWidth)
+			maxChildWidth = util.Max(maxChildWidth, sizing.FullWidth)
 		}
 		columns = int((maxWidth + info.spacingX) / (maxChildWidth + info.spacingX))
 		if columns == 0 {
@@ -583,8 +591,8 @@ func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutabl
 		}
 	}
 
-	offsetY := float32(0)
 	offsetX := float32(0)
+	offsetY := float32(0)
 	for childIndex, child := range layoutable {
 		col := childIndex % info.columns
 		row := childIndex / info.columns
@@ -593,11 +601,11 @@ func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutabl
 		cellHeight := info.heights[row]
 
 		if l.FullWidth || sizing.FullWidth > cellWidth {
-			sizing.Width = cellWidth - (sizing.FullWidth - sizing.Width)
+			sizing.Width = cellWidth - sizing.WidthPadding()
 			sizing.FullWidth = cellWidth
 		}
 		if l.FullHeight || sizing.FullHeight > cellHeight {
-			sizing.Height = cellHeight - (sizing.FullHeight - sizing.Height)
+			sizing.Height = cellHeight - sizing.HeightPadding()
 			sizing.FullHeight = cellHeight
 		}
 
@@ -653,7 +661,7 @@ func (l LayoutInline) getLines(ctx *RenderContext, maxWidth float32, layoutable 
 		if childIndex > currentLine.start {
 			currentLine.width += spacingX
 		}
-		currentLine.height = max(currentLine.height, sizing.FullHeight)
+		currentLine.height = util.Max(currentLine.height, sizing.FullHeight)
 	}
 
 	if currentLine.width > 0 {
@@ -675,7 +683,7 @@ func (l LayoutInline) PreferredSize(b *Base, ctx *RenderContext, maxWidth float3
 
 	for _, line := range lines {
 		size.Y += line.height
-		size.X = max(size.X, line.width)
+		size.X = util.Max(size.X, line.width)
 	}
 	size.Y += spacingY * float32(len(lines)-1)
 
@@ -693,7 +701,7 @@ func (l LayoutInline) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 	offsetY := float32(0)
 
 	for _, line := range lines {
-		offsetX := max(0, l.HorizontalAlignment.Compute(maxWidth-line.width))
+		offsetX := util.Max(0, l.HorizontalAlignment.Compute(maxWidth-line.width))
 		for i := line.start; i < line.endExclusive; i++ {
 			child := layoutable[i]
 			sizing := sizings.Sizings[i]
@@ -741,7 +749,7 @@ func (l LayoutStatic) PreferredSize(b *Base, ctx *RenderContext, maxWidth float3
 			X: minSize.X + padding.X,
 			Y: minSize.Y + padding.Y,
 		})
-		minWidth = max(minWidth, size.X)
+		minWidth = util.Max(minWidth, size.X)
 	}
 
 	return size
@@ -816,6 +824,9 @@ type LayoutSizing struct {
 	OffsetX, OffsetY      float32
 }
 
+func (ls LayoutSizing) HeightPadding() float32 { return ls.FullHeight - ls.Height }
+func (ls LayoutSizing) WidthPadding() float32  { return ls.FullWidth - ls.Width }
+
 func getLayoutSizing(ctx *RenderContext, width float32, child *Base) LayoutSizing {
 	margin := child.Margin.GetBounds(ctx.AmountContext)
 	extraWidth := margin.Left + margin.Right
@@ -842,8 +853,8 @@ func getLayoutSizings(ctx *RenderContext, width float32, layoutable []*Base) (si
 	for childIndex, child := range layoutable {
 		sizing := getLayoutSizing(ctx, width, child)
 		sizings.Sizings[childIndex] = sizing
-		sizings.MaxWidth = max(sizings.MaxWidth, sizing.FullWidth)
-		sizings.MaxHeight = max(sizings.MaxHeight, sizing.FullHeight)
+		sizings.MaxWidth = util.Max(sizings.MaxWidth, sizing.FullWidth)
+		sizings.MaxHeight = util.Max(sizings.MaxHeight, sizing.FullHeight)
 		sizings.TotalWidth += sizing.FullWidth
 		sizings.TotalHeight += sizing.FullHeight
 	}

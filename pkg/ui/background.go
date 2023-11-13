@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/axe/axe-go/pkg/util"
+
 type Background interface {
 	Init(b *Base)
 	Update(b *Base, update Update) Dirty
@@ -36,7 +38,7 @@ func (bg BackgroundLinearGradient) Backgroundify(b *Base, bounds Bounds, ctx *Re
 	lenSq := dx*dx + dy*dy
 	px := bounds.Dx(out.X) - bg.Start.X
 	py := bounds.Dy(out.Y) - bg.Start.Y
-	delta := Clamp(((dx*px)+(dy*py))/lenSq, 0, 1)
+	delta := util.Clamp(((dx*px)+(dy*py))/lenSq, 0, 1)
 	startColor := bg.StartColor.GetColor(b)
 	endColor := bg.EndColor.GetColor(b)
 
@@ -56,8 +58,8 @@ func (bc BackgroundImage) Update(b *Base, update Update) Dirty { return DirtyNon
 func (bi BackgroundImage) Backgroundify(b *Base, bounds Bounds, ctx *RenderContext, out *Vertex) {
 	out.SetCoord(
 		bi.Tile.Texture,
-		Lerp(bi.Tile.Coords.Left, bi.Tile.Coords.Right, bounds.Dx(out.X)),
-		Lerp(bi.Tile.Coords.Top, bi.Tile.Coords.Bottom, bounds.Dy(out.Y)),
+		util.Lerp(bi.Tile.Coords.Left, bi.Tile.Coords.Right, bounds.Dx(out.X)),
+		util.Lerp(bi.Tile.Coords.Top, bi.Tile.Coords.Bottom, bounds.Dy(out.Y)),
 	)
 }
 
@@ -81,7 +83,7 @@ func (bg BackgroundRadialGradient) Backgroundify(b *Base, bounds Bounds, ctx *Re
 	nx := dx / len
 	ny := dy / len
 	olen := Length(nx*rx, ny*ry)
-	delta := Clamp(olen/len, 0, 1)
+	delta := util.Clamp(olen/len, 0, 1)
 	innerColor := bg.InnerColor.GetColor(b)
 	outerColor := bg.OuterColor.GetColor(b)
 

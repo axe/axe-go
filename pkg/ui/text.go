@@ -386,7 +386,7 @@ func (paragraph Paragraph) MinWidth(ctx *RenderContext) float32 {
 
 	for _, state := range states {
 		if state.ShouldBreak || state.CanBreak {
-			maxWidth = max(maxWidth, lineWidth-kerning)
+			maxWidth = util.Max(maxWidth, lineWidth-kerning)
 			lineWidth = 0
 
 			if state.Empty {
@@ -395,7 +395,7 @@ func (paragraph Paragraph) MinWidth(ctx *RenderContext) float32 {
 		}
 		lineWidth += state.Size.X + kerning
 	}
-	maxWidth = max(maxWidth, lineWidth-kerning)
+	maxWidth = util.Max(maxWidth, lineWidth-kerning)
 
 	minWidth := maxWidth
 	minWidth += style.ParagraphPadding.Left.Get(ctx.AmountContext, true)
@@ -509,11 +509,11 @@ func (paragraph Paragraph) getLines(ctx *RenderContext, paragraphs Paragraphs) p
 		line := &lines[lineIndex]
 		actualLineHeight := float32(0)
 		for k := line.start; k < line.endExclusive; k++ {
-			actualLineHeight = max(actualLineHeight, states[k].Size.Y)
+			actualLineHeight = util.Max(actualLineHeight, states[k].Size.Y)
 		}
 		line.height = paragraph.GetLineHeight(ctx, style, actualLineHeight)
 		totalHeight += line.height
-		maxWidth = max(maxWidth, line.width)
+		maxWidth = util.Max(maxWidth, line.width)
 	}
 
 	totalHeight += lineSpacing * float32(len(lines)-1)
@@ -554,7 +554,7 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs, b *
 	rendered := make([]RenderedGlyph, 0, len(paragraph.Glyphs))
 	offsetY := lines.padding.Top
 
-	maxWidth := max(0, paragraphs.MaxWidth)
+	maxWidth := util.Max(0, paragraphs.MaxWidth)
 
 	wordCount := 0
 	for lineIndex, line := range lines.lines {
@@ -562,8 +562,8 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs, b *
 			X: lines.style.HorizontalAlignment.Compute(maxWidth - line.width),
 			Y: offsetY,
 		}
-		bounds.Left = min(bounds.Left, start.X)
-		bounds.Right = max(bounds.Right, start.X+line.width)
+		bounds.Left = util.Min(bounds.Left, start.X)
+		bounds.Right = util.Max(bounds.Right, start.X+line.width)
 
 		start.X += line.indent + lines.padding.Left
 		for k := line.start; k < line.endExclusive; k++ {
@@ -613,10 +613,10 @@ func (paragraphs Paragraphs) Wrap(lineWidth float32) bool {
 }
 
 func (paragraphs Paragraphs) MinWidth(ctx *RenderContext) float32 {
-	paragraphCtx := ctx.WithParent(max(0, paragraphs.MaxWidth), paragraphs.MaxHeight)
+	paragraphCtx := ctx.WithParent(util.Max(0, paragraphs.MaxWidth), paragraphs.MaxHeight)
 	minWidth := float32(0)
 	for _, para := range paragraphs.Paragraphs {
-		minWidth = max(minWidth, para.MinWidth(paragraphCtx))
+		minWidth = util.Max(minWidth, para.MinWidth(paragraphCtx))
 	}
 	return minWidth
 }
@@ -624,12 +624,12 @@ func (paragraphs Paragraphs) MinWidth(ctx *RenderContext) float32 {
 func (paragraphs Paragraphs) Measure(ctx *RenderContext) Coord {
 	style := ctx.TextStyles.ParagraphsStyles.Override(paragraphs.Styles)
 	size := Coord{}
-	paragraphCtx := ctx.WithParent(max(0, paragraphs.MaxWidth), paragraphs.MaxHeight)
+	paragraphCtx := ctx.WithParent(util.Max(0, paragraphs.MaxWidth), paragraphs.MaxHeight)
 	paragraphSpacing := style.ParagraphSpacing.Get(paragraphCtx.AmountContext, false)
 	for _, paragraph := range paragraphs.Paragraphs {
 		paragraphSize := paragraph.Measure(paragraphCtx, paragraphs)
 		size.Y += paragraphSize.Y
-		size.X = max(size.X, paragraphSize.X)
+		size.X = util.Max(size.X, paragraphSize.X)
 	}
 	size.Y += paragraphSpacing * float32(len(paragraphs.Paragraphs)-1)
 	return size
@@ -640,7 +640,7 @@ func (paragraphs Paragraphs) Render(ctx *RenderContext, b *Base) RenderedText {
 	rendered := make([]RenderedText, len(paragraphs.Paragraphs))
 	totalHeight := float32(0)
 	totalGlyphs := 0
-	paragraphCtx := ctx.WithParent(max(0, paragraphs.MaxWidth), paragraphs.MaxHeight)
+	paragraphCtx := ctx.WithParent(util.Max(0, paragraphs.MaxWidth), paragraphs.MaxHeight)
 	paragraphSpacing := style.ParagraphSpacing.Get(paragraphCtx.AmountContext, false)
 	for i, paragraph := range paragraphs.Paragraphs {
 		rendered[i] = paragraph.Render(paragraphCtx, paragraphs, b)

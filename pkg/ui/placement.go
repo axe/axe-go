@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/axe/axe-go/pkg/geom"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type Placement struct {
@@ -215,7 +216,7 @@ func (p Placement) GetWidth(parentWidth float32) float32 {
 }
 
 func (p Placement) GetMinWidth(parentWidth float32, minWidth float32) float32 {
-	return max(minWidth, p.Right.Get(parentWidth)-p.Left.Get(parentWidth))
+	return util.Max(minWidth, p.Right.Get(parentWidth)-p.Left.Get(parentWidth))
 }
 
 func (p Placement) GetHeight(parentHeight float32) float32 {
@@ -223,7 +224,7 @@ func (p Placement) GetHeight(parentHeight float32) float32 {
 }
 
 func (p Placement) GetMinHeight(parentHeight float32, minHeight float32) float32 {
-	return max(minHeight, p.Top.Get(parentHeight)-p.Bottom.Get(parentHeight))
+	return util.Max(minHeight, p.Top.Get(parentHeight)-p.Bottom.Get(parentHeight))
 }
 
 func (p Placement) PreferredWidth() float32 {

@@ -6,33 +6,35 @@ import (
 )
 
 type Base struct {
-	Name              id.Identifier
-	Layers            []Layer
-	Placement         Placement
-	Bounds            Bounds
-	Children          []*Base
-	ChildrenOrderless bool
-	Focusable         bool
-	Draggable         bool
-	Droppable         bool
-	Events            Events
-	States            State
-	Clip              Placement
-	Transform         Transform
-	TextStyles        *TextStylesOverride
-	Shape             Shape
-	OverShape         []Coord
-	Transparency      Watch[float32]
-	Animation         AnimationState
-	Animations        *Animations
-	Cursors           Cursors
-	Hooks             Hooks
-	Colors            Colors
-	Margin            AmountBounds
-	MarginBounds      Bounds
-	MinSize           Coord
-	MaxSize           Coord
-	Layout            Layout
+	Name                        id.Identifier
+	Layers                      []Layer
+	Placement                   Placement
+	Bounds                      Bounds
+	Children                    []*Base
+	ChildrenOrderless           bool
+	Focusable                   bool
+	Draggable                   bool
+	Droppable                   bool
+	Events                      Events
+	States                      State
+	Clip                        Placement
+	Transform                   Transform
+	TextStyles                  *TextStylesOverride
+	Shape                       Shape
+	OverShape                   []Coord
+	Transparency                Watch[float32]
+	Animation                   AnimationState
+	Animations                  *Animations
+	Cursors                     Cursors
+	Hooks                       Hooks
+	Colors                      Colors
+	Margin                      AmountBounds
+	MarginBounds                Bounds
+	MinSize                     Coord
+	MaxSize                     Coord
+	Layout                      Layout
+	IgnoreLayoutPreferredWidth  bool
+	IgnoreLayoutPreferredHeight bool
 
 	visualBounds  Bounds
 	dirty         Dirty
@@ -220,20 +222,27 @@ func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
 		}
 	}
 	size = size.Max(b.MinSize)
-	maxWidth = max(maxWidth, size.X)
+	maxWidth = util.Max(maxWidth, size.X)
 	shown := b.ShownChildren()
-	if len(shown) > 0 {
+	if len(shown) > 0 && (!b.IgnoreLayoutPreferredHeight || !b.IgnoreLayoutPreferredWidth) {
 		layout := b.Layout
 		if layout == nil {
 			layout = LayoutStatic{}
 		}
-		size = size.Max(layout.PreferredSize(b, baseCtx, maxWidth, shown))
+		layoutSize := layout.PreferredSize(b, baseCtx, maxWidth, shown)
+		if b.IgnoreLayoutPreferredHeight {
+			layoutSize.Y = 0
+		}
+		if b.IgnoreLayoutPreferredWidth {
+			layoutSize.X = 0
+		}
+		size = size.Max(layoutSize)
 	}
 	if b.MaxSize.X > 0 {
-		size.X = min(b.MaxSize.X, size.X)
+		size.X = util.Min(b.MaxSize.X, size.X)
 	}
 	if b.MaxSize.Y > 0 {
-		size.Y = min(b.MaxSize.Y, size.Y)
+		size.Y = util.Min(b.MaxSize.Y, size.Y)
 	}
 	return size
 }
@@ -745,8 +754,8 @@ func (b *Base) ApplyTemplate(t *Template) {
 		return
 	}
 	if len(t.PreLayers) > 0 {
-		layers := b.Layers[:]
-		b.Layers = append(make([]Layer, 0, len(b.Layers)+len(t.PreLayers)+len(t.PostLayers)))
+		layers := b.Layers
+		b.Layers = make([]Layer, 0, len(b.Layers)+len(t.PreLayers)+len(t.PostLayers))
 		b.Layers = append(b.Layers, t.PreLayers...)
 		b.Layers = append(b.Layers, layers...)
 	}

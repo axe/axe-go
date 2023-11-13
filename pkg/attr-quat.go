@@ -1,6 +1,10 @@
 package axe
 
-import "math"
+import (
+	"math"
+
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type Quat struct {
 	X, Y, Z, W float32
@@ -24,8 +28,8 @@ func (q *Quat) Sets(X, Y, Z, W float32) {
 
 func (q *Quat) SetAngle(dir Vec3f, angle float32) {
 	half := angle * 0.5
-	sin := Sin(half) / dir.Length()
-	cos := Cos(half)
+	sin := util.Sin(half) / dir.Length()
+	cos := util.Cos(half)
 	q.X = dir.X * sin
 	q.Y = dir.Y * sin
 	q.Z = dir.Z * sin
@@ -33,24 +37,24 @@ func (q *Quat) SetAngle(dir Vec3f, angle float32) {
 }
 
 func (q Quat) GetAngle() (dir Vec3f, angle float32) {
-	invW := Div(1, Sqrt(1-q.W*q.W))
+	invW := util.Div(1, util.Sqrt(1-q.W*q.W))
 	dir.X = q.X * invW
 	dir.Y = q.Y * invW
 	dir.Z = q.Z * invW
-	angle = Acos(q.W) * 2
+	angle = util.Acos(q.W) * 2
 	return
 }
 
 func (q *Quat) SetEuler(yaw float32, pitch float32, roll float32) {
 	hr := roll * 0.5
-	shr := Sin(hr)
-	chr := Cos(hr)
+	shr := util.Sin(hr)
+	chr := util.Cos(hr)
 	hp := pitch * 0.5
-	shp := Sin(hp)
-	chp := Cos(hp)
+	shp := util.Sin(hp)
+	chp := util.Cos(hp)
 	hy := yaw * 0.5
-	shy := Sin(hy)
-	chy := Cos(hy)
+	shy := util.Sin(hy)
+	chy := util.Cos(hy)
 	chy_shp := chy * shp
 	shy_chp := shy * chp
 	chy_chp := chy * chp
@@ -63,15 +67,15 @@ func (q *Quat) SetEuler(yaw float32, pitch float32, roll float32) {
 }
 
 func (q Quat) GetEuler() Vec3f {
-	roll := Atan2(2.0*(q.W*q.X+q.Y*q.Z), 1.0-2.0*(q.X*q.X+q.Y*q.Y))
+	roll := util.Atan2(2.0*(q.W*q.X+q.Y*q.Z), 1.0-2.0*(q.X*q.X+q.Y*q.Y))
 	sinp := 2.0 * (q.W*q.Y - q.Z*q.X)
 	var pitch float32
-	if Abs(sinp) >= 1.0 {
-		pitch = CopySign(math.Pi/2.0, sinp)
+	if util.Abs(sinp) >= 1.0 {
+		pitch = util.CopySign(math.Pi/2.0, sinp)
 	} else {
-		pitch = Asin(pitch)
+		pitch = util.Asin(pitch)
 	}
-	yaw := Atan2(2.0*(q.W*q.Z+q.X*q.Y), 1.0-2.0*(q.Y*q.Y+q.Z*q.Z))
+	yaw := util.Atan2(2.0*(q.W*q.Z+q.X*q.Y), 1.0-2.0*(q.Y*q.Y+q.Z*q.Z))
 	return Vec3f{roll, pitch, yaw}
 }
 
@@ -80,7 +84,7 @@ func (q Quat) LengthSq() float32 {
 }
 
 func (q Quat) Length() float32 {
-	return Sqrt(q.LengthSq())
+	return util.Sqrt(q.LengthSq())
 }
 
 func (q *Quat) Normal() float32 {
@@ -196,9 +200,9 @@ func (q1 Quat) Dot(q2 Quat) float32 {
 func (q *Quat) Slerp(q1 Quat, q2 Quat, delta float32) {
 	theta := q1.AngleBetween(q2)
 	delta = delta / 2.0
-	st := Sin(theta)
-	sut := Sin(delta * theta)
-	sout := Sin((1 - delta) * theta)
+	st := util.Sin(theta)
+	sut := util.Sin(delta * theta)
+	sout := util.Sin((1 - delta) * theta)
 	coeff1 := sout / st
 	coeff2 := sut / st
 	q.X = coeff1*q1.X + coeff2*q2.Z
@@ -213,7 +217,7 @@ func (start Quat) Lerp(end Quat, delta float32, out *Quat) {
 }
 
 func (q1 Quat) AngleBetween(q2 Quat) float32 {
-	return Abs(Acos(q1.Dot(q2)))
+	return util.Abs(util.Acos(q1.Dot(q2)))
 }
 
 func (q Quat) Distance(other Quat) float32 {
@@ -228,7 +232,7 @@ func (q Quat) Distance(other Quat) float32 {
 }
 
 func (q Quat) DistanceSq(other Quat) float32 {
-	return Sq(q.Distance(other))
+	return util.Sq(q.Distance(other))
 }
 
 func (q Quat) Add(value Quat, out *Quat) {

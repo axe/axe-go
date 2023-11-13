@@ -1,73 +1,34 @@
 package ui
 
 import (
-	"math"
 	"reflect"
+
+	"github.com/axe/axe-go/pkg/util"
 )
 
-func Lerp(s, e, d float32) float32 {
-	return (e-s)*d + s
+// Computes the normal between an origin and a point and returns the length as well.
+func NormalBetween(origin, point Coord) (nx, ny, length float32) {
+	return Normal(point.X-origin.X, point.Y-origin.Y)
 }
 
-func Delta(s, e, v float32) float32 {
-	return (v - s) / (e - s)
-}
-
-func Normal(a, b Coord) (nx, ny float32) {
-	dx := b.X - a.X
-	dy := b.Y - a.Y
-	invLength := 1.0 / Length(dx, dy)
-	nx = dx * invLength
-	ny = dy * invLength
+// Computes the normal of a vector and returns the length as well.
+func Normal(vx, vy float32) (nx, ny, length float32) {
+	length = Length(vx, vy)
+	invLength := util.Div(1.0, length)
+	nx = vx * invLength
+	ny = vy * invLength
 	return
 }
 
-func Length(dx, dy float32) float32 {
-	return float32(math.Sqrt(float64(dx*dx + dy*dy)))
-}
-
-func abs(a float32) float32 {
-	if a < 0 {
-		return -a
-	}
-	return a
-}
-
-func equal(a, b float32) bool {
-	return abs(a-b) < 0.0001
-}
-
+// Returns if the three points lie on the same line.
 func Collinear(a, b, c Coord) bool {
-	return equal((b.Y-a.Y)/(b.X-a.X), (c.Y-b.Y)/(c.X-b.X)) ||
-		equal((b.Y-a.Y)*(c.X-b.X), (c.Y-b.Y)*(b.X-a.X))
+	return util.Equal[float32]((b.Y-a.Y)/(b.X-a.X), (c.Y-b.Y)/(c.X-b.X)) ||
+		util.Equal[float32]((b.Y-a.Y)*(c.X-b.X), (c.Y-b.Y)*(b.X-a.X))
 }
 
-func min(a, b float32) float32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b float32) float32 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func Clamp(v, min, max float32) float32 {
-	if v < min {
-		return min
-	}
-	if v > max {
-		return max
-	}
-	return v
-}
-
-func toPtr(x any) uintptr {
-	return reflect.ValueOf(x).Pointer()
+// Computes the length of the given vector/difference.
+func Length(dx, dy float32) float32 {
+	return util.Sqrt(dx*dx + dy*dy)
 }
 
 func InPolygon(polygon []Coord, pt Coord) bool {
@@ -87,29 +48,14 @@ func InPolygon(polygon []Coord, pt Coord) bool {
 	return in
 }
 
-func Cos(rad float32) float32 {
-	return float32(math.Cos(float64(rad)))
-}
-
-func Sin(rad float32) float32 {
-	return float32(math.Sin(float64(rad)))
-}
-
-func CosSin(rad float32) (cos float32, sin float32) {
-	rad64 := float64(rad)
-	cos = float32(math.Cos(rad64))
-	sin = float32(math.Sin(rad64))
-	return
-}
-
-func Atan2(y, x float32) float32 {
-	return float32(math.Atan2(float64(y), float64(x)))
-}
-
 func Ease(delta float32, easing func(float32) float32) float32 {
 	if easing == nil {
 		return delta
 	} else {
 		return easing(delta)
 	}
+}
+
+func toPtr(x any) uintptr {
+	return reflect.ValueOf(x).Pointer()
 }

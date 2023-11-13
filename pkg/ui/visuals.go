@@ -93,8 +93,8 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 		p0 := inner[i0]
 		p1 := inner[i1]
 		p2 := inner[i2]
-		n1dx, n1dy := Normal(p0, p1)
-		n2dx, n2dy := Normal(p2, p1)
+		n1dx, n1dy, _ := NormalBetween(p0, p1)
+		n2dx, n2dy, _ := NormalBetween(p2, p1)
 		nx := (n1dy + -n2dy)
 		ny := (-n1dx + n2dx)
 		for scaleIndex = 0; scaleIndex < scaleCount; scaleIndex++ {
