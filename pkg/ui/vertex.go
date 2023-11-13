@@ -90,8 +90,6 @@ type Vertex struct {
 	HasColor bool
 }
 
-type VertexModifier func(*Vertex)
-
 func (v *Vertex) AddColor(c Color) {
 	if v.HasColor {
 		v.Color = v.Color.Multiply(c)
@@ -124,6 +122,8 @@ func (v Vertex) Lerp(to Vertex, delta float32) Vertex {
 		Color:    v.Color.Lerp(to.Color, delta),
 	}
 }
+
+type VertexModifier func(*Vertex)
 
 type VertexIterator = buf.DataIterator[Vertex, VertexBuffer]
 

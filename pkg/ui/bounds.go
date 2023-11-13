@@ -152,6 +152,13 @@ func (b *Bounds) Include(x, y float32) {
 		b.Bottom = util.Max(y, b.Bottom)
 	}
 }
+func (b Bounds) Closest(x, y float32) (float32, float32) {
+	return util.Clamp(x, b.Left, b.Right), util.Clamp(y, b.Top, b.Bottom)
+}
+func (b Bounds) ClosestCoord(c Coord) Coord {
+	x, y := b.Closest(c.X, c.Y)
+	return Coord{X: x, Y: y}
+}
 func (b Bounds) String() string {
 	return fmt.Sprintf("{L:%f T:%f R:%f B:%f W:%f H:%f}", b.Left, b.Top, b.Right, b.Bottom, b.Right-b.Left, b.Bottom-b.Top)
 }

@@ -1,5 +1,7 @@
 package buf
 
+import "github.com/axe/axe-go/pkg/util"
+
 type Bufferable[D any] interface {
 	Empty() bool
 	Remaining() int
@@ -38,6 +40,21 @@ func (b *Buffers[D, B]) Capacity() int {
 func (b *Buffers[D, B]) Clear() {
 	b.current = -1
 	b.AddBuffer()
+}
+
+func (b *Buffers[D, B]) Reserve(buffers int) {
+	total := buffers + b.current + 1
+	size := len(b.buffers)
+	b.buffers = util.SliceEnsureSize(b.buffers, total)
+	for i := size; i < total; i++ {
+		b.init(&b.buffers[i], b.capacity)
+	}
+}
+
+func (b *Buffers[D, B]) ReservedNext() *B {
+	next := &b.buffers[b.current]
+	b.current++
+	return next
 }
 
 func (b *Buffers[D, B]) AddBuffer() *B {
@@ -84,4 +101,8 @@ func (b *Buffers[D, B]) At(i int) *B {
 
 func (b *Buffers[D, B]) Empty() bool {
 	return b.current == 0 && (len(b.buffers) == 0 || b.buffers[0].Empty())
+}
+
+func (b *Buffers[D, B]) ResetTo(data DataIterator[D, B]) {
+	b.current = data.startBuffer
 }

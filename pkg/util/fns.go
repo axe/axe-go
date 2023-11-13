@@ -47,6 +47,20 @@ func SliceMove[V any](slice []V, from, to int) {
 	}
 }
 
+func SliceAppendAt[D any](target []D, at int, values []D) []D {
+	valueCount := len(values)
+	if valueCount == 0 {
+		return target
+	}
+	space := len(target) - at
+	if space >= valueCount {
+		copy(target[at:], values)
+		return target
+	} else {
+		return append(target[:at], values...)
+	}
+}
+
 func SliceIndexOf[V comparable](slice []V, value V) int {
 	for i := range slice {
 		if slice[i] == value {

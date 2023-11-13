@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -301,11 +302,13 @@ type Paragraphs struct {
 	Paragraphs []Paragraph
 	MaxWidth   float32
 	MaxHeight  float32
+	KeepEmpty  bool
 }
 
 type RenderedText struct {
-	Bounds Bounds
-	Glyphs []RenderedGlyph
+	Bounds     Bounds
+	Glyphs     []RenderedGlyph
+	Paragraphs Paragraphs
 }
 
 func (text RenderedText) UpdateVisibility(visibleBounds Bounds) {
@@ -321,6 +324,40 @@ func (text RenderedText) UpdateVisibility(visibleBounds Bounds) {
 	}
 }
 
+func (text RenderedText) Closest(x, y float32) int {
+	closest := -1
+	closestDistanceSq := float32(0)
+	for index, glyph := range text.Glyphs {
+		cx, cy := glyph.Bounds.Center()
+		distanceSq := LengthSq(cx-x, cy-y)
+		if closest == -1 || distanceSq < closestDistanceSq {
+			closest = index
+			closestDistanceSq = distanceSq
+		}
+	}
+	return closest
+}
+func (text RenderedText) ClosestByLine(x, y float32) int {
+	closest := -1
+	closestY := float32(math.MaxFloat32)
+	closestX := float32(math.MaxFloat32)
+	closestLine := -1
+	for index, glyph := range text.Glyphs {
+		cx, cy := glyph.Bounds.Closest(x, y)
+		dy := util.Abs(cy - y)
+		if dy <= closestY || closestLine == glyph.Line {
+			dx := util.Abs(cx - x)
+			if dx < closestX || closestLine != glyph.Line {
+				closest = index
+				closestLine = glyph.Line
+				closestY = dy
+				closestX = dx
+			}
+		}
+	}
+	return closest
+}
+
 type RenderedGlyph struct {
 	Tile
 	Bounds     Bounds
@@ -329,6 +366,10 @@ type RenderedGlyph struct {
 	Line       int
 	Column     int
 	Word       int
+
+	Paragraph int
+	Index     int
+	Empty     bool
 }
 
 type GlyphVisibility int
@@ -375,7 +416,7 @@ const (
 	MeasureHeightRoundingError = 0.001
 )
 
-func (paragraph Paragraph) MinWidth(ctx *RenderContext) float32 {
+func (paragraph Paragraph) MinWidth(ctx *RenderContext, keepEmpty bool) float32 {
 	style := ctx.TextStyles.ParagraphStyles.Override(paragraph.Styles)
 	states := paragraph.GetStates(ctx, style)
 
@@ -389,7 +430,7 @@ func (paragraph Paragraph) MinWidth(ctx *RenderContext) float32 {
 			maxWidth = util.Max(maxWidth, lineWidth-kerning)
 			lineWidth = 0
 
-			if state.Empty {
+			if state.Empty && !keepEmpty {
 				continue
 			}
 		}
@@ -451,12 +492,14 @@ func (paragraph Paragraph) getLines(ctx *RenderContext, paragraphs Paragraphs) p
 	endLine := func(nextLineWidth float32, nextLineStart int) {
 		currentLine.endExclusive = nextLineStart
 		currentLine.width -= nextLineWidth
-		for i := currentLine.endExclusive - 1; i >= currentLine.start; i-- {
-			if states[i].Empty {
-				currentLine.width -= states[i].Size.X + kerning
-				currentLine.endExclusive--
-			} else {
-				break
+		if !paragraphs.KeepEmpty {
+			for i := currentLine.endExclusive - 1; i >= currentLine.start; i-- {
+				if states[i].Empty {
+					currentLine.width -= states[i].Size.X + kerning
+					currentLine.endExclusive--
+				} else {
+					break
+				}
 			}
 		}
 
@@ -475,7 +518,7 @@ func (paragraph Paragraph) getLines(ctx *RenderContext, paragraphs Paragraphs) p
 		if state.ShouldBreak {
 			endLine(0, glyphIndex)
 
-			if state.Empty {
+			if state.Empty && !paragraphs.KeepEmpty {
 				continue
 			}
 		} else if paragraphs.Wrap(currentLine.width+state.Size.X) && lastBreak != -1 {
@@ -574,7 +617,9 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs, b *
 			render.Line = lineIndex
 			render.Column = k - line.start
 			render.Word = wordCount
-			if render.Bounds.Width() > 0 {
+			render.Index = k
+			render.Empty = s.Empty || render.Bounds.Width() <= 0
+			if !render.Empty || paragraphs.KeepEmpty {
 				rendered = append(rendered, render)
 			} else if s.CanBreak || s.ShouldBreak {
 				wordCount++
@@ -586,7 +631,7 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs, b *
 		offsetY += line.height + lines.lineSpacing
 	}
 
-	return RenderedText{Bounds: bounds, Glyphs: rendered}
+	return RenderedText{Bounds: bounds, Glyphs: rendered, Paragraphs: paragraphs}
 }
 
 func (paragraph *RenderedText) Translate(x, y float32) {
@@ -616,7 +661,7 @@ func (paragraphs Paragraphs) MinWidth(ctx *RenderContext) float32 {
 	paragraphCtx := ctx.WithParent(util.Max(0, paragraphs.MaxWidth), paragraphs.MaxHeight)
 	minWidth := float32(0)
 	for _, para := range paragraphs.Paragraphs {
-		minWidth = util.Max(minWidth, para.MinWidth(paragraphCtx))
+		minWidth = util.Max(minWidth, para.MinWidth(paragraphCtx, paragraphs.KeepEmpty))
 	}
 	return minWidth
 }
@@ -687,12 +732,13 @@ func (paragraphs Paragraphs) Render(ctx *RenderContext, b *Base) RenderedText {
 	}
 
 	joined := RenderedText{
-		Bounds: joinedBounds,
-		Glyphs: make([]RenderedGlyph, 0, totalGlyphs),
+		Bounds:     joinedBounds,
+		Glyphs:     make([]RenderedGlyph, 0, totalGlyphs),
+		Paragraphs: paragraphs,
 	}
 	lineOffset := 0
 	wordOfsset := 0
-	for _, paragraph := range rendered {
+	for paragraphIndex, paragraph := range rendered {
 		n := len(paragraph.Glyphs) - 1
 		if n == -1 {
 			continue
@@ -701,6 +747,7 @@ func (paragraphs Paragraphs) Render(ctx *RenderContext, b *Base) RenderedText {
 			g := &paragraph.Glyphs[i]
 			g.Line += lineOffset
 			g.Word += wordOfsset
+			g.Paragraph = paragraphIndex
 		}
 		joined.Glyphs = append(joined.Glyphs, paragraph.Glyphs...)
 		last := paragraph.Glyphs[n]

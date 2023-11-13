@@ -220,6 +220,18 @@ func main() {
 										"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
 									}, "\n")).Clipped(),
 								}},
+								Events: ui.Events{
+									OnPointer: func(ev *ui.PointerEvent) {
+										if !ev.Capture && ev.Type == ui.PointerEventDown {
+											text := ev.Target.Layers[0].Visual.(*ui.VisualText)
+											rendered := text.Rendered()
+											closest := rendered.ClosestByLine(ev.Point.X, ev.Point.Y)
+											glyph := rendered.Glyphs[closest]
+											input := rendered.Paragraphs.Paragraphs[glyph.Paragraph].Glyphs[glyph.Index]
+											fmt.Printf("Clicked on %s in paragraph %d and index %d\n", input.String(), glyph.Paragraph, glyph.Index)
+										}
+									},
+								},
 							}},
 						},
 					)

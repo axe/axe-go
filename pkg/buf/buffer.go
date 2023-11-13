@@ -1,5 +1,7 @@
 package buf
 
+import "github.com/axe/axe-go/pkg/util"
+
 type Buffer[D any] struct {
 	data       []D
 	dataCount  int
@@ -71,9 +73,34 @@ func (b Buffer[D]) Remaining() int {
 	return len(b.data) - b.dataCount
 }
 
+func (b *Buffer[D]) ResetTo(data, index int) {
+	b.dataCount = data
+	b.indexCount = index
+}
+
+func (b *Buffer[D]) ReserveData(datas int) {
+	b.data = util.SliceEnsureSize(b.data, b.dataCount+datas+1)
+}
+
+func (b *Buffer[D]) ReserveIndex(indices int) {
+	b.index = util.SliceEnsureSize(b.index, b.indexCount+indices+1)
+}
+
+func (b *Buffer[D]) ReservedNext() *D {
+	data := &b.data[b.dataCount]
+	b.dataCount++
+	return data
+}
+
+func (b *Buffer[D]) ReservedNextIndex() *int {
+	index := &b.index[b.indexCount]
+	b.indexCount++
+	return index
+}
+
 func (b *Buffer[D]) Add(data ...D) int {
 	index := b.dataCount
-	b.data = addToSliceAt(b.data, b.dataCount, data)
+	b.data = util.SliceAppendAt(b.data, b.dataCount, data)
 	b.dataCount += len(data)
 	return index
 }
@@ -89,7 +116,7 @@ func (b *Buffer[D]) AddIndexed(data ...D) {
 }
 
 func (b *Buffer[D]) AddIndex(index ...int) {
-	b.index = addToSliceAt(b.index, b.indexCount, index)
+	b.index = util.SliceAppendAt(b.index, b.indexCount, index)
 	b.indexCount += len(index)
 }
 
@@ -99,19 +126,5 @@ func (b *Buffer[D]) AddRelative(data []D, relative []int) {
 	b.AddIndex(relative...)
 	for i := startAt; i < b.indexCount; i++ {
 		b.index[i] += index
-	}
-}
-
-func addToSliceAt[D any](target []D, at int, values []D) []D {
-	valueCount := len(values)
-	if valueCount == 0 {
-		return target
-	}
-	space := len(target) - at
-	if space >= valueCount {
-		copy(target[at:], values)
-		return target
-	} else {
-		return append(target[:at], values...)
 	}
 }

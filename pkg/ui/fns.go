@@ -31,6 +31,11 @@ func Length(dx, dy float32) float32 {
 	return util.Sqrt(dx*dx + dy*dy)
 }
 
+// Computes the length of the given vector/difference.
+func LengthSq(dx, dy float32) float32 {
+	return dx*dx + dy*dy
+}
+
 func InPolygon(polygon []Coord, pt Coord) bool {
 	in := false
 	n := len(polygon)
