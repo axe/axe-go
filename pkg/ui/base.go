@@ -9,6 +9,7 @@ type Base struct {
 	Name                        id.Identifier
 	Layers                      []Layer
 	Placement                   Placement
+	RelativePlacement           Placement
 	Bounds                      Bounds
 	Children                    []*Base
 	ChildrenOrderless           bool
@@ -29,9 +30,8 @@ type Base struct {
 	Hooks                       Hooks
 	Colors                      Colors
 	Margin                      AmountBounds
-	MarginBounds                Bounds
-	MinSize                     Coord
-	MaxSize                     Coord
+	MinSize                     AmountPoint
+	MaxSize                     AmountPoint
 	Layout                      Layout
 	IgnoreLayoutPreferredWidth  bool
 	IgnoreLayoutPreferredHeight bool
@@ -39,6 +39,7 @@ type Base struct {
 	visualBounds  Bounds
 	dirty         Dirty
 	parent        *Base
+	renderParent  *Base
 	ui            *UI
 	lastTransform Transform
 	shown         []*Base
@@ -117,6 +118,13 @@ func (b *Base) SetPlacement(placement Placement) {
 	}
 }
 
+func (b *Base) SetRelativePlacement(placement Placement) {
+	if b.RelativePlacement != placement {
+		b.RelativePlacement = placement
+		b.Dirty(DirtyPlacement)
+	}
+}
+
 func (b *Base) GetPlacement() Placement {
 	return b.Placement
 }
@@ -127,6 +135,8 @@ func (b *Base) Init() {
 	}
 	b.shownDirty = true
 	b.Placement.Init(Maximized())
+	b.RelativePlacement.Init(Maximized())
+	b.States &= (StateDisabled | StateFocused)
 	if b.States == 0 {
 		b.States = StateDefault
 	}
@@ -141,6 +151,7 @@ func (b *Base) Init() {
 	}
 	for _, child := range b.Children {
 		child.parent = b
+		child.renderParent = b
 		child.ui = b.ui
 		child.Init()
 	}
@@ -153,25 +164,15 @@ func (b *Base) Init() {
 }
 
 func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
-	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
-
 	doPlacement := force || b.dirty.Is(DirtyPlacement)
 	if doPlacement {
-		newBounds := b.Placement.GetBoundsIn(parent)
-		if newBounds != b.Bounds {
-			b.Bounds = newBounds
-
-			margin := b.Margin.GetBounds(baseCtx.AmountContext)
-			b.MarginBounds = b.Bounds.Expand(margin)
-
-			for i := range b.Layers {
-				b.Layers[i].Place(b, b.Bounds)
-			}
-			b.Dirty(DirtyVisual)
-			force = true
-		}
+		relativeBounds := b.RelativePlacement.GetBoundsIn(parent)
+		newBounds := b.Placement.GetBoundsIn(relativeBounds)
+		force = b.SetBounds(newBounds)
 		b.dirty.Remove(DirtyPlacement)
 	}
+
+	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 
 	shown := b.ShownChildren()
 
@@ -179,8 +180,10 @@ func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 		b.Layout.Layout(b, baseCtx, b.Bounds, shown)
 	}
 
-	for _, child := range shown {
-		child.Place(baseCtx, b.Bounds, force)
+	for _, child := range b.Children {
+		if !child.IsHidden() {
+			child.Place(baseCtx, child.parent.Bounds, force)
+		}
 	}
 
 	if b.Hooks.OnPlace != nil {
@@ -188,87 +191,20 @@ func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 	}
 }
 
-func (b *Base) ShownChildren() []*Base {
-	if b.shownDirty {
-		b.shown = util.SliceEnsureSize(b.shown, len(b.Children))
-		shownCount := 0
-		for _, child := range b.Children {
-			if !child.IsHidden() {
-				b.shown[shownCount] = child
-				shownCount++
-			}
+func (b *Base) SetBounds(newBounds Bounds) bool {
+	if newBounds != b.Bounds {
+		b.Bounds = newBounds
+		for i := range b.Layers {
+			b.Layers[i].Place(b, b.Bounds)
 		}
-		b.shown = util.SliceResize(b.shown, shownCount)
-		b.shownDirty = false
-	}
-
-	return b.shown
-}
-
-// PreferredSize computes the preferred size possibly given a width we are fitting this component into.
-// If maxWidth = 0 then the preferred size return will present one with a minimum possible width.
-// ctx should be relative to this component
-// maxWidth is the width we're aiming for for this component
-func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
-	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
-
-	size := Coord{}
-	if b.MaxSize.X > 0 && b.MaxSize.X < maxWidth {
-		maxWidth = b.MaxSize.X
-	}
-	for _, layer := range b.Layers {
-		if layer.ForStates(b.States) {
-			size = size.Max(layer.PreferredSize(b, baseCtx, maxWidth))
+		dirty := DirtyVisual
+		if !b.dirty.Is(DirtyPlacement) {
+			dirty = DirtyPlacement
 		}
+		b.Dirty(dirty)
+		return true
 	}
-	size = size.Max(b.MinSize)
-	maxWidth = util.Max(maxWidth, size.X)
-	shown := b.ShownChildren()
-	if len(shown) > 0 && (!b.IgnoreLayoutPreferredHeight || !b.IgnoreLayoutPreferredWidth) {
-		layout := b.Layout
-		if layout == nil {
-			layout = LayoutStatic{}
-		}
-		layoutSize := layout.PreferredSize(b, baseCtx, maxWidth, shown)
-		if b.IgnoreLayoutPreferredHeight {
-			layoutSize.Y = 0
-		}
-		if b.IgnoreLayoutPreferredWidth {
-			layoutSize.X = 0
-		}
-		size = size.Max(layoutSize)
-	}
-	if b.MaxSize.X > 0 {
-		size.X = util.Min(b.MaxSize.X, size.X)
-	}
-	if b.MaxSize.Y > 0 {
-		size.Y = util.Min(b.MaxSize.Y, size.Y)
-	}
-	return size
-}
-
-func (b *Base) Compact() {
-	b.CompactFor(b.ComputeRenderContext())
-}
-
-func (b *Base) CompactFor(ctx *RenderContext) {
-	size := b.PreferredSize(ctx, 0)
-	placement := b.Placement
-	placement.Right.Base = placement.Left.Base + size.X
-	placement.Bottom.Base = placement.Top.Base + size.Y
-	b.SetPlacement(placement)
-}
-
-func (b *Base) Tighten() {
-	b.TightenFor(b.ComputeRenderContext())
-}
-
-func (b *Base) TightenFor(ctx *RenderContext) {
-	size := b.PreferredSize(ctx, b.Bounds.Width())
-	placement := b.Placement
-	placement.Right.Base = placement.Left.Base + size.X
-	placement.Bottom.Base = placement.Top.Base + size.Y
-	b.SetPlacement(placement)
+	return false
 }
 
 func (b *Base) Update(update Update) {
@@ -283,9 +219,11 @@ func (b *Base) Update(update Update) {
 	}
 	for childIndex := 0; childIndex < len(b.Children); childIndex++ {
 		child := b.Children[childIndex]
-		child.Update(update)
-		if child.parent != b {
-			childIndex--
+		if child.parent == b {
+			child.Update(update)
+			if child.parent != b {
+				childIndex--
+			}
 		}
 	}
 
@@ -311,29 +249,6 @@ func (b *Base) Update(update Update) {
 	}
 }
 
-func (c *Base) CheckForChanges() Dirty {
-	dirty := DirtyNone
-
-	if c.Transparency.Cleaned() {
-		dirty.Add(DirtyVisual)
-	}
-
-	if c.lastTransform != c.Transform {
-		dirty.Add(DirtyVisual)
-		c.lastTransform = c.Transform
-	}
-
-	return dirty
-}
-
-func (c *Base) ComputeRenderContext() *RenderContext {
-	if c.parent == nil {
-		return c.ui.renderContext.WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
-	} else {
-		return c.parent.ComputeRenderContext().WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
-	}
-}
-
 func (b *Base) WillRender() bool {
 	if b.Transparency.Get() == 1 && !b.Animation.IsAnimating() {
 		return false
@@ -347,6 +262,10 @@ func (b *Base) WillRender() bool {
 func (b *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 	if !b.WillRender() {
 		return
+	}
+
+	if b.parent != b.renderParent {
+		ctx = b.ComputeRenderContext()
 	}
 
 	b.visualBounds.Clear()
@@ -418,31 +337,138 @@ func (c *Base) PostProcess(ctx *RenderContext, out *VertexBuffers, index IndexIt
 	c.Hooks.OnPostProcess.Run(c, ctx, out, index, vertex)
 }
 
-func (c *Base) updateVisualBounds(vertex VertexIterator) {
+func (c *Base) CheckForChanges() Dirty {
+	dirty := DirtyNone
+
+	if c.Transparency.Cleaned() {
+		dirty.Add(DirtyVisual)
+	}
+
+	if c.lastTransform != c.Transform {
+		dirty.Add(DirtyVisual)
+		c.lastTransform = c.Transform
+	}
+
+	return dirty
+}
+
+func (c *Base) ComputeRenderContext() *RenderContext {
+	if c.parent == nil {
+		return c.ui.renderContext.WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
+	} else {
+		return c.parent.ComputeRenderContext().WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
+	}
+}
+
+func (b *Base) IsRenderParent(child *Base) bool {
+	return child.renderParent == b
+}
+
+func (b *Base) ShownChildren() []*Base {
+	if b.shownDirty {
+		b.shown = util.SliceEnsureSize(b.shown, len(b.Children))
+		shownCount := 0
+		for _, child := range b.Children {
+			if !child.IsHidden() && b.IsRenderParent(child) {
+				b.shown[shownCount] = child
+				shownCount++
+			}
+		}
+		b.shown = util.SliceResize(b.shown, shownCount)
+		b.shownDirty = false
+	}
+
+	return b.shown
+}
+
+// PreferredSize computes the preferred size possibly given a width we are fitting this component into.
+// If maxWidth = 0 then the preferred size return will present one with a minimum possible width.
+// ctx should be relative to this component
+// maxWidth is the width we're aiming for for this component
+func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
+	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
+
+	size := Coord{}
+	minSizeX, minSizeY := b.MinSize.Get(ctx.AmountContext)
+	maxSizeX, maxSizeY := b.MaxSize.Get(ctx.AmountContext)
+
+	if maxSizeX > 0 && maxSizeX < maxWidth {
+		maxWidth = maxSizeX
+	}
+	for _, layer := range b.Layers {
+		if layer.ForStates(b.States) {
+			size = size.Max(layer.PreferredSize(b, baseCtx, maxWidth))
+		}
+	}
+	size = size.Max(Coord{X: minSizeX, Y: minSizeY})
+	maxWidth = util.Max(maxWidth, size.X)
+	shown := b.ShownChildren()
+	if len(shown) > 0 && (!b.IgnoreLayoutPreferredHeight || !b.IgnoreLayoutPreferredWidth) {
+		layout := b.Layout
+		if layout == nil {
+			layout = LayoutStatic{}
+		}
+		layoutSize := layout.PreferredSize(b, baseCtx, maxWidth, shown)
+		if b.IgnoreLayoutPreferredHeight {
+			layoutSize.Y = 0
+		}
+		if b.IgnoreLayoutPreferredWidth {
+			layoutSize.X = 0
+		}
+		size = size.Max(layoutSize)
+	}
+	if maxSizeX > 0 {
+		size.X = util.Min(maxSizeX, size.X)
+	}
+	if maxSizeY > 0 {
+		size.Y = util.Min(maxSizeY, size.Y)
+	}
+	return size
+}
+
+func (b *Base) Compact() {
+	b.CompactFor(b.ComputeRenderContext())
+}
+
+func (b *Base) CompactFor(ctx *RenderContext) {
+	size := b.PreferredSize(ctx, 0)
+	b.SetPlacement(b.Placement.WithSize(size.X, size.Y))
+}
+
+func (b *Base) Tighten() {
+	b.TightenFor(b.ComputeRenderContext())
+}
+
+func (b *Base) TightenFor(ctx *RenderContext) {
+	size := b.PreferredSize(ctx, b.Bounds.Width())
+	b.SetPlacement(b.Placement.WithSize(size.X, size.Y))
+}
+
+func (b *Base) updateVisualBounds(vertex VertexIterator) {
 	for vertex.HasNext() {
 		v := vertex.Next()
-		c.visualBounds.Include(v.X, v.Y)
+		b.visualBounds.Include(v.X, v.Y)
 	}
 }
 
-func (c *Base) Parent() *Base {
-	if c == nil || c.parent == nil {
+func (b *Base) Parent() *Base {
+	if b == nil {
 		return nil
 	}
-	return c.parent
+	return b.parent
 }
 
-func (c *Base) IsInside(pt Coord) bool {
-	if !c.Bounds.InsideCoord(pt) {
+func (b *Base) IsInside(pt Coord) bool {
+	if !b.Bounds.InsideCoord(pt) {
 		return false
 	}
 
-	if len(c.OverShape) > 0 {
+	if len(b.OverShape) > 0 {
 		normalized := Coord{
-			X: c.Bounds.Dx(pt.X),
-			Y: c.Bounds.Dy(pt.Y),
+			X: b.Bounds.Dx(pt.X),
+			Y: b.Bounds.Dy(pt.Y),
 		}
-		if !InPolygon(c.OverShape, normalized) {
+		if !InPolygon(b.OverShape, normalized) {
 			return false
 		}
 	}
@@ -498,14 +524,14 @@ func (b *Base) Hide() {
 
 func (b *Base) hideNow() {
 	b.SetState(b.States.WithAdd(StateHidden).WithRemove(StateHiding | StateShowing))
-	b.parent.ChildrenUpdated()
+	b.renderParent.ChildrenUpdated()
 }
 
 func (b *Base) Show() {
 	if !b.States.Is(StateShowing) && b.States.Is(StateHidden|StateHiding) {
 		if b.PlayEvent(AnimationEventShow) {
 			b.SetState(b.States.WithAdd(StateShowing).WithRemove(StateHidden | StateHiding))
-			b.parent.ChildrenUpdated()
+			b.renderParent.ChildrenUpdated()
 		} else {
 			b.showNow()
 		}
@@ -514,7 +540,7 @@ func (b *Base) Show() {
 
 func (b *Base) showNow() {
 	b.RemoveStates(StateHidden | StateHiding | StateShowing)
-	b.parent.ChildrenUpdated()
+	b.renderParent.ChildrenUpdated()
 }
 
 func (b *Base) Remove() {
@@ -528,32 +554,34 @@ func (b *Base) Remove() {
 }
 
 func (b *Base) removeNow() {
-	index := b.Order()
-	if index != -1 {
-		if b.parent.ChildrenOrderless {
-			b.parent.Children = util.SliceRemoveAtReplace(b.parent.Children, index)
-		} else {
-			b.parent.Children = util.SliceRemoveAt(b.parent.Children, index)
-		}
-		b.parent.ChildrenUpdated()
-		b.parent = nil
+	b.removeFromRenderParent()
+	b.removeFrom(b.parent)
+	b.parent = nil
+	b.renderParent = nil
+}
+
+func (b *Base) removeFromRenderParent() {
+	if b.parent != b.renderParent {
+		b.removeFrom(b.renderParent)
+	}
+	for _, child := range b.Children {
+		child.removeFromRenderParent()
 	}
 }
 
-func (b *Base) Order() int {
-	if b.parent == nil {
-		return -1
-	}
-	return util.SliceIndexOf(b.parent.Children, b)
-}
-
-func (b *Base) SetOrder(order int) {
-	currentOrder := b.Order()
-	if currentOrder == -1 || order == currentOrder {
+func (b *Base) removeFrom(parent *Base) {
+	if b == nil || parent == nil {
 		return
 	}
-	util.SliceMove(b.parent.Children, currentOrder, order)
-	b.parent.ChildrenUpdated()
+	index := util.SliceIndexOf(parent.Children, b)
+	if index != -1 {
+		if parent.ChildrenOrderless {
+			parent.Children = util.SliceRemoveAtReplace(parent.Children, index)
+		} else {
+			parent.Children = util.SliceRemoveAt(parent.Children, index)
+		}
+		parent.ChildrenUpdated()
+	}
 }
 
 func (b *Base) ChildrenUpdated() {
@@ -566,6 +594,7 @@ func (b *Base) ChildrenUpdated() {
 func (b *Base) AddChildren(children ...*Base) {
 	for _, child := range children {
 		child.parent = b
+		child.renderParent = b
 		child.ui = b.ui
 		child.Init()
 	}
@@ -573,9 +602,38 @@ func (b *Base) AddChildren(children ...*Base) {
 	b.ChildrenUpdated()
 }
 
+func (b *Base) SetRenderParent(parent *Base) {
+	if b.renderParent != b.parent {
+		b.removeFrom(b.renderParent)
+	}
+	if parent == nil || b.parent == parent {
+		b.renderParent = b.parent
+	} else {
+		parent.Children = append(parent.Children, b)
+		b.renderParent = parent
+	}
+	b.renderParent.ChildrenUpdated()
+}
+
+func (b *Base) Order() int {
+	if b.renderParent == nil {
+		return -1
+	}
+	return util.SliceIndexOf(b.renderParent.Children, b)
+}
+
+func (b *Base) SetOrder(order int) {
+	currentOrder := b.Order()
+	if currentOrder == -1 || order == currentOrder {
+		return
+	}
+	util.SliceMove(b.renderParent.Children, currentOrder, order)
+	b.renderParent.ChildrenUpdated()
+}
+
 func (b *Base) BringToFront() {
-	if b.parent != nil {
-		b.SetOrder(len(b.parent.Children) - 1)
+	if b.renderParent != nil {
+		b.SetOrder(len(b.renderParent.Children) - 1)
 	}
 }
 
@@ -724,29 +782,30 @@ func (b *Base) OnDrag(ev *DragEvent) {
 }
 
 type Template struct {
-	PreLayers       []Layer
-	PostLayers      []Layer
-	Focusable       bool
-	Draggable       bool
-	Droppable       bool
-	PreEvents       Events
-	PostEvents      Events
-	Clip            Placement
-	TextStyles      *TextStylesOverride
-	Shape           Shape
-	OverShape       []Coord
-	Animations      *Animations
-	AnimationsMerge bool
-	Cursors         Cursors
-	CursorsMerge    bool
-	Colors          Colors
-	ColorsMerge     bool
-	PreHooks        Hooks
-	PostHooks       Hooks
-	Margin          AmountBounds
-	MinSize         Coord
-	MaxSize         Coord
-	Layout          Layout
+	PreLayers         []Layer
+	PostLayers        []Layer
+	Focusable         bool
+	Draggable         bool
+	Droppable         bool
+	PreEvents         Events
+	PostEvents        Events
+	RelativePlacement Placement
+	Clip              Placement
+	TextStyles        *TextStylesOverride
+	Shape             Shape
+	OverShape         []Coord
+	Animations        *Animations
+	AnimationsMerge   bool
+	Cursors           Cursors
+	CursorsMerge      bool
+	Colors            Colors
+	ColorsMerge       bool
+	PreHooks          Hooks
+	PostHooks         Hooks
+	Margin            AmountBounds
+	MinSize           AmountPoint
+	MaxSize           AmountPoint
+	Layout            Layout
 }
 
 func (b *Base) ApplyTemplate(t *Template) {
@@ -765,6 +824,9 @@ func (b *Base) ApplyTemplate(t *Template) {
 	b.Droppable = t.Droppable || b.Droppable
 	b.Events.Add(t.PreEvents, true)
 	b.Events.Add(t.PostEvents, false)
+	if !b.RelativePlacement.Defined() {
+		b.RelativePlacement = t.RelativePlacement
+	}
 	if !b.Clip.Defined() {
 		b.Clip = t.Clip
 	}

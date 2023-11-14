@@ -263,6 +263,23 @@ type AmountCorners struct {
 	BottomRight Amount
 }
 
+func NewAmountCorners(topLeft, topRight, bottomRight, bottomLeft float32) AmountCorners {
+	return NewAmountCornersUnit(topLeft, topRight, bottomRight, bottomLeft, UnitConstant)
+}
+
+func NewAmountCornersUniform(value float32, unit Unit) AmountCorners {
+	return NewAmountCornersUnit(value, value, value, value, unit)
+}
+
+func NewAmountCornersUnit(topLeft, topRight, bottomRight, bottomLeft float32, unit Unit) AmountCorners {
+	return AmountCorners{
+		TopLeft:     Amount{Value: topLeft, Unit: unit},
+		TopRight:    Amount{Value: topRight, Unit: unit},
+		BottomRight: Amount{Value: bottomRight, Unit: unit},
+		BottomLeft:  Amount{Value: bottomLeft, Unit: unit},
+	}
+}
+
 func (a *AmountCorners) Set(value float32, unit Unit) {
 	a.TopLeft.Set(value, unit)
 	a.TopRight.Set(value, unit)
@@ -284,6 +301,10 @@ func NewAmountPointUnit(x, y float32, unit Unit) AmountPoint {
 		X: Amount{Value: x, Unit: unit},
 		Y: Amount{Value: y, Unit: unit},
 	}
+}
+
+func (a AmountPoint) IsZero() bool {
+	return a.X.IsZero() && a.Y.IsZero()
 }
 
 func (a AmountPoint) Get(ctx *AmountContext) (float32, float32) {

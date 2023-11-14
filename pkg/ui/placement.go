@@ -44,6 +44,30 @@ func (p *Placement) Init(defaultPlacement Placement) {
 	}
 }
 
+func (p Placement) WithWidth(width float32) Placement {
+	delta := p.Left.Delta
+	if delta == p.Right.Delta {
+		reference := util.Lerp(p.Left.Base, p.Right.Base, delta)
+		p.Left.Base = reference - width*delta
+		p.Right.Base = reference + width*(1-delta)
+	}
+	return p
+}
+
+func (p Placement) WithHeight(height float32) Placement {
+	delta := p.Top.Delta
+	if delta == p.Bottom.Delta {
+		reference := util.Lerp(p.Top.Base, p.Bottom.Base, delta)
+		p.Top.Base = reference - height*delta
+		p.Bottom.Base = reference + height*(1-delta)
+	}
+	return p
+}
+
+func (p Placement) WithSize(width, height float32) Placement {
+	return p.WithWidth(width).WithHeight(height)
+}
+
 func (p Placement) Defined() bool {
 	return !p.Left.IsZero() || !p.Right.IsZero() || !p.Top.IsZero() || !p.Bottom.IsZero()
 }

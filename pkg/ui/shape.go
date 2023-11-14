@@ -40,13 +40,17 @@ func (o ShapeRounded) Init() {}
 func (o ShapeRounded) Shapify(b Bounds, ctx *RenderContext) []Coord {
 	amounts := []Amount{o.Radius.TopLeft, o.Radius.TopRight, o.Radius.BottomRight, o.Radius.BottomLeft}
 	coords := make([]Coord, 0, 16)
+	unitToPoints := o.UnitToPoints
+	if unitToPoints == 0 {
+		unitToPoints = 1
+	}
 	for i := 0; i < 4; i++ {
 		amount := amounts[i]
 		angles := ShapeRoundedAngles[i]
 		placements := ShapeRoundedPlacements[i]
 		radiusW := amount.Get(ctx.AmountContext, true)
 		radiusH := amount.Get(ctx.AmountContext, false)
-		points := int((radiusW+radiusH)*0.5*o.UnitToPoints) + 1
+		points := int((radiusW+radiusH)*0.5*unitToPoints) + 1
 		originX := util.Lerp(b.Left, b.Right, placements[0]) - (radiusW * ((placements[0] * 2) - 1))
 		originY := util.Lerp(b.Top, b.Bottom, placements[1]) - (radiusH * ((placements[1] * 2) - 1))
 

@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/axe/axe-go/pkg/util"
+
 type Visual interface {
 	Init(b *Base)
 	Update(b *Base, update Update) Dirty
@@ -372,7 +374,11 @@ func (s VisualText) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32)
 		maxWidth = s.Paragraphs.MinWidth(ctx)
 	}
 	existingMaxWidth := s.Paragraphs.MaxWidth
-	s.Paragraphs.MaxWidth = maxWidth
+	newMaxWidth := maxWidth
+	if existingMaxWidth > 0 {
+		newMaxWidth = util.Min(newMaxWidth, existingMaxWidth)
+	}
+	s.Paragraphs.MaxWidth = newMaxWidth
 	size := s.Paragraphs.Measure(ctx)
 	size.X += TextMeasureErrorAmount
 	s.Paragraphs.MaxWidth = existingMaxWidth

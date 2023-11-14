@@ -200,6 +200,7 @@ func main() {
 					btnToggle := newButton(ui.Absolute(20, 100, 200, 50), "{f:roboto}{s:18}{h:0.5}{pv:0.5}TOGGLE DISABLED", false, func() {
 						btnPress.SetDisabled(!btnPress.IsDisabled())
 					})
+					newTooltip("{w:none}This is a tooltip", 1, 5, btnToggle)
 
 					textAnimation := ui.BasicTextAnimation{
 						Settings: []ui.BasicTextAnimationSettings{{
@@ -594,7 +595,7 @@ func main() {
 											lg.HorizontalAlignment = ui.Alignment(math.Mod(float64(lg.HorizontalAlignment)+0.5, 1.5))
 										})
 									}).Edit(func(b *ui.Base) {
-										b.MaxSize.X = 120
+										b.MaxSize.X.Value = 120
 									}),
 									newButton(ui.Placement{}, "Toggle Vertical Spacing", false, func() {
 										layoutInlineChange(func(lg *ui.LayoutInline) {
@@ -932,6 +933,86 @@ var buttonTemplate = &ui.Template{
 	}},
 }
 
+func newTooltip(text string, delayTime float32, hideTime float32, around *ui.Base) *ui.Base {
+	showAt := time.Time{}
+	hideAt := time.Time{}
+
+	tooltip := &ui.Base{
+		// centered above parent with bottom being -10px above parent's top
+		Placement: ui.Placement{}.Relative(0.5, 1, 0.5, 1),
+		// -10px above the parent
+		RelativePlacement: ui.Placement{
+			Left:   ui.Anchor{Delta: 0.5},
+			Right:  ui.Anchor{Delta: 0.5},
+			Top:    ui.Anchor{Base: -10},
+			Bottom: ui.Anchor{Base: -10},
+		},
+		MaxSize: ui.AmountPoint{
+			X: ui.Amount{Value: 1, Unit: ui.UnitParent},
+		},
+		Shape: ui.ShapeRounded{
+			Radius: ui.NewAmountCornersUniform(6, ui.UnitConstant),
+		},
+		TextStyles: &ui.TextStylesOverride{
+			Color: ui.Override[ui.Colorable](ui.ColorWhite),
+			ParagraphStylesOverride: &ui.ParagraphStylesOverride{
+				HorizontalAlignment: ui.Override(ui.AlignmentCenter),
+				ParagraphPadding:    ui.Override(ui.NewAmountBoundsUniform(6, ui.UnitConstant)),
+			},
+			ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
+				VerticalAlignment: ui.Override(ui.AlignmentCenter),
+			},
+		},
+		Animations: &ui.Animations{
+			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
+				ui.AnimationEventShow:   FadeInAnimation,
+				ui.AnimationEventRemove: FadeOutAnimation,
+			}),
+		},
+		Layers: []ui.Layer{{
+			Visual: ui.VisualShadow{
+				Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
+				Offsets: ui.NewAmountBounds(2, 2, -2, -2),
+			},
+			Background: ui.BackgroundColor{Color: ui.ColorWhite},
+		}, {
+			Visual:     ui.VisualFilled{},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+		}, {
+			Visual: ui.MustTextToVisual(text),
+		}},
+	}
+
+	around.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
+		if ev.Capture {
+			if ev.Type == ui.PointerEventEnter {
+				showAt = time.Now().Add(time.Duration(float32(time.Second) * delayTime))
+				hideAt = showAt.Add(time.Duration(float32(time.Second) * hideTime))
+			} else if ev.Type == ui.PointerEventLeave {
+				showAt = time.Time{}
+				if tooltip.Parent() != nil {
+					tooltip.Remove()
+				}
+			}
+		}
+	}, false)
+
+	around.Hooks.OnUpdate.Add(func(b *ui.Base, update ui.Update) ui.Dirty {
+		if tooltip.Parent() == nil && !showAt.IsZero() && time.Now().After(showAt) && !around.IsDisabled() {
+			around.AddChildren(tooltip)
+			tooltip.SetRenderParent(around.UI().Root)
+		}
+		if tooltip.Parent() != nil && hideAt != showAt && time.Now().After(hideAt) {
+			tooltip.Remove()
+			showAt = time.Time{}
+			hideAt = time.Time{}
+		}
+		return ui.DirtyNone
+	}, false)
+
+	return tooltip
+}
+
 func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.Base {
 	var button *ui.Base
 
@@ -1255,7 +1336,7 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 
 func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 	return &ui.Base{
-		MinSize: ui.Coord{X: barSize, Y: barSize},
+		MinSize: ui.NewAmountPoint(barSize, barSize),
 		Layers: []ui.Layer{{
 			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
@@ -1303,7 +1384,7 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 	maximized := false
 
 	return &ui.Base{
-		MinSize: ui.Coord{X: barSize, Y: barSize},
+		MinSize: ui.NewAmountPoint(barSize, barSize),
 		Layers: []ui.Layer{{
 			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
@@ -1348,7 +1429,7 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 
 func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 	return &ui.Base{
-		MinSize: ui.Coord{X: barSize, Y: barSize},
+		MinSize: ui.NewAmountPoint(barSize, barSize),
 		Layers: []ui.Layer{{
 			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},

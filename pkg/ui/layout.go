@@ -759,6 +759,10 @@ func (l LayoutStatic) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 		return
 	}
 
+	if !l.EnforcePreferredSize || !l.KeepInside {
+		return
+	}
+
 	width, height := bounds.Dimensions()
 
 	for _, child := range layoutable {
@@ -770,7 +774,7 @@ func (l LayoutStatic) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 			minSize := child.PreferredSize(ctx, 0)
 			placementBounds := placement.GetBoundsIn(bounds)
 			if placementBounds.Width() < minSize.X {
-				placement.Right.Base = placement.Left.Base + minSize.X
+				placement = placement.WithWidth(minSize.X)
 				placementBounds = placement.GetBoundsIn(bounds)
 				keepSize = true
 			}
@@ -778,7 +782,7 @@ func (l LayoutStatic) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 			// its current width.
 			preferredSize := child.PreferredSize(ctx, placementBounds.Width())
 			if placementBounds.Height() < preferredSize.Y {
-				placement.Bottom.Base = placement.Top.Base + preferredSize.Y
+				placement = placement.WithHeight(preferredSize.Y)
 				keepSize = true
 			}
 		}
