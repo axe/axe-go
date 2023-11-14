@@ -360,16 +360,25 @@ func (text RenderedText) ClosestByLine(x, y float32) int {
 
 type RenderedGlyph struct {
 	Tile
-	Bounds     Bounds
-	Color      Color
-	Visibility GlyphVisibility
-	Line       int
-	Column     int
-	Word       int
+	Bounds         Bounds
+	Color          Color
+	Visibility     GlyphVisibility
+	Line           int
+	Column         int
+	Word           int
+	Paragraph      int
+	ParagraphIndex int
+	Index          int
+	Empty          bool
+}
 
-	Paragraph int
-	Index     int
-	Empty     bool
+func (g RenderedGlyph) Quad() []Vertex {
+	return []Vertex{
+		{X: g.Bounds.Left, Y: g.Bounds.Top, Coord: g.Coord(0, 0), HasCoord: true, Color: g.Color, HasColor: true},
+		{X: g.Bounds.Right, Y: g.Bounds.Top, Coord: g.Coord(1, 0), HasCoord: true, Color: g.Color, HasColor: true},
+		{X: g.Bounds.Right, Y: g.Bounds.Bottom, Coord: g.Coord(1, 1), HasCoord: true, Color: g.Color, HasColor: true},
+		{X: g.Bounds.Left, Y: g.Bounds.Bottom, Coord: g.Coord(0, 1), HasCoord: true, Color: g.Color, HasColor: true},
+	}
 }
 
 type GlyphVisibility int
@@ -618,6 +627,7 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs, b *
 			render.Column = k - line.start
 			render.Word = wordCount
 			render.Index = k
+			render.ParagraphIndex = k
 			render.Empty = s.Empty || render.Bounds.Width() <= 0
 			if !render.Empty || paragraphs.KeepEmpty {
 				rendered = append(rendered, render)
@@ -737,7 +747,8 @@ func (paragraphs Paragraphs) Render(ctx *RenderContext, b *Base) RenderedText {
 		Paragraphs: paragraphs,
 	}
 	lineOffset := 0
-	wordOfsset := 0
+	wordOffset := 0
+	indexOffset := 0
 	for paragraphIndex, paragraph := range rendered {
 		n := len(paragraph.Glyphs) - 1
 		if n == -1 {
@@ -746,13 +757,15 @@ func (paragraphs Paragraphs) Render(ctx *RenderContext, b *Base) RenderedText {
 		for i := 0; i <= n; i++ {
 			g := &paragraph.Glyphs[i]
 			g.Line += lineOffset
-			g.Word += wordOfsset
+			g.Word += wordOffset
+			g.Index += indexOffset
 			g.Paragraph = paragraphIndex
 		}
 		joined.Glyphs = append(joined.Glyphs, paragraph.Glyphs...)
 		last := paragraph.Glyphs[n]
-		lineOffset += last.Line + 1
-		wordOfsset += last.Word + 1
+		lineOffset = last.Line + 1
+		wordOffset = last.Word + 1
+		indexOffset = last.Index + 1
 	}
 
 	return joined
@@ -1047,4 +1060,315 @@ func TextToVisual(text string) (*VisualText, error) {
 
 func MustTextToVisual(text string) *VisualText {
 	return &VisualText{Paragraphs: MustTextToParagraphs(text)}
+}
+
+type TextAnimation interface {
+	Init(base *Base)
+	Update(base *Base, animationTime float32, update Update) Dirty
+	IsDone(base *Base, animationTime float32) bool
+	Render(base *Base, animationTime float32, bounds Bounds, ctx *RenderContext, out *VertexBuffer)
+}
+
+type TextAnimationFactory interface {
+	GetAnimation(text *RenderedText) TextAnimation
+}
+
+type BasicTextAnimationKind int
+
+const (
+	BasicTextAnimationKindChar BasicTextAnimationKind = iota
+	BasicTextAnimationKindWord
+	BasicTextAnimationKindLine
+	BasicTextAnimationKindParagraph
+	BasicTextAnimationKindColumn
+)
+
+func (k BasicTextAnimationKind) Get(g *RenderedGlyph) int {
+	switch k {
+	case BasicTextAnimationKindChar:
+		return g.Index
+	case BasicTextAnimationKindColumn:
+		return g.Column
+	case BasicTextAnimationKindLine:
+		return g.Line
+	case BasicTextAnimationKindParagraph:
+		return g.Paragraph
+	case BasicTextAnimationKindWord:
+		return g.Word
+	}
+	return -1
+}
+
+type BasicTextAnimationFrame struct {
+	Translate AmountPoint
+	Scale     *Coord
+	Rotate    float32
+	Origin    AmountPoint
+	Color     ColorModify
+	Time      float32
+	Easing    func(float32) float32
+}
+
+type BasicTextAnimationState struct {
+	Start, End int
+	Min, Max   int
+	Total      int
+	Duration   float32
+}
+
+type BasicTextAnimationSettings struct {
+	// How to break up the text into pieces to animate
+	Kind BasicTextAnimationKind
+	// The frames to animate over the given duration for a piece
+	Frames []BasicTextAnimationFrame
+	// How long to animate a piece
+	Duration float32
+	// How long between starting each piece animation
+	Delay float32
+	// Optional easing function for determining the frame
+	Easing func(float32) float32
+	// The index of the glyph to start at
+	Start int
+}
+
+func (s BasicTextAnimationSettings) GetState(text *RenderedText, endExclusive int) BasicTextAnimationState {
+	glyph := &text.Glyphs[s.Start]
+	glyphValue := s.Kind.Get(glyph)
+	min := glyphValue
+	max := glyphValue
+	for i := s.Start + 1; i < endExclusive; i++ {
+		glyph = &text.Glyphs[i]
+		glyphValue := s.Kind.Get(glyph)
+		min = util.Min(min, glyphValue)
+		max = util.Max(max, glyphValue)
+	}
+	total := max - min + 1
+
+	return BasicTextAnimationState{
+		Start:    s.Start,
+		End:      endExclusive,
+		Min:      min,
+		Max:      max,
+		Total:    total,
+		Duration: float32(total-1)*s.Delay + s.Duration,
+	}
+}
+
+func (s BasicTextAnimationSettings) GetFrames(time float32) (first int, delta float32) {
+	first = len(s.Frames) - 2
+	for first > 0 && s.Frames[first].Time > time {
+		first--
+	}
+	delta = util.Delta(s.Frames[first].Time, s.Frames[first+1].Time, time)
+	return
+}
+
+type BasicTextAnimation struct {
+	Settings []BasicTextAnimationSettings
+	Easing   func(float32) float32
+
+	previousAnimationTime float32
+	text                  *RenderedText
+	duration              float32
+	states                []BasicTextAnimationState
+}
+
+func (a *BasicTextAnimation) Init(base *Base) {}
+
+func (a *BasicTextAnimation) Update(b *Base, animationTime float32, update Update) Dirty {
+	prevTime := a.EasedTime(a.previousAnimationTime)
+	nextTime := a.EasedTime(animationTime)
+
+	a.previousAnimationTime = animationTime
+
+	prevState, prevValue, prevTimeInValue := a.ValueAt(prevTime)
+	nextState, nextValue, _ := a.ValueAt(nextTime)
+
+	if prevState != nextState || prevValue != nextValue || prevTimeInValue <= a.Settings[prevState].Duration {
+		return DirtyVisual
+	}
+
+	return DirtyNone
+}
+
+func (a *BasicTextAnimation) IsDone(base *Base, animationTime float32) bool {
+	return animationTime > a.duration
+}
+
+func (a *BasicTextAnimation) Render(b *Base, animationTime float32, bounds Bounds, ctx *RenderContext, out *VertexBuffer) {
+	animatingState, animatingValue, animatingTime := a.ValueAt(animationTime)
+
+	animating := map[int]*animateGlyphs{}
+
+	for stateIndex, state := range a.states {
+		if stateIndex > animatingState {
+			break
+		}
+
+		out.ReserveQuads(state.End - state.Start)
+
+		if stateIndex < animatingState {
+			for i := state.Start; i < state.End; i++ {
+				glyph := a.text.Glyphs[i]
+				out.AddReservedQuad(glyph.Quad())
+			}
+		} else {
+			settings := &a.Settings[stateIndex]
+			for i := state.Start; i < state.End; i++ {
+				glyph := &a.text.Glyphs[i]
+				value := settings.Kind.Get(glyph)
+				if value < animatingValue {
+					out.AddReservedQuad(glyph.Quad())
+				} else {
+					timeInValue := animatingTime - float32(value-animatingValue)*settings.Delay
+					if timeInValue >= 0 {
+						existing := animating[value]
+						if existing == nil {
+							existing = &animateGlyphs{
+								delta:    timeInValue / settings.Duration,
+								settings: settings,
+							}
+							animating[value] = existing
+						}
+						existing.add(glyph)
+					}
+				}
+			}
+		}
+	}
+
+	for _, animate := range animating {
+		animate.update(ctx)
+
+		for _, g := range animate.glyphs {
+			vertices := g.Quad()
+
+			vertices[0].X, vertices[0].Y = animate.transform.Transform(vertices[0].X, vertices[0].Y)
+			vertices[1].X, vertices[1].Y = animate.transform.Transform(vertices[1].X, vertices[1].Y)
+			vertices[2].X, vertices[2].Y = animate.transform.Transform(vertices[2].X, vertices[2].Y)
+			vertices[3].X, vertices[3].Y = animate.transform.Transform(vertices[3].X, vertices[3].Y)
+
+			if animate.color != nil {
+				vertices[0].Color = animate.color(vertices[0].Color)
+				vertices[0].HasColor = true
+				vertices[1].Color = animate.color(vertices[1].Color)
+				vertices[1].HasColor = true
+				vertices[2].Color = animate.color(vertices[2].Color)
+				vertices[2].HasColor = true
+				vertices[3].Color = animate.color(vertices[3].Color)
+				vertices[3].HasColor = true
+			}
+
+			out.AddReservedQuad(vertices)
+		}
+	}
+}
+
+func (a *BasicTextAnimation) EasedTime(time float32) float32 {
+	return Ease(time/a.duration, a.Easing) * a.duration
+}
+
+func (a *BasicTextAnimation) ValueAt(time float32) (state int, value int, timeInValue float32) {
+	for stateIndex, s := range a.states {
+		if time <= s.Duration {
+			settings := a.Settings[stateIndex]
+			stateTime := Ease(time/s.Duration, settings.Easing) * s.Duration
+			state = stateIndex
+			value = util.Max(0, int((stateTime-settings.Duration+settings.Delay)/settings.Delay))
+			timeInValue = stateTime - float32(value)*settings.Delay
+			return
+		} else {
+			time -= s.Duration
+		}
+	}
+
+	lastIndex := len(a.states) - 1
+	last := a.states[lastIndex]
+	return lastIndex, last.Max, a.Settings[lastIndex].Duration
+}
+
+func (a *BasicTextAnimation) GetStates(text *RenderedText) []BasicTextAnimationState {
+	settingsCount := len(a.Settings)
+	states := make([]BasicTextAnimationState, len(a.Settings))
+	for settingIndex, setting := range a.Settings {
+		end := len(text.Glyphs)
+		next := settingIndex + 1
+		if next < settingsCount {
+			end = a.Settings[next].Start
+		}
+		states[settingIndex] = setting.GetState(text, end)
+	}
+	return states
+}
+
+func (a BasicTextAnimation) GetAnimation(text *RenderedText) TextAnimation {
+	duration := float32(0)
+	states := a.GetStates(text)
+	for _, state := range states {
+		duration += state.Duration
+	}
+
+	return &BasicTextAnimation{
+		Settings: a.Settings,
+		Easing:   a.Easing,
+
+		text:     text,
+		states:   states,
+		duration: duration,
+	}
+}
+
+type animateGlyphs struct {
+	delta     float32
+	bounds    Bounds
+	transform Transform
+	color     ColorModify
+	glyphs    []*RenderedGlyph
+	settings  *BasicTextAnimationSettings
+}
+
+func (ag *animateGlyphs) add(g *RenderedGlyph) {
+	ag.bounds = ag.bounds.Union(g.Bounds)
+	ag.glyphs = append(ag.glyphs, g)
+}
+
+func (ag *animateGlyphs) update(ctx *RenderContext) {
+	frameStart, frameDelta := ag.settings.GetFrames(ag.delta)
+	start := ag.settings.Frames[frameStart]
+	end := ag.settings.Frames[frameStart+1]
+	delta := Ease(frameDelta, start.Easing)
+
+	animateCtx := ctx.WithBounds(ag.bounds)
+
+	startTx, startTy := start.Translate.Get(animateCtx.AmountContext)
+	startOx, startOy := start.Origin.Get(animateCtx.AmountContext)
+	endTx, endTy := end.Translate.Get(animateCtx.AmountContext)
+	endOx, endOy := end.Origin.Get(animateCtx.AmountContext)
+
+	scaleX := float32(1)
+	scaleY := float32(1)
+	if start.Scale != nil && end.Scale != nil {
+		scaleX = util.Lerp(start.Scale.X, end.Scale.X, delta)
+		scaleY = util.Lerp(start.Scale.Y, end.Scale.Y, delta)
+	}
+	origX := util.Lerp(startOx, endOx, delta) + ag.bounds.Left
+	origY := util.Lerp(startOy, endOy, delta) + ag.bounds.Top
+	transX := util.Lerp(startTx, endTx, delta)
+	transY := util.Lerp(startTy, endTy, delta)
+	rotation := util.Lerp(start.Rotate, end.Rotate, delta)
+
+	ag.transform.SetRotateDegreesScaleAround(rotation, scaleX, scaleY, origX, origY)
+	ag.transform.PreTranslate(transX, transY)
+
+	if start.Color != nil && end.Color != nil {
+		ag.color = func(c Color) Color {
+			startColor := start.Color(c)
+			endColor := end.Color(c)
+			return startColor.Lerp(endColor, delta)
+		}
+	} else if start.Color != nil {
+		ag.color = start.Color
+	} else {
+		ag.color = end.Color
+	}
 }

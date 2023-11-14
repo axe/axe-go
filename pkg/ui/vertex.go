@@ -194,6 +194,24 @@ func (b VertexBuffer) Remaining() int {
 	return b.Buffer.Remaining()
 }
 
+func (b *VertexBuffer) ReserveQuads(quads int) {
+	b.Reserve(quads*4, quads*6)
+}
+
+func (b *VertexBuffer) AddReservedQuad(quad []Vertex) {
+	i := b.Buffer.DataCount()
+	*b.ReservedNext() = quad[0]
+	*b.ReservedNext() = quad[1]
+	*b.ReservedNext() = quad[2]
+	*b.ReservedNext() = quad[3]
+	*b.ReservedNextIndex() = i
+	*b.ReservedNextIndex() = i + 1
+	*b.ReservedNextIndex() = i + 2
+	*b.ReservedNextIndex() = i + 2
+	*b.ReservedNextIndex() = i + 3
+	*b.ReservedNextIndex() = i
+}
+
 func (b *VertexBuffer) AddIndexQuad(i int) {
 	b.AddIndex(i, i+1, i+2, i+2, i+3, i)
 }

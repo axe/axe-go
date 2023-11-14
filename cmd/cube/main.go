@@ -201,6 +201,65 @@ func main() {
 						btnPress.SetDisabled(!btnPress.IsDisabled())
 					})
 
+					textAnimation := ui.BasicTextAnimation{
+						Settings: []ui.BasicTextAnimationSettings{{
+							Kind: ui.BasicTextAnimationKindChar,
+							Frames: []ui.BasicTextAnimationFrame{{
+								Translate: ui.NewAmountPoint(0, 40),
+								Scale:     &ui.Coord{X: 4, Y: 4},
+								Origin:    ui.NewAmountPointUnit(0.5, 1, ui.UnitParent),
+								Color:     ui.Alpha(0),
+								Time:      0,
+							}, {
+								Scale:  &ui.Coord{X: 1, Y: 1},
+								Origin: ui.NewAmountPointUnit(0.5, 1, ui.UnitParent),
+								Color:  ui.Alpha(1),
+								Time:   1,
+							}},
+							Duration: 0.5,
+							Delay:    0.2,
+						}, {
+							Start: 11,
+							Kind:  ui.BasicTextAnimationKindWord,
+							Frames: []ui.BasicTextAnimationFrame{{
+								Translate: ui.NewAmountPoint(0, -10),
+								Color:     ui.Alpha(0),
+								Time:      0,
+							}, {
+								Color: ui.Alpha(1),
+								Time:  1,
+							}},
+							Duration: 1,
+							Delay:    0.3,
+						}, {
+							Start: 39,
+							Kind:  ui.BasicTextAnimationKindLine,
+							Frames: []ui.BasicTextAnimationFrame{{
+								Translate: ui.NewAmountPoint(-100, 0),
+								Color:     ui.Alpha(0),
+								Time:      0,
+							}, {
+								Color: ui.Alpha(1),
+								Time:  1,
+							}},
+							Duration: 2,
+							Delay:    1,
+						}, {
+							Start: 159,
+							Kind:  ui.BasicTextAnimationKindColumn,
+							Frames: []ui.BasicTextAnimationFrame{{
+								Translate: ui.NewAmountPoint(-10, 0),
+								Color:     ui.Alpha(0),
+								Time:      0,
+							}, {
+								Color: ui.Alpha(1),
+								Time:  1,
+							}},
+							Duration: 0.3,
+							Delay:    0.3,
+						}},
+					}
+
 					textWindow := newWindow("Test Window", ui.Absolute(900, 20, 400, 300))
 					textWindow.Children = append(textWindow.Children,
 						&ui.Base{
@@ -218,7 +277,7 @@ func main() {
 										"{p}{h:0.25}25% aligned?",
 										"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
 										"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
-									}, "\n")).Clipped(),
+									}, "\n")).Animate(textAnimation),
 								}},
 								Events: ui.Events{
 									OnPointer: func(ev *ui.PointerEvent) {
@@ -227,7 +286,7 @@ func main() {
 											rendered := text.Rendered()
 											closest := rendered.ClosestByLine(ev.Point.X, ev.Point.Y)
 											glyph := rendered.Glyphs[closest]
-											input := rendered.Paragraphs.Paragraphs[glyph.Paragraph].Glyphs[glyph.Index]
+											input := rendered.Paragraphs.Paragraphs[glyph.Paragraph].Glyphs[glyph.ParagraphIndex]
 											fmt.Printf("Clicked on %s in paragraph %d and index %d\n", input.String(), glyph.Paragraph, glyph.Index)
 										}
 									},

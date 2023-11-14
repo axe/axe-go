@@ -262,19 +262,39 @@ type VisualText struct {
 	Paragraphs       Paragraphs
 	VisibleThreshold *GlyphVisibility
 	Clip             bool
+	Animation        TextAnimation
+	AnimationFactory TextAnimationFactory
 
 	dirty          Dirty
 	rendered       RenderedText
 	renderedBounds Bounds
+	animationTime  float32
 }
 
 func (s *VisualText) Init(b *Base) {
 }
 
 func (s *VisualText) Update(b *Base, update Update) Dirty {
-	oldDirty := s.dirty
+	dirty := s.dirty
 	s.dirty.Clear()
-	return oldDirty
+	if s.Animation != nil {
+		if s.animationTime == 0 {
+			s.Init(b)
+		}
+		dirty.Add(s.Animation.Update(b, s.animationTime, update))
+		if s.Animation.IsDone(b, s.animationTime) {
+			s.Animation = nil
+		} else {
+			s.animationTime += float32(update.DeltaTime.Seconds())
+		}
+	}
+	return dirty
+}
+
+func (s *VisualText) Animate(factory TextAnimationFactory) *VisualText {
+	s.animationTime = 0
+	s.AnimationFactory = factory
+	return s
 }
 
 func (s *VisualText) Clipped() *VisualText {
@@ -286,11 +306,13 @@ func (s *VisualText) Clipped() *VisualText {
 
 func (s *VisualText) SetText(text string) *VisualText {
 	s.Paragraphs = MustTextToParagraphs(text)
+	s.Animation = nil
 	return s.Dirty()
 }
 
 func (s *VisualText) SetParagraphs(para Paragraphs) *VisualText {
 	s.Paragraphs = para
+	s.Animation = nil
 	return s.Dirty()
 }
 
@@ -319,6 +341,10 @@ func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 		if s.VisibleThreshold != nil {
 			s.rendered.UpdateVisibility(bounds)
 		}
+
+		if s.animationTime == 0 && s.Animation == nil && s.AnimationFactory != nil {
+			s.Animation = s.AnimationFactory.GetAnimation(&s.rendered)
+		}
 	}
 	clipBounds := Bounds{}
 	if s.WillClip() {
@@ -326,16 +352,15 @@ func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 	}
 	out.ClipMaybe(clipBounds, func(vb *VertexBuffers) {
 		buffer := vb.Buffer()
-		for _, g := range s.rendered.Glyphs {
-			if s.VisibleThreshold != nil && g.Visibility > *s.VisibleThreshold {
-				continue
+		if s.Animation != nil {
+			s.Animation.Render(b, s.animationTime, bounds, ctx, buffer)
+		} else {
+			for _, g := range s.rendered.Glyphs {
+				if g.Empty || (s.VisibleThreshold != nil && g.Visibility > *s.VisibleThreshold) {
+					continue
+				}
+				buffer.AddQuad(g.Quad()...)
 			}
-			buffer.AddQuad(
-				Vertex{X: g.Bounds.Left, Y: g.Bounds.Top, Coord: g.Coord(0, 0), HasCoord: true, Color: g.Color, HasColor: true},
-				Vertex{X: g.Bounds.Right, Y: g.Bounds.Top, Coord: g.Coord(1, 0), HasCoord: true, Color: g.Color, HasColor: true},
-				Vertex{X: g.Bounds.Right, Y: g.Bounds.Bottom, Coord: g.Coord(1, 1), HasCoord: true, Color: g.Color, HasColor: true},
-				Vertex{X: g.Bounds.Left, Y: g.Bounds.Bottom, Coord: g.Coord(0, 1), HasCoord: true, Color: g.Color, HasColor: true},
-			)
 		}
 	})
 }

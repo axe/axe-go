@@ -78,6 +78,11 @@ func (b *Buffer[D]) ResetTo(data, index int) {
 	b.indexCount = index
 }
 
+func (b *Buffer[D]) Reserve(datas int, indices int) {
+	b.data = util.SliceEnsureSize(b.data, b.dataCount+datas+1)
+	b.index = util.SliceEnsureSize(b.index, b.indexCount+indices+1)
+}
+
 func (b *Buffer[D]) ReserveData(datas int) {
 	b.data = util.SliceEnsureSize(b.data, b.dataCount+datas+1)
 }
