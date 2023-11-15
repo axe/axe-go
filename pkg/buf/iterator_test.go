@@ -8,6 +8,8 @@ import (
 func TestIterator(t *testing.T) {
 	bufs := NewBuffers[int](128, 4, func(buffer *Buffer[int], capacity int) {
 		buffer.Init(capacity)
+	}, func(buffer *Buffer[int], pos Position) {
+		buffer.Reset(pos)
 	})
 
 	iter := NewDataIterator(bufs)

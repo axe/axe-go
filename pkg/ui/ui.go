@@ -80,7 +80,7 @@ func (ui *UI) Init() {
 
 func (ui *UI) Place(newBounds Bounds) {
 	force := ui.bounds != newBounds
-	if force || ui.Root.GetDirty().Is(DirtyDeepPlacement|DirtyPlacement) {
+	if force || ui.Root.GetDirty().Is(DirtyPlacement|DirtyChildPlacement) {
 		ui.bounds = newBounds
 		ui.Root.Place(&ui.renderContext, newBounds, force)
 	}
@@ -88,7 +88,7 @@ func (ui *UI) Place(newBounds Bounds) {
 
 func (ui *UI) SetContext(ctx *AmountContext) {
 	if ctx != nil && ui.amountContext != *ctx {
-		ui.Root.Dirty(DirtyVisual)
+		ui.Root.Dirty(DirtyVisual | DirtyChildVisual)
 		ui.amountContext = *ctx
 		ui.renderContext = RenderContext{
 			AmountContext: ui.amountContext.ForFont(ui.Theme.TextStyles.FontSize),
@@ -103,15 +103,15 @@ func (ui *UI) RenderContext() *RenderContext {
 }
 
 func (ui *UI) NeedsRender() bool {
-	return ui.Root.GetDirty().Is(DirtyVisual)
+	return ui.Root.GetDirty().Is(DirtyVisual | DirtyChildVisual)
 }
 
 func (ui *UI) Update(update Update) {
 	ui.Root.Update(update)
 }
 
-func (ui *UI) Render(out *VertexBuffers) {
-	ui.Root.Render(&ui.renderContext, out)
+func (ui *UI) Render(queue *VertexBuffers) {
+	ui.Root.Render(&ui.renderContext, queue)
 }
 
 func (ui *UI) IsPointerOver() bool {
@@ -132,10 +132,10 @@ func (ui *UI) GetCursor() (cursorVertex []Vertex) {
 			e := cursor.Extent
 			p := ui.PointerPoint
 			cursorVertex = []Vertex{
-				{X: e.Left + p.X, Y: e.Top + p.Y, Coord: cursor.Coord(0, 0), HasCoord: true},
-				{X: e.Right + p.X, Y: e.Top + p.Y, Coord: cursor.Coord(1, 0), HasCoord: true},
-				{X: e.Right + p.X, Y: e.Bottom + p.Y, Coord: cursor.Coord(1, 1), HasCoord: true},
-				{X: e.Left + p.X, Y: e.Bottom + p.Y, Coord: cursor.Coord(0, 1), HasCoord: true},
+				{X: e.Left + p.X, Y: e.Top + p.Y, Tex: cursor.Coord(0, 0), HasCoord: true},
+				{X: e.Right + p.X, Y: e.Top + p.Y, Tex: cursor.Coord(1, 0), HasCoord: true},
+				{X: e.Right + p.X, Y: e.Bottom + p.Y, Tex: cursor.Coord(1, 1), HasCoord: true},
+				{X: e.Left + p.X, Y: e.Bottom + p.Y, Tex: cursor.Coord(0, 1), HasCoord: true},
 			}
 		}
 	}

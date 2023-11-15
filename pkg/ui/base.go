@@ -36,52 +36,50 @@ type Base struct {
 	IgnoreLayoutPreferredWidth  bool
 	IgnoreLayoutPreferredHeight bool
 
-	visualBounds  Bounds
-	dirty         Dirty
-	parent        *Base
-	renderParent  *Base
-	ui            *UI
-	lastTransform Transform
-	shown         []*Base
-	shownDirty    bool
+	visualBounds        Bounds
+	dirty               Dirty
+	parent              *Base
+	renderParent        *Base
+	ui                  *UI
+	lastTransform       Transform
+	shown               []*Base
+	shownDirty          bool
+	layerBuffers        *VertexBuffers
+	childrenBufferQueue *VertexBuffers
 }
 
-func (c *Base) UI() *UI {
-	return c.ui
+func (b *Base) UI() *UI {
+	return b.ui
 }
 
-func (c *Base) GetDirty() Dirty {
-	return c.dirty
+func (b *Base) GetDirty() Dirty {
+	return b.dirty
 }
 
-func (c *Base) Dirty(dirty Dirty) {
-	if (dirty | c.dirty) != c.dirty {
-		c.dirty.Add(dirty)
-
-		if c.ui != nil {
-			rootDirty := DirtyNone
-			if dirty.Is(DirtyPlacement) {
-				rootDirty.Add(DirtyDeepPlacement)
-			}
-			if dirty.Is(DirtyVisual) {
-				rootDirty.Add(DirtyVisual)
-			}
-			c.ui.Root.Dirty(rootDirty)
+func (b *Base) Dirty(dirty Dirty) {
+	if b.dirty.NotAll(dirty) {
+		b.dirty.Add(dirty)
+		parentDirty := dirty.ParentDirty()
+		if b.parent != nil {
+			b.parent.Dirty(parentDirty)
+		}
+		if b.renderParent != nil && b.renderParent != b.parent {
+			b.renderParent.Dirty(parentDirty)
 		}
 	}
 }
 
-func (c *Base) SetState(state State) {
+func (b *Base) SetState(state State) {
 	state.Remove(StateDefault)
 	if state.None() {
 		state.Add(StateDefault)
 	}
 
-	if c.isDirtyForState(state) {
-		c.Dirty(DirtyVisual | DirtyPlacement)
+	if b.isDirtyForState(state) {
+		b.Dirty(DirtyVisual | DirtyPlacement)
 	}
 
-	c.States = state
+	b.States = state
 }
 
 func (c *Base) isDirtyForState(state State) bool {
@@ -125,10 +123,6 @@ func (b *Base) SetRelativePlacement(placement Placement) {
 	}
 }
 
-func (b *Base) GetPlacement() Placement {
-	return b.Placement
-}
-
 func (b *Base) Init() {
 	if b.ui != nil && !b.Name.Empty() {
 		b.ui.Named.Set(b.Name, b)
@@ -164,26 +158,36 @@ func (b *Base) Init() {
 }
 
 func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
+	if !force && !b.dirty.Is(DirtyChildPlacement|DirtyPlacement) {
+		return
+	}
+
 	doPlacement := force || b.dirty.Is(DirtyPlacement)
 	if doPlacement {
 		relativeBounds := b.RelativePlacement.GetBoundsIn(parent)
 		newBounds := b.Placement.GetBoundsIn(relativeBounds)
 		force = b.SetBounds(newBounds)
+
 		b.dirty.Remove(DirtyPlacement)
 	}
 
 	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 
-	shown := b.ShownChildren()
+	doChildPlacement := force || b.dirty.Is(DirtyChildPlacement)
+	if doChildPlacement {
+		shown := b.ShownChildren()
 
-	if b.Layout != nil {
-		b.Layout.Layout(b, baseCtx, b.Bounds, shown)
-	}
-
-	for _, child := range b.Children {
-		if !child.IsHidden() {
-			child.Place(baseCtx, child.parent.Bounds, force)
+		if b.Layout != nil {
+			b.Layout.Layout(b, baseCtx, b.Bounds, shown)
 		}
+
+		for _, child := range b.Children {
+			if !child.IsHidden() {
+				child.Place(baseCtx, child.parent.Bounds, force)
+			}
+		}
+
+		b.dirty.Remove(DirtyChildPlacement)
 	}
 
 	if b.Hooks.OnPlace != nil {
@@ -259,7 +263,7 @@ func (b *Base) WillRender() bool {
 	return true
 }
 
-func (b *Base) Render(ctx *RenderContext, out *VertexBuffers) {
+func (b *Base) Render(ctx *RenderContext, queue *VertexBuffers) {
 	if !b.WillRender() {
 		return
 	}
@@ -268,47 +272,91 @@ func (b *Base) Render(ctx *RenderContext, out *VertexBuffers) {
 		ctx = b.ComputeRenderContext()
 	}
 
+	if b.dirty.Not(DirtyVisual | DirtyChildVisual) {
+		if b.layerBuffers != nil {
+			queue.Queue(b.layerBuffers.Buffers)
+		}
+		if b.childrenBufferQueue != nil {
+			queue.Queue(b.childrenBufferQueue.Buffers)
+		}
+
+		return
+	}
+
 	b.visualBounds.Clear()
 
 	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
-	rendered := NewVertexIterator(out)
-	renderedIndex := NewIndexIterator(out)
 
-	if len(b.Layers) > 0 {
-		for _, layer := range b.Layers {
-			if layer.ForStates(b.States) {
-				layer.Render(b, baseCtx, out)
-			}
+	if b.dirty.Is(DirtyVisual) {
+		if b.layerBuffers == nil {
+			b.layerBuffers = BufferPool.Get()
 		}
 
-		b.PostProcess(baseCtx, out, renderedIndex, rendered)
-		b.Hooks.OnPostProcessLayers.Run(b, baseCtx, out, renderedIndex, rendered)
-	}
+		b.layerBuffers.Clear()
 
-	if len(b.Children) > 0 {
-		clipBounds := b.Clip.GetBoundsIn(b.Bounds)
+		if len(b.Layers) > 0 {
+			rendered := NewVertexIterator(b.layerBuffers)
+			renderedIndex := NewIndexIterator(b.layerBuffers)
 
-		out.ClipMaybe(clipBounds, func(inner *VertexBuffers) {
-			renderedChildren := NewVertexIterator(inner)
-			renderedIndex := NewIndexIterator(inner)
-
-			shown := b.ShownChildren()
-			for _, child := range shown {
-				child.Render(baseCtx, inner)
+			for _, layer := range b.Layers {
+				if layer.ForStates(b.States) {
+					layer.Render(b, baseCtx, b.layerBuffers)
+				}
 			}
 
-			b.PostProcess(baseCtx, inner, renderedIndex, renderedChildren)
-			b.Hooks.OnPostProcessChildren.Run(b, baseCtx, out, renderedIndex, renderedChildren)
-		})
+			b.PostProcess(baseCtx, b.layerBuffers, renderedIndex, rendered)
+			b.Hooks.OnPostProcessLayers.Run(b, baseCtx, b.layerBuffers, renderedIndex, rendered)
+
+			b.updateVisualBounds(rendered)
+		}
+
+		b.dirty.Remove(DirtyVisual)
 	}
 
-	b.dirty.Remove(DirtyVisual)
+	if b.layerBuffers != nil {
+		queue.Queue(b.layerBuffers.Buffers)
+	}
+
+	if b.dirty.Is(DirtyChildVisual) {
+		if b.childrenBufferQueue == nil {
+			b.childrenBufferQueue = BufferQueuePool.Get()
+		}
+
+		b.childrenBufferQueue.QueueClear()
+
+		if len(b.Children) > 0 {
+			clipBounds := b.Clip.GetBoundsIn(b.Bounds)
+
+			b.childrenBufferQueue.Clip(clipBounds, func(innerQueue *VertexBuffers) {
+				renderedChildren := NewVertexIterator(innerQueue)
+				renderedIndex := NewIndexIterator(innerQueue)
+
+				shown := b.ShownChildren()
+				for _, child := range shown {
+					// beforeChild := inner.Position()
+					child.Render(baseCtx, innerQueue)
+					// if !clipBounds.IsEmpty() && !child.visualBounds.Intersects(clipBounds) {
+					// 	inner.Reset(beforeChild)
+					// }
+				}
+
+				b.PostProcess(baseCtx, innerQueue, renderedIndex, renderedChildren)
+				b.Hooks.OnPostProcessChildren.Run(b, baseCtx, innerQueue, renderedIndex, renderedChildren)
+
+				b.updateVisualBounds(renderedChildren)
+			})
+		}
+
+		b.dirty.Remove(DirtyChildVisual)
+	}
+
+	if b.childrenBufferQueue != nil {
+		queue.Queue(b.childrenBufferQueue.Buffers)
+	}
 
 	if b.Hooks.OnRender != nil {
-		b.Hooks.OnRender(b, baseCtx, out)
+		b.Hooks.OnRender(b, baseCtx, queue)
 	}
-
-	b.updateVisualBounds(rendered)
 }
 
 func (c *Base) PostProcess(ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
@@ -554,18 +602,27 @@ func (b *Base) Remove() {
 }
 
 func (b *Base) removeNow() {
-	b.removeFromRenderParent()
+	b.cleanup()
 	b.removeFrom(b.parent)
 	b.parent = nil
 	b.renderParent = nil
 }
 
-func (b *Base) removeFromRenderParent() {
+func (b *Base) cleanup() {
 	if b.parent != b.renderParent {
 		b.removeFrom(b.renderParent)
 	}
+	if b.layerBuffers != nil {
+		BufferPool.Free(b.layerBuffers)
+		b.layerBuffers = nil
+	}
+	if b.childrenBufferQueue != nil {
+		b.childrenBufferQueue = nil
+	}
 	for _, child := range b.Children {
-		child.removeFromRenderParent()
+		if child.parent == b {
+			child.cleanup()
+		}
 	}
 }
 
@@ -782,30 +839,32 @@ func (b *Base) OnDrag(ev *DragEvent) {
 }
 
 type Template struct {
-	PreLayers         []Layer
-	PostLayers        []Layer
-	Focusable         bool
-	Draggable         bool
-	Droppable         bool
-	PreEvents         Events
-	PostEvents        Events
-	RelativePlacement Placement
-	Clip              Placement
-	TextStyles        *TextStylesOverride
-	Shape             Shape
-	OverShape         []Coord
-	Animations        *Animations
-	AnimationsMerge   bool
-	Cursors           Cursors
-	CursorsMerge      bool
-	Colors            Colors
-	ColorsMerge       bool
-	PreHooks          Hooks
-	PostHooks         Hooks
-	Margin            AmountBounds
-	MinSize           AmountPoint
-	MaxSize           AmountPoint
-	Layout            Layout
+	PreLayers                   []Layer
+	PostLayers                  []Layer
+	Focusable                   bool
+	Draggable                   bool
+	Droppable                   bool
+	PreEvents                   Events
+	PostEvents                  Events
+	RelativePlacement           Placement
+	Clip                        Placement
+	TextStyles                  *TextStylesOverride
+	Shape                       Shape
+	OverShape                   []Coord
+	Animations                  *Animations
+	AnimationsMerge             bool
+	Cursors                     Cursors
+	CursorsMerge                bool
+	Colors                      Colors
+	ColorsMerge                 bool
+	PreHooks                    Hooks
+	PostHooks                   Hooks
+	Margin                      AmountBounds
+	MinSize                     AmountPoint
+	MaxSize                     AmountPoint
+	Layout                      Layout
+	IgnoreLayoutPreferredWidth  bool
+	IgnoreLayoutPreferredHeight bool
 }
 
 func (b *Base) ApplyTemplate(t *Template) {
@@ -864,5 +923,11 @@ func (b *Base) ApplyTemplate(t *Template) {
 	}
 	if b.Layout == nil {
 		b.Layout = t.Layout
+	}
+	if !b.IgnoreLayoutPreferredHeight {
+		b.IgnoreLayoutPreferredHeight = t.IgnoreLayoutPreferredHeight
+	}
+	if !b.IgnoreLayoutPreferredWidth {
+		b.IgnoreLayoutPreferredWidth = t.IgnoreLayoutPreferredWidth
 	}
 }

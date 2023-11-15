@@ -35,25 +35,12 @@ func (l Layer) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coor
 	size := l.Visual.PreferredSize(b, layerCtx, maxWidth-padding.X)
 	size.X += padding.X
 	size.Y += padding.Y
-
-	// if text, ok := l.Visual.(*VisualText); ok {
-	// 	if text.Paragraphs.String() == "Toggle Vertical Spacing" {
-	// 		fmt.Printf("PreferredSize Bounds %v, Padding: %v, maxWidth: %v, size: %v\n", l.Bounds, padding, maxWidth, size)
-	// 	}
-	// }
-
 	return size
 }
 
 func (l Layer) Render(b *Base, ctx *RenderContext, out *VertexBuffers) {
 	layerCtx := ctx.WithBounds(l.Bounds)
 	iter := NewVertexIterator(out)
-
-	// if text, ok := l.Visual.(*VisualText); ok {
-	// 	if text.Paragraphs.String() == "Toggle Vertical Spacing" {
-	// 		fmt.Printf("Render Bounds %v, Padding: %v\n", l.Bounds, l.Placement.Padding())
-	// 	}
-	// }
 
 	l.Visual.Visualize(b, l.Bounds, layerCtx, out)
 	if l.Background != nil {

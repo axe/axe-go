@@ -3,6 +3,7 @@ package opengl
 import (
 	axe "github.com/axe/axe-go/pkg"
 	"github.com/axe/axe-go/pkg/core"
+	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/geom"
 	"github.com/axe/axe-go/pkg/ui"
 	"github.com/go-gl/gl/v2.1/gl"
@@ -276,8 +277,8 @@ func initView2(view axe.View2f, game *axe.Game) {
 	gl.LoadIdentity()
 }
 
-var vertexBuffers = ui.NewVertexBuffers(4096, 4)
-var cursorBuffer = ui.NewVertexBuffers(4, 1)
+var cursorBuffer = ui.BufferPool.Get()
+var vertexBufferQueue = ui.BufferQueuePool.Get()
 
 func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 	bounds := placementWindowBounds(view.Placement, game)
@@ -305,18 +306,20 @@ func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 		u.Place(bounds)
 
 		if u.NeedsRender() {
-			vertexBuffers.Clear()
-			u.Render(vertexBuffers)
+			vertexBufferQueue.QueueClear()
+			u.Render(vertexBufferQueue)
 		}
 
-		if !vertexBuffers.Empty() {
-			renderBuffers(vertexBuffers, game, windowSize.Y)
+		if vertexBufferQueue.QueueLen() > 0 {
+			renderBuffers(vertexBufferQueue, game, windowSize.Y)
 		}
 
 		if cursorBuffer.Empty() {
 			cursor := u.GetCursor()
 			if cursor != nil {
-				cursorBuffer.Buffer().AddQuad(cursor...)
+				buf := cursorBuffer.Buffer()
+				buf.ReserveQuads(1)
+				buf.AddReservedQuadSlice(cursor)
 				renderBuffers(cursorBuffer, game, windowSize.Y)
 				if !hadCursor {
 					glfw.GetCurrentContext().SetInputMode(glfw.CursorMode, glfw.CursorHidden)
@@ -331,13 +334,12 @@ func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 }
 
 func renderBuffers(buffers *ui.VertexBuffers, game *axe.Game, windowHeight int32) {
-	gl.Enable(gl.BLEND)
 	gl.Disable(gl.LIGHTING)
 	gl.Disable(gl.TEXTURE_2D)
-	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
+	lastBlend := ui.BlendNone
+	lastPrimitive := ui.PrimitiveNone
 	began := false
-	clipping := false
 	lastTexture := ""
 	coloring := false
 
@@ -345,28 +347,12 @@ func renderBuffers(buffers *ui.VertexBuffers, game *axe.Game, windowHeight int32
 
 	for b := 0; b < buffers.Len(); b++ {
 		vb := buffers.At(b)
-		vbClip := vb.Clip()
 
-		if vbClip.IsEmpty() {
-			if clipping {
-				if began {
-					gl.End()
-					began = false
-				}
-				gl.Disable(gl.SCISSOR_TEST)
-				clipping = false
-			}
-		} else {
-			if began {
-				gl.End()
-				began = false
-			}
-			if !clipping {
-				gl.Enable(gl.SCISSOR_TEST)
-				clipping = true
-			}
-			gl.Scissor(int32(vbClip.Left), windowHeight-int32(vbClip.Bottom), int32(vbClip.Width()), int32(vbClip.Height()))
+		if vb.Empty() {
+			continue
 		}
+
+		applyBlend(vb.Blend, &lastBlend)
 
 		span := vb.IndexSpanAt(0)
 		indices := span.Len()
@@ -374,48 +360,107 @@ func renderBuffers(buffers *ui.VertexBuffers, game *axe.Game, windowHeight int32
 		for i := 0; i < indices; i++ {
 			v := span.At(i)
 
-			if v.Coord.Texture != lastTexture {
-				if began {
-					gl.End()
-					began = false
-				}
-				if v.Coord.Texture == "" {
-					gl.Disable(gl.TEXTURE_2D)
-				} else {
-					textureAsset := game.Assets.GetEither(v.Coord.Texture)
-					if textureAsset == nil {
-						break
-					}
-					texture := textureAsset.Data.(*texture)
-					gl.Enable(gl.TEXTURE_2D)
-					gl.BindTexture(gl.TEXTURE_2D, texture.id)
-				}
-				lastTexture = v.Coord.Texture
-			}
-			if !began {
-				gl.Begin(gl.TRIANGLES)
-				began = true
-			}
-			if v.HasColor {
-				gl.Color4f(v.Color.R, v.Color.G, v.Color.B, v.Color.A)
-				coloring = true
-			} else if coloring {
-				gl.Color4f(1, 1, 1, 1)
-				coloring = false
-			}
+			applyTexture(game, v.Tex.Texture, &lastTexture, &began)
+			applyPrimitive(vb.Primitive, &lastPrimitive, &began)
+			applyColor(v.Color, v.HasColor, &coloring)
 			if v.HasCoord {
-				gl.TexCoord2f(v.Coord.X, v.Coord.Y)
+				gl.TexCoord2f(v.Tex.X, v.Tex.Y)
 			}
 			gl.Vertex2f(v.X, v.Y)
 		}
 	}
 
-	if began {
-		gl.End()
-	}
-	if clipping {
-		gl.Disable(gl.SCISSOR_TEST)
-	}
+	applyPrimitive(ui.PrimitiveNone, &lastPrimitive, &began)
+	applyBlend(ui.BlendNone, &lastBlend)
+	applyColor(ui.ColorWhite, false, &coloring)
+}
 
-	gl.Disable(gl.BLEND)
+var blendSources = ds.NewEnumMap(map[ui.Blend]uint32{
+	ui.BlendAdd:          gl.ONE,
+	ui.BlendAlphaAdd:     gl.SRC_ALPHA,
+	ui.BlendAlpha:        gl.SRC_ALPHA,
+	ui.BlendColor:        gl.ONE,
+	ui.BlendMinus:        gl.ONE_MINUS_DST_ALPHA,
+	ui.BlendPremultAlpha: gl.ONE,
+	ui.BlendModulate:     gl.DST_COLOR,
+	ui.BlendXor:          gl.ONE_MINUS_DST_COLOR,
+	ui.BlendNone:         gl.ZERO,
+})
+
+var blendTargets = ds.NewEnumMap(map[ui.Blend]uint32{
+	ui.BlendAdd:          gl.ONE,
+	ui.BlendAlphaAdd:     gl.ONE,
+	ui.BlendAlpha:        gl.ONE_MINUS_SRC_ALPHA,
+	ui.BlendColor:        gl.ONE_MINUS_SRC_COLOR,
+	ui.BlendMinus:        gl.DST_ALPHA,
+	ui.BlendPremultAlpha: gl.ONE_MINUS_SRC_ALPHA,
+	ui.BlendModulate:     gl.ZERO,
+	ui.BlendXor:          gl.ZERO,
+	ui.BlendNone:         gl.ONE,
+})
+
+func applyBlend(blend ui.Blend, lastBlend *ui.Blend) {
+	if blend != *lastBlend {
+		if blend == ui.BlendNone {
+			gl.Disable(gl.BLEND)
+		} else {
+			if *lastBlend == ui.BlendNone {
+				gl.Enable(gl.BLEND)
+			}
+			gl.BlendFunc(blendSources[blend], blendTargets[blend])
+		}
+		*lastBlend = blend
+	}
+}
+
+func applyTexture(game *axe.Game, name string, lastTexture *string, began *bool) {
+	if name != *lastTexture {
+		if *began {
+			gl.End()
+			*began = false
+		}
+		if name == "" {
+			gl.Disable(gl.TEXTURE_2D)
+		} else {
+			textureAsset := game.Assets.GetEither(name)
+			if textureAsset == nil {
+				return
+			}
+			texture := textureAsset.Data.(*texture)
+
+			gl.Enable(gl.TEXTURE_2D)
+			gl.BindTexture(gl.TEXTURE_2D, texture.id)
+		}
+		*lastTexture = name
+	}
+}
+
+var primitiveMapping = ds.NewEnumMap(map[ui.Primitive]uint32{
+	ui.PrimitiveTriangle: gl.TRIANGLES,
+	ui.PrimitiveLine:     gl.LINES,
+	ui.PrimitiveQuad:     gl.QUADS,
+})
+
+func applyPrimitive(primitive ui.Primitive, lastPrimitive *ui.Primitive, began *bool) {
+	if primitive != *lastPrimitive || !*began {
+		if *began {
+			gl.End()
+		}
+		mapped := primitiveMapping.Get(primitive)
+		if mapped != 0 {
+			gl.Begin(mapped)
+			*began = true
+		}
+		*lastPrimitive = primitive
+	}
+}
+
+func applyColor(c ui.Color, has bool, coloring *bool) {
+	if has {
+		gl.Color4f(c.R, c.G, c.B, c.A)
+		*coloring = true
+	} else if *coloring {
+		gl.Color4f(1, 1, 1, 1)
+		*coloring = false
+	}
 }

@@ -261,10 +261,15 @@ func main() {
 						}},
 					}
 
-					textWindow := newWindow("Test Window", ui.Absolute(900, 20, 400, 300))
+					textWindow := newWindow("Test Window", ui.Absolute(900, 20, 500, 400))
 					textWindow.Children = append(textWindow.Children,
 						&ui.Base{
-							Placement: ui.MaximizeOffset(10, 34, 10, 10),
+							Placement:                   ui.MaximizeOffset(10, 34, 10, 10),
+							IgnoreLayoutPreferredHeight: true,
+							Clip:                        ui.Maximized(),
+							Layout: ui.LayoutStatic{
+								EnforcePreferredSize: true,
+							},
 							Children: []*ui.Base{{
 								Layers: []ui.Layer{{
 									Visual: ui.MustTextToVisual(strings.Join([]string{
@@ -292,7 +297,11 @@ func main() {
 										}
 									},
 								},
-							}},
+							},
+								newButton(ui.Placement{}.Attach(1, 0, 100, 30).Shift(-10, 10), "Do a barrel roll!", false, func() {
+
+								}),
+							},
 						},
 					)
 					textWindow.Colors.Set(BackgroundColor, ui.ColorGray)
@@ -308,7 +317,6 @@ func main() {
 					layoutColumnWindow.Children = append(layoutColumnWindow.Children, &ui.Base{
 						Name:      layoutColumnName,
 						Placement: ui.MaximizeOffset(8, 44, 8, 8),
-						// Clip:      ui.Maximized(),
 						Layout: &ui.LayoutColumn{
 							FullWidth:           false,
 							HorizontalAlignment: ui.AlignmentCenter,
@@ -364,7 +372,6 @@ func main() {
 					layoutRowWindow.Children = append(layoutRowWindow.Children, &ui.Base{
 						Name:      layoutRowName,
 						Placement: ui.MaximizeOffset(8, 44, 8, 8),
-						// Clip:      ui.Maximized(),
 						Layout: &ui.LayoutRow{
 							FullHeight:        false,
 							VerticalAlignment: ui.AlignmentCenter,
@@ -425,7 +432,6 @@ func main() {
 					layoutGridWindow.Children = append(layoutGridWindow.Children, &ui.Base{
 						Name:      layoutGridName,
 						Placement: ui.MaximizeOffset(8, 44, 8, 8),
-						// Clip:      ui.Maximized(),
 						Layout: &ui.LayoutGrid{
 							FullHeight:          false,
 							FullWidth:           false,

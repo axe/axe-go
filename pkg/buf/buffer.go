@@ -15,9 +15,8 @@ func (b *Buffer[D]) Init(capacity int) {
 	if b.data == nil {
 		b.data = make([]D, capacity)
 		b.index = make([]int, capacity*3/2)
-	} else {
-		b.Clear()
 	}
+	b.Clear()
 }
 
 func (b *Buffer[D]) Clear() {
@@ -73,11 +72,6 @@ func (b Buffer[D]) Remaining() int {
 	return len(b.data) - b.dataCount
 }
 
-func (b *Buffer[D]) ResetTo(data, index int) {
-	b.dataCount = data
-	b.indexCount = index
-}
-
 func (b *Buffer[D]) Reserve(datas int, indices int) {
 	b.data = util.SliceEnsureSize(b.data, b.dataCount+datas+1)
 	b.index = util.SliceEnsureSize(b.index, b.indexCount+indices+1)
@@ -89,6 +83,15 @@ func (b *Buffer[D]) ReserveData(datas int) {
 
 func (b *Buffer[D]) ReserveIndex(indices int) {
 	b.index = util.SliceEnsureSize(b.index, b.indexCount+indices+1)
+}
+
+func (b *Buffer[D]) Reserved(dataCount, indexCount int) (dataIndex int, data []D, index []int) {
+	dataIndex = b.dataCount
+	data = b.data[b.dataCount : b.dataCount+dataCount]
+	index = b.index[b.indexCount : b.indexCount+indexCount]
+	b.dataCount += dataCount
+	b.indexCount += indexCount
+	return
 }
 
 func (b *Buffer[D]) ReservedNext() *D {

@@ -50,28 +50,6 @@ func (ctx *RenderContext) WithBoundsAndTextStyles(parent Bounds, styles *TextSty
 	return &copy
 }
 
-type Component interface {
-	// Should be called after ui is set, and if it's going to have a parent - it's parent
-	Init()
-	Place(ctx *RenderContext, parent Bounds, force bool)
-	Update(update Update)
-	Render(ctx *RenderContext, out *VertexBuffers)
-	GetDirty() Dirty
-	Dirty(dirty Dirty)
-	Parent() Component
-	At(pt Coord) Component
-
-	IsFocusable() bool
-	IsDraggable() bool
-	IsDroppable() bool
-
-	OnPointer(ev *PointerEvent)
-	OnKey(ev *KeyEvent)
-	OnFocus(ev *Event)
-	OnBlur(ev *Event)
-	OnDrag(ev *DragEvent)
-}
-
 type ComponentMap struct {
 	set     map[uintptr]*Base
 	ordered []*Base

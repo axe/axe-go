@@ -11,19 +11,23 @@ type Bufferable[D any] interface {
 	IndexAt(index int) int
 }
 
-type BufferInit[D any, B Bufferable[D]] func(buffer *B, capacity int)
+type BufferInit[B any] func(buffer *B, capacity int)
+
+type BufferReset[B any] func(buffer *B, pos Position)
 
 type Buffers[D any, B Bufferable[D]] struct {
 	buffers  []B
-	init     BufferInit[D, B]
+	init     BufferInit[B]
+	reset    BufferReset[B]
 	capacity int
 	current  int
 }
 
-func NewBuffers[D any, B Bufferable[D]](bufferCapacity int, buffers int, init BufferInit[D, B]) *Buffers[D, B] {
+func NewBuffers[D any, B Bufferable[D]](bufferCapacity int, buffers int, init BufferInit[B], reset BufferReset[B]) *Buffers[D, B] {
 	b := &Buffers[D, B]{
 		buffers:  make([]B, buffers),
 		init:     init,
+		reset:    reset,
 		capacity: bufferCapacity,
 		current:  0,
 	}
@@ -35,6 +39,25 @@ func NewBuffers[D any, B Bufferable[D]](bufferCapacity int, buffers int, init Bu
 
 func (b *Buffers[D, B]) Capacity() int {
 	return b.capacity
+}
+
+func (b *Buffers[D, B]) SetCapacity(capacity int) {
+	b.capacity = capacity
+}
+
+func (b *Buffers[D, B]) QueueClear() {
+	b.current = 0
+}
+func (b *Buffers[D, B]) Queue(c Buffers[D, B]) {
+	n := c.Len()
+	b.buffers = util.SliceEnsureSize(b.buffers, b.current+n)
+	for i := 0; i < n; i++ {
+		b.buffers[b.current] = *c.At(i)
+		b.current++
+	}
+}
+func (b *Buffers[D, B]) QueueLen() int {
+	return b.current
 }
 
 func (b *Buffers[D, B]) Clear() {
@@ -81,6 +104,9 @@ func (b *Buffers[D, B]) BufferFor(count int) *B {
 }
 
 func (b *Buffers[D, B]) Len() int {
+	if b.current >= len(b.buffers) {
+		return len(b.buffers)
+	}
 	last := b.Buffer()
 	if (*last).Empty() {
 		return b.current

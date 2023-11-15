@@ -43,14 +43,14 @@ func (s VisualFilled) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out 
 	last := len(points) - 1
 	prev := last
 	buffer := out.Buffer()
+	buffer.ReserveTriangles(last + 1)
 	for next := 0; next <= last; next++ {
 		prevPoint := points[prev]
 		nextPoint := points[next]
-		buffer.AddIndexed(
-			Vertex{X: prevPoint.X, Y: prevPoint.Y},
-			Vertex{X: nextPoint.X, Y: nextPoint.Y},
-			Vertex{X: center.X, Y: center.Y},
-		)
+		tri := buffer.GetReservedTriangle()
+		tri[0] = Vertex{X: prevPoint.X, Y: prevPoint.Y}
+		tri[1] = Vertex{X: nextPoint.X, Y: nextPoint.Y}
+		tri[2] = Vertex{X: center.X, Y: center.Y}
 		prev = next
 	}
 }
@@ -125,6 +125,7 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 
 	prev := last
 	buffer := out.Buffer()
+	buffer.ReserveQuads(last + 1)
 	for next := 0; next <= last; next++ {
 		prevOuter := outer[prev]
 		nextOuter := outer[next]
@@ -135,13 +136,11 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 		if Collinear(prevOuter, nextOuter, nextInner) && Collinear(nextInner, prevInner, prevOuter) {
 			continue
 		}
-
-		buffer.AddQuad(
-			Vertex{X: prevOuter.X, Y: prevOuter.Y, Color: outerColor, HasColor: hasOuterColor},
-			Vertex{X: nextOuter.X, Y: nextOuter.Y, Color: outerColor, HasColor: hasOuterColor},
-			Vertex{X: nextInner.X, Y: nextInner.Y, Color: innerColor, HasColor: hasInnerColor},
-			Vertex{X: prevInner.X, Y: prevInner.Y, Color: innerColor, HasColor: hasInnerColor},
-		)
+		quad := buffer.GetReservedQuad()
+		quad[0] = Vertex{X: prevOuter.X, Y: prevOuter.Y, Color: outerColor, HasColor: hasOuterColor}
+		quad[1] = Vertex{X: nextOuter.X, Y: nextOuter.Y, Color: outerColor, HasColor: hasOuterColor}
+		quad[2] = Vertex{X: nextInner.X, Y: nextInner.Y, Color: innerColor, HasColor: hasInnerColor}
+		quad[3] = Vertex{X: prevInner.X, Y: prevInner.Y, Color: innerColor, HasColor: hasInnerColor}
 	}
 }
 
@@ -244,15 +243,15 @@ func (r VisualFrame) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 	}
 
 	buffer := out.Buffer()
+	buffer.ReserveQuads(len(r.Tile))
 	for i, tile := range r.Tile {
 		indexX := i % columns
 		indexY := i / columns
-		buffer.AddQuad(
-			Vertex{X: axisX[indexX+0], Y: axisY[indexY+0], Coord: tile.Coord(0, 0), HasCoord: true},
-			Vertex{X: axisX[indexX+1], Y: axisY[indexY+0], Coord: tile.Coord(1, 0), HasCoord: true},
-			Vertex{X: axisX[indexX+1], Y: axisY[indexY+1], Coord: tile.Coord(1, 1), HasCoord: true},
-			Vertex{X: axisX[indexX+0], Y: axisY[indexY+1], Coord: tile.Coord(0, 1), HasCoord: true},
-		)
+		quad := buffer.GetReservedQuad()
+		quad[0] = Vertex{X: axisX[indexX+0], Y: axisY[indexY+0], Tex: tile.Coord(0, 0), HasCoord: true}
+		quad[1] = Vertex{X: axisX[indexX+1], Y: axisY[indexY+0], Tex: tile.Coord(1, 0), HasCoord: true}
+		quad[2] = Vertex{X: axisX[indexX+1], Y: axisY[indexY+1], Tex: tile.Coord(1, 1), HasCoord: true}
+		quad[3] = Vertex{X: axisX[indexX+0], Y: axisY[indexY+1], Tex: tile.Coord(0, 1), HasCoord: true}
 	}
 }
 
@@ -352,16 +351,18 @@ func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 	if s.WillClip() {
 		clipBounds = bounds
 	}
-	out.ClipMaybe(clipBounds, func(vb *VertexBuffers) {
+	out.Clip(clipBounds, func(vb *VertexBuffers) {
 		buffer := vb.Buffer()
 		if s.Animation != nil {
 			s.Animation.Render(b, s.animationTime, bounds, ctx, buffer)
 		} else {
+			reserve := s.rendered.CountVisible(s.VisibleThreshold)
+			buffer.ReserveQuads(reserve)
 			for _, g := range s.rendered.Glyphs {
 				if g.Empty || (s.VisibleThreshold != nil && g.Visibility > *s.VisibleThreshold) {
 					continue
 				}
-				buffer.AddQuad(g.Quad()...)
+				g.Write(buffer.GetReservedQuad())
 			}
 		}
 	})

@@ -199,9 +199,7 @@ func (b Bounds) ClipLine(x0, y0, x1, y1 float32) ClippedLine {
 	side0 := b.Side(x0, y0)
 	side1 := b.Side(x1, y1)
 	line := ClippedLine{
-		Start:      Coord{X: x0, Y: y0},
 		StartDelta: 0,
-		End:        Coord{X: x1, Y: y1},
 		EndDelta:   1,
 		Inside:     false,
 	}
@@ -213,94 +211,41 @@ func (b Bounds) ClipLine(x0, y0, x1, y1 float32) ClippedLine {
 		} else if (side0 & side1) != 0 {
 			break
 		} else {
-			clipSide := side0
-			if side1 > side0 {
-				clipSide = side1
-			}
+			clipSide := util.Max(side0, side1)
 			var x, y, delta float32
 			if (clipSide & BoundsSideBottom) != 0 {
-				delta = (b.Bottom - y0) / (y1 - y0)
-				x = x0 + (x1-x0)*delta
+				delta = util.Delta(y0, y1, b.Bottom)
+				x = util.Lerp(x0, x1, delta)
 				y = b.Bottom
 			} else if (clipSide & BoundsSideTop) != 0 {
-				delta = (b.Top - y0) / (y1 - y0)
-				x = x0 + (x1-x0)*delta
+				delta = util.Delta(y0, y1, b.Top)
+				x = util.Lerp(x0, x1, delta)
 				y = b.Top
 			} else if (clipSide & BoundsSideRight) != 0 {
-				delta = (b.Right - x0) / (x1 - x0)
-				y = y0 + (y1-y0)*delta
+				delta = util.Delta(x0, x1, b.Right)
+				y = util.Lerp(y0, y1, delta)
 				x = b.Right
 			} else if (clipSide & BoundsSideLeft) != 0 {
-				delta = (b.Left - x0) / (x1 - x0)
-				y = y0 + (y1-y0)*delta
+				delta = util.Delta(x0, x1, b.Left)
+				y = util.Lerp(y0, y1, delta)
 				x = b.Left
 			}
 			if clipSide == side0 {
 				line.StartDelta = delta
-				line.Start.X = x
-				line.Start.Y = y
+				x0 = x
+				y0 = y
 				side0 = b.Side(x, y)
 			} else {
 				line.EndDelta = delta
-				line.End.X = x
-				line.End.Y = y
+				x1 = x
+				y1 = y
 				side1 = b.Side(x, y)
 			}
 		}
 	}
 
+	line.Start.Set(x0, y0)
+	line.End.Set(x1, y1)
+
 	return line
-}
-
-type ClippedPoint struct {
-	Start, End int
-	Delta      float32
-	X, Y       float32
-}
-
-func (p *ClippedPoint) Set(start, end int, delta, x, y float32) {
-	p.Start = start
-	p.End = end
-	p.Delta = delta
-	p.X = x
-	p.Y = y
-}
-
-func (b Bounds) ClipTriangle(x0, y0, x1, y1, x2, y2 float32, out [6]ClippedPoint) int {
-	line0 := b.ClipLine(x0, y0, x1, y1)
-	line1 := b.ClipLine(x1, y1, x2, y2)
-	line2 := b.ClipLine(x2, y2, x0, y0)
-
-	if !line0.Inside && !line1.Inside && !line2.Inside {
-		return 0
-	}
-
-	if line0.Inside && line1.Inside && line2.Inside {
-		out[0].Set(0, 1, 0, x0, y0)
-		out[1].Set(1, 2, 0, x1, y1)
-		out[2].Set(2, 0, 0, x2, y2)
-
-		return 3
-	}
-
-	i := 0
-	out[i].Set(0, 1, line0.StartDelta, line0.Start.X, line0.Start.Y)
-	i++
-	if line0.EndDelta < 1 {
-		out[i].Set(0, 1, line0.EndDelta, line0.End.X, line0.End.Y)
-		i++
-	}
-	out[i].Set(1, 2, line1.StartDelta, line1.Start.X, line1.Start.Y)
-	i++
-	if line1.EndDelta < 1 {
-		out[i].Set(1, 2, line1.EndDelta, line1.End.X, line1.End.Y)
-		i++
-	}
-	out[i].Set(2, 0, line2.StartDelta, line2.Start.X, line2.Start.Y)
-	i++
-	if line2.EndDelta < 1 {
-		out[i].Set(2, 0, line2.EndDelta, line2.End.X, line2.End.Y)
-		i++
-	}
-	return i
 }

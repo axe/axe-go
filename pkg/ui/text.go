@@ -324,6 +324,18 @@ func (text RenderedText) UpdateVisibility(visibleBounds Bounds) {
 	}
 }
 
+func (text RenderedText) CountVisible(threshold *GlyphVisibility) int {
+	visible := 0
+	for i := range text.Glyphs {
+		g := &text.Glyphs[i]
+		if g.Empty || (threshold != nil && g.Visibility > *threshold) {
+			continue
+		}
+		visible++
+	}
+	return visible
+}
+
 func (text RenderedText) Closest(x, y float32) int {
 	closest := -1
 	closestDistanceSq := float32(0)
@@ -372,13 +384,11 @@ type RenderedGlyph struct {
 	Empty          bool
 }
 
-func (g RenderedGlyph) Quad() []Vertex {
-	return []Vertex{
-		{X: g.Bounds.Left, Y: g.Bounds.Top, Coord: g.Coord(0, 0), HasCoord: true, Color: g.Color, HasColor: true},
-		{X: g.Bounds.Right, Y: g.Bounds.Top, Coord: g.Coord(1, 0), HasCoord: true, Color: g.Color, HasColor: true},
-		{X: g.Bounds.Right, Y: g.Bounds.Bottom, Coord: g.Coord(1, 1), HasCoord: true, Color: g.Color, HasColor: true},
-		{X: g.Bounds.Left, Y: g.Bounds.Bottom, Coord: g.Coord(0, 1), HasCoord: true, Color: g.Color, HasColor: true},
-	}
+func (g RenderedGlyph) Write(quad []Vertex) {
+	quad[0] = Vertex{X: g.Bounds.Left, Y: g.Bounds.Top, Tex: g.Coord(0, 0), HasCoord: true, Color: g.Color, HasColor: true}
+	quad[1] = Vertex{X: g.Bounds.Right, Y: g.Bounds.Top, Tex: g.Coord(1, 0), HasCoord: true, Color: g.Color, HasColor: true}
+	quad[2] = Vertex{X: g.Bounds.Right, Y: g.Bounds.Bottom, Tex: g.Coord(1, 1), HasCoord: true, Color: g.Color, HasColor: true}
+	quad[3] = Vertex{X: g.Bounds.Left, Y: g.Bounds.Bottom, Tex: g.Coord(0, 1), HasCoord: true, Color: g.Color, HasColor: true}
 }
 
 type GlyphVisibility int
@@ -1210,7 +1220,7 @@ func (a *BasicTextAnimation) Render(b *Base, animationTime float32, bounds Bound
 		if stateIndex < animatingState {
 			for i := state.Start; i < state.End; i++ {
 				glyph := a.text.Glyphs[i]
-				out.AddReservedQuad(glyph.Quad())
+				glyph.Write(out.GetReservedQuad())
 			}
 		} else {
 			settings := &a.Settings[stateIndex]
@@ -1218,7 +1228,7 @@ func (a *BasicTextAnimation) Render(b *Base, animationTime float32, bounds Bound
 				glyph := &a.text.Glyphs[i]
 				value := settings.Kind.Get(glyph)
 				if value < animatingValue {
-					out.AddReservedQuad(glyph.Quad())
+					glyph.Write(out.GetReservedQuad())
 				} else {
 					timeInValue := animatingTime - float32(value-animatingValue)*settings.Delay
 					if timeInValue >= 0 {
@@ -1241,25 +1251,23 @@ func (a *BasicTextAnimation) Render(b *Base, animationTime float32, bounds Bound
 		animate.update(ctx)
 
 		for _, g := range animate.glyphs {
-			vertices := g.Quad()
-
-			vertices[0].X, vertices[0].Y = animate.transform.Transform(vertices[0].X, vertices[0].Y)
-			vertices[1].X, vertices[1].Y = animate.transform.Transform(vertices[1].X, vertices[1].Y)
-			vertices[2].X, vertices[2].Y = animate.transform.Transform(vertices[2].X, vertices[2].Y)
-			vertices[3].X, vertices[3].Y = animate.transform.Transform(vertices[3].X, vertices[3].Y)
+			quad := out.GetReservedQuad()
+			g.Write(quad)
+			quad[0].X, quad[0].Y = animate.transform.Transform(quad[0].X, quad[0].Y)
+			quad[1].X, quad[1].Y = animate.transform.Transform(quad[1].X, quad[1].Y)
+			quad[2].X, quad[2].Y = animate.transform.Transform(quad[2].X, quad[2].Y)
+			quad[3].X, quad[3].Y = animate.transform.Transform(quad[3].X, quad[3].Y)
 
 			if animate.color != nil {
-				vertices[0].Color = animate.color(vertices[0].Color)
-				vertices[0].HasColor = true
-				vertices[1].Color = animate.color(vertices[1].Color)
-				vertices[1].HasColor = true
-				vertices[2].Color = animate.color(vertices[2].Color)
-				vertices[2].HasColor = true
-				vertices[3].Color = animate.color(vertices[3].Color)
-				vertices[3].HasColor = true
+				quad[0].Color = animate.color(quad[0].Color)
+				quad[0].HasColor = true
+				quad[1].Color = animate.color(quad[1].Color)
+				quad[1].HasColor = true
+				quad[2].Color = animate.color(quad[2].Color)
+				quad[2].HasColor = true
+				quad[3].Color = animate.color(quad[3].Color)
+				quad[3].HasColor = true
 			}
-
-			out.AddReservedQuad(vertices)
 		}
 	}
 }

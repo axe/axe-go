@@ -41,9 +41,23 @@ type Dirty = Flags
 const (
 	DirtyNone Dirty = (1 << iota) >> 1
 	DirtyPlacement
-	DirtyDeepPlacement
 	DirtyVisual
+	DirtyChildPlacement
+	DirtyChildVisual
 )
+
+func (d Dirty) ParentDirty() Dirty {
+	parentDirty := d
+	if d.Is(DirtyPlacement) {
+		parentDirty.Remove(DirtyPlacement)
+		parentDirty.Add(DirtyChildPlacement)
+	}
+	if d.Is(DirtyVisual) {
+		parentDirty.Remove(DirtyVisual)
+		parentDirty.Add(DirtyChildVisual)
+	}
+	return parentDirty
+}
 
 type Watch[V comparable] struct {
 	value   V
