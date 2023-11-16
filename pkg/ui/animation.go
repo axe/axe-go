@@ -218,10 +218,13 @@ func (inter BasicAnimationFrameInterpolated) Transform() Transform {
 }
 
 type BasicAnimation struct {
-	Duration float32
-	Easing   func(float32) float32
-	Save     bool
-	Frames   []BasicAnimationFrame
+	Duration            float32
+	Easing              func(float32) float32
+	Save                bool
+	SaveSkipColor       bool
+	SaveSkipTransparent bool
+	SaveSkipTransform   bool
+	Frames              []BasicAnimationFrame
 }
 
 func (a BasicAnimation) GetAnimation(b *Base) Animation {
@@ -264,9 +267,15 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 	transform := inter.Transform()
 
 	if a.Save {
-		base.SetColor(inter.Color)
-		base.SetTransparency(inter.Transparency)
-		base.SetTransform(transform)
+		if a.SaveSkipColor {
+			base.SetColor(inter.Color)
+		}
+		if a.SaveSkipColor {
+			base.SetTransparency(inter.Transparency)
+		}
+		if a.SaveSkipTransform {
+			base.SetTransform(transform)
+		}
 	} else {
 		alphaMultiplier := 1 - inter.Transparency
 		colorModify := inter.Color
