@@ -206,16 +206,16 @@ func main() {
 						Settings: []ui.BasicTextAnimationSettings{{
 							Kind: ui.BasicTextAnimationKindChar,
 							Frames: []ui.BasicAnimationFrame{{
-								Translate: ui.NewAmountPoint(0, 40),
-								Scale:     &ui.Coord{X: 4, Y: 4},
-								Origin:    ui.NewAmountPointUnit(0.5, 1, ui.UnitParent),
-								Color:     ui.Alpha(0),
-								Time:      0,
+								Translate:    ui.NewAmountPoint(0, 40),
+								Scale:        &ui.Coord{X: 4, Y: 4},
+								Origin:       ui.NewAmountPointUnit(0.5, 1, ui.UnitParent),
+								Transparency: 1,
+								Time:         0,
 							}, {
-								Scale:  &ui.Coord{X: 1, Y: 1},
-								Origin: ui.NewAmountPointUnit(0.5, 1, ui.UnitParent),
-								Color:  ui.Alpha(1),
-								Time:   1,
+								Scale:        &ui.Coord{X: 1, Y: 1},
+								Origin:       ui.NewAmountPointUnit(0.5, 1, ui.UnitParent),
+								Transparency: 0,
+								Time:         1,
 							}},
 							Duration: 0.5,
 							Delay:    0.2,
@@ -223,12 +223,12 @@ func main() {
 							Start: 11,
 							Kind:  ui.BasicTextAnimationKindWord,
 							Frames: []ui.BasicAnimationFrame{{
-								Translate: ui.NewAmountPoint(0, -10),
-								Color:     ui.Alpha(0),
-								Time:      0,
+								Translate:    ui.NewAmountPoint(0, -10),
+								Transparency: 1,
+								Time:         0,
 							}, {
-								Color: ui.Alpha(1),
-								Time:  1,
+								Transparency: 0,
+								Time:         1,
 							}},
 							Duration: 1,
 							Delay:    0.3,
@@ -236,12 +236,12 @@ func main() {
 							Start: 39,
 							Kind:  ui.BasicTextAnimationKindLine,
 							Frames: []ui.BasicAnimationFrame{{
-								Translate: ui.NewAmountPoint(-100, 0),
-								Color:     ui.Alpha(0),
-								Time:      0,
+								Translate:    ui.NewAmountPoint(-100, 0),
+								Transparency: 1,
+								Time:         0,
 							}, {
-								Color: ui.Alpha(1),
-								Time:  1,
+								Transparency: 0,
+								Time:         1,
 							}},
 							Duration: 2,
 							Delay:    1,
@@ -249,12 +249,12 @@ func main() {
 							Start: 159,
 							Kind:  ui.BasicTextAnimationKindColumn,
 							Frames: []ui.BasicAnimationFrame{{
-								Translate: ui.NewAmountPoint(-10, 0),
-								Color:     ui.Alpha(0),
-								Time:      0,
+								Translate:    ui.NewAmountPoint(-10, 0),
+								Transparency: 1,
+								Time:         0,
 							}, {
-								Color: ui.Alpha(1),
-								Time:  1,
+								Transparency: 0,
+								Time:         1,
 							}},
 							Duration: 0.3,
 							Delay:    0.3,
@@ -738,8 +738,8 @@ var FadeInAnimation = ui.BasicAnimation{
 	Save:     true,
 	Duration: 0.5,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Color: ui.Alpha(0)},
-		{Time: 1, Color: ui.Alpha(1)},
+		{Time: 0, Transparency: 1},
+		{Time: 1, Transparency: 0},
 	},
 }
 
@@ -747,8 +747,8 @@ var FadeOutAnimation = ui.BasicAnimation{
 	Save:     true,
 	Duration: 0.5,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Color: ui.Alpha(1)},
-		{Time: 1, Color: ui.Alpha(0)},
+		{Time: 0, Transparency: 0},
+		{Time: 1, Transparency: 1},
 	},
 }
 
@@ -757,7 +757,7 @@ var FadeOutSlideUpAnimation = ui.BasicAnimation{
 	Duration: 0.7,
 	Frames: []ui.BasicAnimationFrame{
 		{Time: 0, Origin: OriginCenter},
-		{Time: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter, Color: ui.Alpha(0)},
+		{Time: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter, Transparency: 1},
 	},
 }
 
@@ -765,7 +765,7 @@ var FadeInSlideDownAnimation = ui.BasicAnimation{
 	Save:     true,
 	Duration: 0.7,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Color: ui.Alpha(0), Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter},
+		{Time: 0, Transparency: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter},
 		{Time: 1, Origin: OriginCenter},
 	},
 }
@@ -774,7 +774,7 @@ var FadeInSlideRightAnimation = ui.BasicAnimation{
 	Save:     true,
 	Duration: 0.7,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Translate: ui.AmountPoint{X: ui.Amount{Value: -100}}, Origin: OriginCenter, Color: ui.Alpha(0)},
+		{Time: 0, Translate: ui.AmountPoint{X: ui.Amount{Value: -100}}, Origin: OriginCenter, Transparency: 1},
 		{Time: 1, Origin: OriginCenter},
 	},
 }
@@ -782,24 +782,24 @@ var FadeInSlideRightAnimation = ui.BasicAnimation{
 var ExplodeAnimation = ui.BasicAnimation{
 	Duration: 0.2,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Color: ui.Alpha(1), Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
-		{Time: 1, Color: ui.Alpha(0), Scale: &ui.Coord{X: 4, Y: 4}, Origin: OriginCenter},
+		{Time: 0, Transparency: 0, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
+		{Time: 1, Transparency: 1, Scale: &ui.Coord{X: 4, Y: 4}, Origin: OriginCenter},
 	},
 }
 
 var CollapseOpenAnimation = ui.BasicAnimation{
 	Duration: 0.3,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Scale: &ui.Coord{X: 1, Y: 0}, Color: ui.Alpha(0)},
-		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Color: ui.Alpha(1)},
+		{Time: 0, Scale: &ui.Coord{X: 1, Y: 0}, Transparency: 1},
+		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Transparency: 0},
 	},
 }
 
 var CollapseCloseAnimation = ui.BasicAnimation{
 	Duration: 0.3,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Scale: &ui.Coord{X: 1, Y: 1}, Color: ui.Alpha(1)},
-		{Time: 1, Scale: &ui.Coord{X: 1, Y: 0}, Color: ui.Alpha(0)},
+		{Time: 0, Scale: &ui.Coord{X: 1, Y: 1}, Transparency: 0},
+		{Time: 1, Scale: &ui.Coord{X: 1, Y: 0}, Transparency: 1},
 	},
 }
 

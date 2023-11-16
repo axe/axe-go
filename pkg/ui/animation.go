@@ -162,13 +162,14 @@ func (b *Base) playFactory(factory AnimationFactory, ev AnimationEvent) bool {
 }
 
 type BasicAnimationFrame struct {
-	Translate AmountPoint
-	Scale     *Coord
-	Rotate    float32
-	Origin    AmountPoint
-	Time      float32
-	Color     ColorModify
-	Easing    func(float32) float32
+	Translate    AmountPoint
+	Scale        *Coord
+	Rotate       float32
+	Origin       AmountPoint
+	Time         float32
+	Color        ColorModify
+	Transparency float32
+	Easing       func(float32) float32
 }
 
 func (start BasicAnimationFrame) Lerp(end BasicAnimationFrame, delta float32, ctx *AmountContext, x, y float32) BasicAnimationFrameInterpolated {
@@ -176,24 +177,28 @@ func (start BasicAnimationFrame) Lerp(end BasicAnimationFrame, delta float32, ct
 	startOx, startOy := start.Origin.Get(ctx)
 	endTx, endTy := end.Translate.Get(ctx)
 	endOx, endOy := end.Origin.Get(ctx)
+	startSc := getScale(start.Scale)
+	endSc := getScale(end.Scale)
 
 	inter := BasicAnimationFrameInterpolated{}
-
-	inter.ScaleX = float32(1)
-	inter.ScaleY = float32(1)
-	if start.Scale != nil && end.Scale != nil {
-		inter.ScaleX = util.Lerp(start.Scale.X, end.Scale.X, delta)
-		inter.ScaleY = util.Lerp(start.Scale.Y, end.Scale.Y, delta)
-	}
+	inter.ScaleX = util.Lerp(startSc.X, endSc.X, delta)
+	inter.ScaleY = util.Lerp(startSc.Y, endSc.Y, delta)
 	inter.OriginX = util.Lerp(startOx, endOx, delta) + x
 	inter.OriginY = util.Lerp(startOy, endOy, delta) + y
 	inter.TranslateX = util.Lerp(startTx, endTx, delta)
 	inter.TranslateY = util.Lerp(startTy, endTy, delta)
-
 	inter.Rotation = util.Lerp(start.Rotate, end.Rotate, delta)
 	inter.Color = start.Color.Lerp(end.Color, delta)
+	inter.Transparency = util.Lerp(start.Transparency, end.Transparency, delta)
 
 	return inter
+}
+
+func getScale(c *Coord) Coord {
+	if c == nil {
+		return Coord{X: 1, Y: 1}
+	}
+	return *c
 }
 
 type BasicAnimationFrameInterpolated struct {
@@ -202,6 +207,7 @@ type BasicAnimationFrameInterpolated struct {
 	TranslateX, TranslateY float32
 	Rotation               float32
 	Color                  ColorModify
+	Transparency           float32
 }
 
 func (inter BasicAnimationFrameInterpolated) Transform() Transform {
@@ -259,8 +265,14 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 
 	if a.Save {
 		base.SetColor(inter.Color)
+		base.SetTransparency(inter.Transparency)
 		base.SetTransform(transform)
 	} else {
+		alphaMultiplier := 1 - inter.Transparency
+		colorModify := inter.Color
+		if colorModify == nil {
+			colorModify = func(c Color) Color { return c }
+		}
 		for vertex.HasNext() {
 			v := vertex.Next()
 			v.X, v.Y = transform.Transform(v.X, v.Y)
@@ -268,7 +280,8 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 				v.Color = ColorWhite
 				v.HasColor = true
 			}
-			v.Color = inter.Color(v.Color)
+			v.Color = colorModify(v.Color)
+			v.Color.A *= alphaMultiplier
 		}
 	}
 }

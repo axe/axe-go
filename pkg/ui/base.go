@@ -430,7 +430,7 @@ func (b *Base) PostProcess(ctx *RenderContext, out VertexIterable, index IndexIt
 
 	b.Animation.PostProcess(b, ctx, out, index, vertex)
 
-	if alphaMultiplier := 1 - b.Transparency; alphaMultiplier < 0.9999 {
+	if alphaMultiplier := 1 - b.Transparency; alphaMultiplier < 1 {
 		for vertex.HasNext() {
 			v := vertex.Next()
 			if !v.HasColor {

@@ -1258,6 +1258,17 @@ func (a *BasicTextAnimation) Render(b *Base, animationTime float32, bounds Bound
 				quad[3].Color = animate.color(quad[3].Color)
 				quad[3].HasColor = true
 			}
+			if animate.transparency != 0 {
+				alphaMultiplier := 1 - animate.transparency
+				quad[0].Color.A *= alphaMultiplier
+				quad[0].HasColor = true
+				quad[1].Color.A *= alphaMultiplier
+				quad[1].HasColor = true
+				quad[2].Color.A *= alphaMultiplier
+				quad[2].HasColor = true
+				quad[3].Color.A *= alphaMultiplier
+				quad[3].HasColor = true
+			}
 		}
 	}
 }
@@ -1317,12 +1328,13 @@ func (a BasicTextAnimation) GetAnimation(text *RenderedText) TextAnimation {
 }
 
 type animateGlyphs struct {
-	delta     float32
-	bounds    Bounds
-	transform Transform
-	color     ColorModify
-	glyphs    []*RenderedGlyph
-	settings  *BasicTextAnimationSettings
+	delta        float32
+	bounds       Bounds
+	transform    Transform
+	color        ColorModify
+	transparency float32
+	glyphs       []*RenderedGlyph
+	settings     *BasicTextAnimationSettings
 }
 
 func (ag *animateGlyphs) add(g *RenderedGlyph) {
@@ -1341,4 +1353,5 @@ func (ag *animateGlyphs) update(ctx *RenderContext) {
 	inter := start.Lerp(end, delta, animateCtx.AmountContext, ag.bounds.Left, ag.bounds.Top)
 	ag.transform = inter.Transform()
 	ag.color = inter.Color
+	ag.transparency = inter.Transparency
 }
