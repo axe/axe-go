@@ -94,6 +94,11 @@ func (c Color) Alpha(a float32) Color {
 	return c
 }
 
+func (c Color) AlphaScale(a float32) Color {
+	c.A *= a
+	return c
+}
+
 func (c Color) Red(v float32) Color {
 	c.R = v
 	return c
@@ -198,6 +203,54 @@ func (a ColorModify) Then(b ColorModify) ColorModify {
 	}
 }
 
+func (a ColorModify) Lerp(b ColorModify, delta float32) ColorModify {
+	if a == nil || delta >= 1 {
+		return b
+	}
+	if b == nil || delta <= 0 {
+		return a
+	}
+	return func(c Color) Color {
+		start := a(c)
+		end := b(c)
+		return start.Lerp(end, delta)
+	}
+}
+
+func (a ColorModify) Modify(c Color) Color {
+	if a != nil {
+		return a(c)
+	}
+	return c
+}
+
+func (a ColorModify) GetEffective() ColorModify {
+	if a.HasAffect() {
+		return a
+	}
+	return nil
+}
+
+func (a ColorModify) HasAffect() bool {
+	if a == nil {
+		return false
+	}
+
+	return a(ColorWhite) != ColorWhite || a(ColorTransparent) != ColorTransparent
+}
+
+func (a ColorModify) Equals(b ColorModify) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+
+	if a == nil {
+		return true
+	}
+
+	return a(ColorWhite) == b(ColorWhite) && a(ColorTransparent) == b(ColorTransparent)
+}
+
 type modifiedThemeColor struct {
 	modify     ColorModify
 	themeColor ThemeColor
@@ -227,7 +280,13 @@ func Darken(scale float32) ColorModify {
 
 func Alpha(alpha float32) ColorModify {
 	return func(c Color) Color {
-		return c.Alpha(alpha)
+		return c.AlphaScale(alpha)
+	}
+}
+
+func Multiply(shade Color) ColorModify {
+	return func(c Color) Color {
+		return c.Multiply(shade)
 	}
 }
 

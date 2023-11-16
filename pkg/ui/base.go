@@ -23,7 +23,8 @@ type Base struct {
 	TextStyles                  *TextStylesOverride
 	Shape                       Shape
 	OverShape                   []Coord
-	Transparency                Watch[float32]
+	Transparency                float32
+	Color                       ColorModify
 	Animation                   AnimationState
 	Animations                  *Animations
 	Cursors                     Cursors
@@ -41,11 +42,10 @@ type Base struct {
 	parent              *Base
 	renderParent        *Base
 	ui                  *UI
-	lastTransform       Transform
 	shown               []*Base
 	shownDirty          bool
 	layerBuffers        *VertexBuffers
-	childrenBufferQueue *VertexBuffers
+	childrenBufferQueue *VertexQueue
 }
 
 func (b *Base) UI() *UI {
@@ -75,25 +75,19 @@ func (b *Base) SetState(state State) {
 		state.Add(StateDefault)
 	}
 
-	if b.isDirtyForState(state) {
-		b.Dirty(DirtyVisual | DirtyPlacement)
+	if !b.dirty.Is(DirtyVisual) {
+		for _, layer := range b.Layers {
+			if layer.ForStates(state) != layer.ForStates(b.States) {
+				b.Dirty(DirtyVisual)
+				break
+			}
+		}
+	}
+	if b.ui.Theme.StatePostProcess[state] != nil {
+		b.Dirty(DirtyPostProcess)
 	}
 
 	b.States = state
-}
-
-func (c *Base) isDirtyForState(state State) bool {
-	if !c.dirty.Is(DirtyVisual | DirtyPlacement) {
-		for _, layer := range c.Layers {
-			if layer.ForStates(state) != layer.ForStates(c.States) {
-				return true
-			}
-		}
-		if c.ui != nil && c.ui.Theme.StatePostProcess[state] != nil {
-			return true
-		}
-	}
-	return false
 }
 
 func (b *Base) Edit(editor func(*Base)) *Base {
@@ -120,6 +114,30 @@ func (b *Base) SetRelativePlacement(placement Placement) {
 	if b.RelativePlacement != placement {
 		b.RelativePlacement = placement
 		b.Dirty(DirtyPlacement)
+	}
+}
+
+func (b *Base) SetTransform(transform Transform) {
+	if transform.IsEffectivelyIdentity() {
+		transform.Identity()
+	}
+	if b.Transform != transform {
+		b.Transform = transform
+		b.Dirty(DirtyPostProcess)
+	}
+}
+
+func (b *Base) SetTransparency(transparency float32) {
+	if b.Transparency != transparency {
+		b.Transparency = transparency
+		b.Dirty(DirtyPostProcess)
+	}
+}
+
+func (b *Base) SetColor(color ColorModify) {
+	if !b.Color.Equals(color) {
+		b.Color = color.GetEffective()
+		b.Dirty(DirtyPostProcess)
 	}
 }
 
@@ -203,7 +221,7 @@ func (b *Base) SetBounds(newBounds Bounds) bool {
 		}
 		dirty := DirtyVisual
 		if !b.dirty.Is(DirtyPlacement) {
-			dirty = DirtyPlacement
+			dirty.Add(DirtyPlacement)
 		}
 		b.Dirty(dirty)
 		return true
@@ -232,7 +250,6 @@ func (b *Base) Update(update Update) {
 	}
 
 	dirty.Add(b.Animation.Update(b, update))
-	dirty.Add(b.CheckForChanges())
 
 	if b.Hooks.OnUpdate != nil {
 		dirty.Add(b.Hooks.OnUpdate(b, update))
@@ -253,8 +270,16 @@ func (b *Base) Update(update Update) {
 	}
 }
 
-func (b *Base) WillRender() bool {
-	if b.Transparency.Get() == 1 && !b.Animation.IsAnimating() {
+func (b *Base) Relayout() {
+	b.Dirty(DirtyChildPlacement)
+}
+
+func (b *Base) Rerender() {
+	b.Dirty(DirtyVisual | DirtyChildVisual)
+}
+
+func (b *Base) CouldRender() bool {
+	if b.Transparency == 1 && !b.Animation.IsAnimating() {
 		return false
 	}
 	if b.IsHidden() {
@@ -263,29 +288,50 @@ func (b *Base) WillRender() bool {
 	return true
 }
 
-func (b *Base) Render(ctx *RenderContext, queue *VertexBuffers) {
-	if !b.WillRender() {
+func (b *Base) HasPostProcess() bool {
+	return b.dirty.Is(DirtyPostProcess) ||
+		b.ui.Theme.StatePostProcess[b.States] != nil ||
+		b.Hooks.OnPostProcess != nil ||
+		b.Hooks.OnPostProcessLayers != nil ||
+		b.Hooks.OnPostProcessChildren != nil ||
+		b.Animation.IsAnimating() ||
+		b.Transparency > 0 ||
+		b.Color != nil ||
+		b.Transform.HasAffect()
+}
+
+func (b *Base) Render(ctx *RenderContext, queue *VertexQueue) {
+	if !b.CouldRender() {
+		return
+	}
+
+	hasPostProcess := b.HasPostProcess()
+	useCache := b.dirty.Not(DirtyVisual | DirtyChildVisual)
+
+	if !hasPostProcess && useCache {
+		if b.layerBuffers != nil {
+			queue.Add(b.layerBuffers)
+		}
+		if b.childrenBufferQueue != nil {
+			queue.Add(b.childrenBufferQueue)
+		}
+
 		return
 	}
 
 	if b.parent != b.renderParent {
 		ctx = b.ComputeRenderContext()
+	} else {
+		ctx = ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 	}
 
-	if b.dirty.Not(DirtyVisual | DirtyChildVisual) {
-		if b.layerBuffers != nil {
-			queue.Queue(b.layerBuffers.Buffers)
-		}
-		if b.childrenBufferQueue != nil {
-			queue.Queue(b.childrenBufferQueue.Buffers)
-		}
+	queueSizeBeforeLayers := queue.Len()
 
-		return
-	}
+	baseVertices := NewVertexIterator(queue)
+	baseIndices := NewIndexIterator(queue)
 
-	b.visualBounds.Clear()
-
-	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
+	layerVertices := NewVertexIterator(queue)
+	layerIndices := NewIndexIterator(queue)
 
 	if b.dirty.Is(DirtyVisual) {
 		if b.layerBuffers == nil {
@@ -295,55 +341,54 @@ func (b *Base) Render(ctx *RenderContext, queue *VertexBuffers) {
 		b.layerBuffers.Clear()
 
 		if len(b.Layers) > 0 {
-			rendered := NewVertexIterator(b.layerBuffers)
-			renderedIndex := NewIndexIterator(b.layerBuffers)
-
 			for _, layer := range b.Layers {
 				if layer.ForStates(b.States) {
-					layer.Render(b, baseCtx, b.layerBuffers)
+					layer.Render(b, ctx, b.layerBuffers)
 				}
 			}
-
-			b.PostProcess(baseCtx, b.layerBuffers, renderedIndex, rendered)
-			b.Hooks.OnPostProcessLayers.Run(b, baseCtx, b.layerBuffers, renderedIndex, rendered)
-
-			b.updateVisualBounds(rendered)
 		}
 
 		b.dirty.Remove(DirtyVisual)
 	}
 
 	if b.layerBuffers != nil {
-		queue.Queue(b.layerBuffers.Buffers)
+		queue.Add(b.layerBuffers)
+
+		if hasPostProcess {
+			queue.Clone(queueSizeBeforeLayers, queue.Len())
+		}
 	}
+
+	layerVertices.Limit()
+	layerIndices.Limit()
+
+	queueSizeBeforeChildren := queue.Len()
+
+	childrenVertices := NewVertexIterator(queue)
+	childrenIndices := NewIndexIterator(queue)
+	clipped := false
 
 	if b.dirty.Is(DirtyChildVisual) {
 		if b.childrenBufferQueue == nil {
 			b.childrenBufferQueue = BufferQueuePool.Get()
 		}
 
-		b.childrenBufferQueue.QueueClear()
+		b.childrenBufferQueue.Clear()
 
 		if len(b.Children) > 0 {
 			clipBounds := b.Clip.GetBoundsIn(b.Bounds)
 
-			b.childrenBufferQueue.Clip(clipBounds, func(innerQueue *VertexBuffers) {
-				renderedChildren := NewVertexIterator(innerQueue)
-				renderedIndex := NewIndexIterator(innerQueue)
-
+			clipped = b.childrenBufferQueue.Clip(clipBounds, func(innerQueue *VertexQueue, clipping bool) {
 				shown := b.ShownChildren()
 				for _, child := range shown {
-					// beforeChild := inner.Position()
-					child.Render(baseCtx, innerQueue)
-					// if !clipBounds.IsEmpty() && !child.visualBounds.Intersects(clipBounds) {
-					// 	inner.Reset(beforeChild)
-					// }
+					beforeChild := innerQueue.Position()
+
+					child.Render(ctx, innerQueue)
+
+					if clipping && !child.visualBounds.Intersects(clipBounds) {
+						innerQueue.Reset(beforeChild)
+					}
 				}
-
-				b.PostProcess(baseCtx, innerQueue, renderedIndex, renderedChildren)
-				b.Hooks.OnPostProcessChildren.Run(b, baseCtx, innerQueue, renderedIndex, renderedChildren)
-
-				b.updateVisualBounds(renderedChildren)
 			})
 		}
 
@@ -351,60 +396,81 @@ func (b *Base) Render(ctx *RenderContext, queue *VertexBuffers) {
 	}
 
 	if b.childrenBufferQueue != nil {
-		queue.Queue(b.childrenBufferQueue.Buffers)
+		queue.Add(b.childrenBufferQueue)
+
+		if hasPostProcess && !clipped {
+			queue.Clone(queueSizeBeforeChildren, queue.Len())
+		}
+	}
+
+	if hasPostProcess {
+		childrenVertices.Limit()
+		childrenIndices.Limit()
+
+		baseVertices.Limit()
+		baseIndices.Limit()
+
+		b.Hooks.OnPostProcessLayers.Run(b, ctx, queue, layerIndices, layerVertices)
+		b.Hooks.OnPostProcessChildren.Run(b, ctx, queue, childrenIndices, childrenVertices)
+
+		b.PostProcess(ctx, queue, baseIndices, baseVertices)
 	}
 
 	if b.Hooks.OnRender != nil {
-		b.Hooks.OnRender(b, baseCtx, queue)
+		b.Hooks.OnRender(b, ctx, queue)
 	}
+
+	b.updateVisualBounds(baseVertices)
 }
 
-func (c *Base) PostProcess(ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
-	modifier := c.ui.Theme.StatePostProcess[c.States]
-	modifier.Run(c, ctx, out, index, vertex)
+func (b *Base) PostProcess(ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator) {
 
-	c.Animation.PostProcess(c, ctx, out, index, vertex)
+	modifier := b.ui.Theme.StatePostProcess[b.States]
+	modifier.Run(b, ctx, out, index, vertex)
 
-	if c.Transparency.Get() > 0 {
-		alphaMultiplier := 1 - c.Transparency.Get()
+	b.Animation.PostProcess(b, ctx, out, index, vertex)
+
+	if alphaMultiplier := 1 - b.Transparency; alphaMultiplier < 0.9999 {
 		for vertex.HasNext() {
 			v := vertex.Next()
+			if !v.HasColor {
+				v.Color = ColorWhite
+				v.HasColor = true
+			}
 			v.Color.A *= alphaMultiplier
 		}
 		vertex.Reset()
 	}
 
-	transform := &c.Transform
-	if transform.HasAffect() {
+	if colorModifier := b.Color; colorModifier != nil {
+		for vertex.HasNext() {
+			v := vertex.Next()
+			if !v.HasColor {
+				v.Color = ColorWhite
+				v.HasColor = true
+			}
+			v.Color = colorModifier(v.Color)
+		}
+		vertex.Reset()
+	}
+
+	if transform := &b.Transform; transform.HasAffect() {
 		for vertex.HasNext() {
 			v := vertex.Next()
 			v.X, v.Y = transform.Transform(v.X, v.Y)
 		}
 	}
 
-	c.Hooks.OnPostProcess.Run(c, ctx, out, index, vertex)
+	b.Hooks.OnPostProcess.Run(b, ctx, out, index, vertex)
+
+	b.dirty.Remove(DirtyPostProcess)
 }
 
-func (c *Base) CheckForChanges() Dirty {
-	dirty := DirtyNone
-
-	if c.Transparency.Cleaned() {
-		dirty.Add(DirtyVisual)
-	}
-
-	if c.lastTransform != c.Transform {
-		dirty.Add(DirtyVisual)
-		c.lastTransform = c.Transform
-	}
-
-	return dirty
-}
-
-func (c *Base) ComputeRenderContext() *RenderContext {
-	if c.parent == nil {
-		return c.ui.renderContext.WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
+func (b *Base) ComputeRenderContext() *RenderContext {
+	if b.parent == nil {
+		return b.ui.renderContext.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 	} else {
-		return c.parent.ComputeRenderContext().WithBoundsAndTextStyles(c.Bounds, c.TextStyles)
+		return b.parent.ComputeRenderContext().WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 	}
 }
 
@@ -492,9 +558,11 @@ func (b *Base) TightenFor(ctx *RenderContext) {
 	b.SetPlacement(b.Placement.WithSize(size.X, size.Y))
 }
 
-func (b *Base) updateVisualBounds(vertex VertexIterator) {
-	for vertex.HasNext() {
-		v := vertex.Next()
+func (b *Base) updateVisualBounds(baseVertices VertexIterator) {
+	b.visualBounds.Clear()
+
+	for baseVertices.HasNext() {
+		v := baseVertices.Next()
 		b.visualBounds.Include(v.X, v.Y)
 	}
 }
@@ -525,7 +593,7 @@ func (b *Base) IsInside(pt Coord) bool {
 }
 
 func (b *Base) At(pt Coord) *Base {
-	transparency := b.Transparency.Get()
+	transparency := b.Transparency
 	if transparency > 0 && b.ui.TransparencyThreshold > 0 && transparency >= b.ui.TransparencyThreshold {
 		return nil
 	}
@@ -602,6 +670,9 @@ func (b *Base) Remove() {
 }
 
 func (b *Base) removeNow() {
+	if b.renderParent != nil {
+		b.renderParent.ChildrenUpdated()
+	}
 	b.cleanup()
 	b.removeFrom(b.parent)
 	b.parent = nil
@@ -617,6 +688,7 @@ func (b *Base) cleanup() {
 		b.layerBuffers = nil
 	}
 	if b.childrenBufferQueue != nil {
+		BufferQueuePool.Free(b.childrenBufferQueue)
 		b.childrenBufferQueue = nil
 	}
 	for _, child := range b.Children {
@@ -643,7 +715,7 @@ func (b *Base) removeFrom(parent *Base) {
 
 func (b *Base) ChildrenUpdated() {
 	if b != nil {
-		b.Dirty(DirtyPlacement)
+		b.Dirty(DirtyChildPlacement | DirtyChildVisual)
 		b.shownDirty = true
 	}
 }
@@ -851,6 +923,8 @@ type Template struct {
 	TextStyles                  *TextStylesOverride
 	Shape                       Shape
 	OverShape                   []Coord
+	Transparency                float32
+	Color                       ColorModify
 	Animations                  *Animations
 	AnimationsMerge             bool
 	Cursors                     Cursors
@@ -897,6 +971,12 @@ func (b *Base) ApplyTemplate(t *Template) {
 	}
 	if b.OverShape == nil {
 		b.OverShape = t.OverShape
+	}
+	if b.Color == nil {
+		b.Color = t.Color
+	}
+	if b.Transparency == 0 {
+		b.Transparency = t.Transparency
 	}
 	if t.Animations != nil && (t.AnimationsMerge || b.Animations == nil) {
 		if b.Animations == nil {

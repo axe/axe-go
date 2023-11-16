@@ -103,14 +103,17 @@ func (ui *UI) RenderContext() *RenderContext {
 }
 
 func (ui *UI) NeedsRender() bool {
-	return ui.Root.GetDirty().Is(DirtyVisual | DirtyChildVisual)
+	return ui.Root.GetDirty().Is(DirtyVisual | DirtyChildVisual | DirtyPostProcess)
 }
 
 func (ui *UI) Update(update Update) {
 	ui.Root.Update(update)
 }
 
-func (ui *UI) Render(queue *VertexBuffers) {
+func (ui *UI) Render(queue *VertexQueue) {
+	for !ClipMemory.IsEmpty() {
+		ClipPool.Free(ClipMemory.Pop())
+	}
 	ui.Root.Render(&ui.renderContext, queue)
 }
 

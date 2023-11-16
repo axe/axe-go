@@ -10,7 +10,7 @@ type Animation interface {
 	Init(base *Base)
 	Update(base *Base, animationTime float32, update Update) Dirty
 	IsDone(base *Base, animationTime float32) bool
-	PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator)
+	PostProcess(base *Base, animationTime float32, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator)
 }
 
 type AnimationFactory interface {
@@ -95,7 +95,7 @@ func (as *AnimationState) Update(base *Base, update Update) Dirty {
 	return dirty
 }
 
-func (as *AnimationState) PostProcess(base *Base, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
+func (as *AnimationState) PostProcess(base *Base, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator) {
 	if as.Current != nil {
 		as.Current.PostProcess(base, as.CurrentTime, ctx, out, index, vertex)
 		if as.lastPostProcess {
@@ -108,11 +108,15 @@ func (as *AnimationState) IsAnimating() bool {
 	return as.Current != nil
 }
 
-func (c *Base) PlayMaybe(name string) bool {
-	return c.Play(id.Maybe(name))
+func (b *Base) Play(factory AnimationFactory) bool {
+	return b.playFactory(factory, AnimationEventNone)
 }
 
-func (b *Base) Play(name id.Identifier) bool {
+func (b *Base) PlayMaybe(name string) bool {
+	return b.PlayName(id.Maybe(name))
+}
+
+func (b *Base) PlayName(name id.Identifier) bool {
 	return b.playFactory(b.AnimationNamed(name), AnimationEventNone)
 }
 
@@ -158,13 +162,53 @@ func (b *Base) playFactory(factory AnimationFactory, ev AnimationEvent) bool {
 }
 
 type BasicAnimationFrame struct {
-	Translate    AmountPoint
-	Scale        *Coord
-	Rotate       float32
-	Origin       AmountPoint
-	Time         float32
-	Transparency float32
-	Easing       func(float32) float32
+	Translate AmountPoint
+	Scale     *Coord
+	Rotate    float32
+	Origin    AmountPoint
+	Time      float32
+	Color     ColorModify
+	Easing    func(float32) float32
+}
+
+func (start BasicAnimationFrame) Lerp(end BasicAnimationFrame, delta float32, ctx *AmountContext, x, y float32) BasicAnimationFrameInterpolated {
+	startTx, startTy := start.Translate.Get(ctx)
+	startOx, startOy := start.Origin.Get(ctx)
+	endTx, endTy := end.Translate.Get(ctx)
+	endOx, endOy := end.Origin.Get(ctx)
+
+	inter := BasicAnimationFrameInterpolated{}
+
+	inter.ScaleX = float32(1)
+	inter.ScaleY = float32(1)
+	if start.Scale != nil && end.Scale != nil {
+		inter.ScaleX = util.Lerp(start.Scale.X, end.Scale.X, delta)
+		inter.ScaleY = util.Lerp(start.Scale.Y, end.Scale.Y, delta)
+	}
+	inter.OriginX = util.Lerp(startOx, endOx, delta) + x
+	inter.OriginY = util.Lerp(startOy, endOy, delta) + y
+	inter.TranslateX = util.Lerp(startTx, endTx, delta)
+	inter.TranslateY = util.Lerp(startTy, endTy, delta)
+
+	inter.Rotation = util.Lerp(start.Rotate, end.Rotate, delta)
+	inter.Color = start.Color.Lerp(end.Color, delta)
+
+	return inter
+}
+
+type BasicAnimationFrameInterpolated struct {
+	ScaleX, ScaleY         float32
+	OriginX, OriginY       float32
+	TranslateX, TranslateY float32
+	Rotation               float32
+	Color                  ColorModify
+}
+
+func (inter BasicAnimationFrameInterpolated) Transform() Transform {
+	transform := Transform{}
+	transform.SetRotateDegreesScaleAround(inter.Rotation, inter.ScaleX, inter.ScaleY, inter.OriginX, inter.OriginY)
+	transform.PreTranslate(inter.TranslateX, inter.TranslateY)
+	return transform
 }
 
 type BasicAnimation struct {
@@ -190,12 +234,12 @@ func (a BasicAnimation) WithEasing(easing func(float32) float32) BasicAnimation 
 }
 func (a BasicAnimation) Init(base *Base) {}
 func (a BasicAnimation) Update(base *Base, animationTime float32, update Update) Dirty {
-	return DirtyVisual
+	return DirtyPostProcess
 }
 func (a BasicAnimation) IsDone(base *Base, animationTime float32) bool {
 	return animationTime > a.Duration
 }
-func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers, index IndexIterator, vertex VertexIterator) {
+func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator) {
 	animationDelta := util.Min(animationTime/a.Duration, 1)
 	animationEasingDelta := Ease(animationDelta, a.Easing)
 
@@ -210,43 +254,21 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 	timeDelta := util.Delta(start.Time, end.Time, animationEasingDelta)
 	timeEasingDelta := Ease(timeDelta, start.Easing)
 
-	startTx, startTy := start.Translate.Get(ctx.AmountContext)
-	startOx, startOy := start.Origin.Get(ctx.AmountContext)
-	endTx, endTy := end.Translate.Get(ctx.AmountContext)
-	endOx, endOy := end.Origin.Get(ctx.AmountContext)
-
-	scaleX := float32(1)
-	scaleY := float32(1)
-	if start.Scale != nil && end.Scale != nil {
-		scaleX = util.Lerp(start.Scale.X, end.Scale.X, timeEasingDelta)
-		scaleY = util.Lerp(start.Scale.Y, end.Scale.Y, timeEasingDelta)
-	}
-	origX := util.Lerp(startOx, endOx, timeEasingDelta) + base.Bounds.Left
-	origY := util.Lerp(startOy, endOy, timeEasingDelta) + base.Bounds.Top
-	transX := util.Lerp(startTx, endTx, timeEasingDelta)
-	transY := util.Lerp(startTy, endTy, timeEasingDelta)
-
-	rotation := util.Lerp(start.Rotate, end.Rotate, timeEasingDelta)
-	transparency := util.Lerp(start.Transparency, end.Transparency, timeEasingDelta)
-
-	transform := Transform{}
-	transform.SetRotateDegreesScaleAround(rotation, scaleX, scaleY, origX, origY)
-	transform.PreTranslate(transX, transY)
+	inter := start.Lerp(end, timeEasingDelta, ctx.AmountContext, base.Bounds.Left, base.Bounds.Top)
+	transform := inter.Transform()
 
 	if a.Save {
-		base.Transparency.Set(transparency)
-		if transform.IsEffectivelyIdentity() {
-			base.Transform.Identity()
-		} else {
-			base.Transform = transform
-		}
+		base.SetColor(inter.Color)
+		base.SetTransform(transform)
 	} else {
-		alphaScalar := 1 - transparency
-
 		for vertex.HasNext() {
 			v := vertex.Next()
 			v.X, v.Y = transform.Transform(v.X, v.Y)
-			v.Color.A *= alphaScalar
+			if !v.HasColor {
+				v.Color = ColorWhite
+				v.HasColor = true
+			}
+			v.Color = inter.Color(v.Color)
 		}
 	}
 }

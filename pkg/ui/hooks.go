@@ -72,13 +72,13 @@ func (h *HookUpdate) Add(add HookUpdate, before bool) {
 	*h = util.CoalesceJoin(*h, add, before, hookUpdateNil, hookUpdateJoin)
 }
 
-type HookRender func(b *Base, ctx *RenderContext, out *VertexBuffers)
+type HookRender func(b *Base, ctx *RenderContext, out *VertexQueue)
 
 func hookRenderNil(h HookRender) bool {
 	return h == nil
 }
 func hookRenderJoin(first, second HookRender) HookRender {
-	return func(b *Base, ctx *RenderContext, out *VertexBuffers) {
+	return func(b *Base, ctx *RenderContext, out *VertexQueue) {
 		first(b, ctx, out)
 		second(b, ctx, out)
 	}

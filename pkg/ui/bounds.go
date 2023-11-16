@@ -192,7 +192,7 @@ type ClippedLine struct {
 	StartDelta float32
 	End        Coord
 	EndDelta   float32
-	Inside     bool
+	Outside    bool
 }
 
 func (b Bounds) ClipLine(x0, y0, x1, y1 float32) ClippedLine {
@@ -201,12 +201,12 @@ func (b Bounds) ClipLine(x0, y0, x1, y1 float32) ClippedLine {
 	line := ClippedLine{
 		StartDelta: 0,
 		EndDelta:   1,
-		Inside:     false,
+		Outside:    true,
 	}
 
 	for {
 		if (side0 | side1) == 0 {
-			line.Inside = true
+			line.Outside = false
 			break
 		} else if (side0 & side1) != 0 {
 			break

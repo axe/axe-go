@@ -205,7 +205,7 @@ func main() {
 					textAnimation := ui.BasicTextAnimation{
 						Settings: []ui.BasicTextAnimationSettings{{
 							Kind: ui.BasicTextAnimationKindChar,
-							Frames: []ui.BasicTextAnimationFrame{{
+							Frames: []ui.BasicAnimationFrame{{
 								Translate: ui.NewAmountPoint(0, 40),
 								Scale:     &ui.Coord{X: 4, Y: 4},
 								Origin:    ui.NewAmountPointUnit(0.5, 1, ui.UnitParent),
@@ -222,7 +222,7 @@ func main() {
 						}, {
 							Start: 11,
 							Kind:  ui.BasicTextAnimationKindWord,
-							Frames: []ui.BasicTextAnimationFrame{{
+							Frames: []ui.BasicAnimationFrame{{
 								Translate: ui.NewAmountPoint(0, -10),
 								Color:     ui.Alpha(0),
 								Time:      0,
@@ -235,7 +235,7 @@ func main() {
 						}, {
 							Start: 39,
 							Kind:  ui.BasicTextAnimationKindLine,
-							Frames: []ui.BasicTextAnimationFrame{{
+							Frames: []ui.BasicAnimationFrame{{
 								Translate: ui.NewAmountPoint(-100, 0),
 								Color:     ui.Alpha(0),
 								Time:      0,
@@ -248,7 +248,7 @@ func main() {
 						}, {
 							Start: 159,
 							Kind:  ui.BasicTextAnimationKindColumn,
-							Frames: []ui.BasicTextAnimationFrame{{
+							Frames: []ui.BasicAnimationFrame{{
 								Translate: ui.NewAmountPoint(-10, 0),
 								Color:     ui.Alpha(0),
 								Time:      0,
@@ -264,11 +264,18 @@ func main() {
 					textWindow := newWindow("Test Window", ui.Absolute(900, 20, 500, 400))
 					textWindow.Children = append(textWindow.Children,
 						&ui.Base{
-							Placement:                   ui.MaximizeOffset(10, 34, 10, 10),
+							Placement:                   ui.MaximizeOffset(10, 44, 10, 10),
 							IgnoreLayoutPreferredHeight: true,
 							Clip:                        ui.Maximized(),
 							Layout: ui.LayoutStatic{
 								EnforcePreferredSize: true,
+							},
+							Events: ui.Events{
+								OnPointer: func(ev *ui.PointerEvent) {
+									if !ev.Capture && ev.Type == ui.PointerEventWheel {
+										fmt.Printf("Wheel event: %+v\n", ev.Amount)
+									}
+								},
 							},
 							Children: []*ui.Base{{
 								Layers: []ui.Layer{{
@@ -283,7 +290,7 @@ func main() {
 										"{p}{h:0.25}25% aligned?",
 										"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
 										"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
-									}, "\n")).Animate(textAnimation),
+									}, "\n")).Play(textAnimation),
 								}},
 								Events: ui.Events{
 									OnPointer: func(ev *ui.PointerEvent) {
@@ -298,8 +305,19 @@ func main() {
 									},
 								},
 							},
-								newButton(ui.Placement{}.Attach(1, 0, 100, 30).Shift(-10, 10), "Do a barrel roll!", false, func() {
-
+								newButton(ui.Placement{}.Attach(1, 0, 0, 0), "{h:center}{w:none}Do a barrel roll!", false, func() {
+									textWindow.Play(ui.BasicAnimation{
+										Duration: 1.0,
+										Easing: func(x float32) float32 {
+											inv := 1.0 - x
+											return (1.0 - util.Abs(inv*inv*util.Cos(x*x*7.0)))
+										},
+										Save: true,
+										Frames: []ui.BasicAnimationFrame{
+											{Rotate: 360, Time: 0, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
+											{Rotate: 0, Time: 1, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
+										},
+									})
 								}),
 							},
 						},
@@ -311,7 +329,7 @@ func main() {
 						frame := userInterface.Named.Get(layoutColumnName)
 						layout := frame.Layout.(*ui.LayoutColumn)
 						change(layout)
-						frame.Dirty(ui.DirtyPlacement)
+						frame.Relayout()
 					}
 					layoutColumnWindow := newWindow("Layout Column", ui.Absolute(10, 500, 300, 300))
 					layoutColumnWindow.Children = append(layoutColumnWindow.Children, &ui.Base{
@@ -366,7 +384,7 @@ func main() {
 						frame := userInterface.Named.Get(layoutRowName)
 						layout := frame.Layout.(*ui.LayoutRow)
 						change(layout)
-						frame.Dirty(ui.DirtyPlacement)
+						frame.Relayout()
 					}
 					layoutRowWindow := newWindow("Layout Row", ui.Absolute(800, 500, 300, 300))
 					layoutRowWindow.Children = append(layoutRowWindow.Children, &ui.Base{
@@ -568,7 +586,7 @@ func main() {
 						frame := userInterface.Named.Get(layoutInlineName)
 						layout := frame.Layout.(*ui.LayoutInline)
 						change(layout)
-						frame.Dirty(ui.DirtyPlacement)
+						frame.Relayout()
 					}
 					layoutInlineWindow := newWindow("Layout Inline", ui.Absolute(20, 700, 300, 300))
 					layoutInlineWindow.Children = append(layoutInlineWindow.Children,
@@ -720,8 +738,8 @@ var FadeInAnimation = ui.BasicAnimation{
 	Save:     true,
 	Duration: 0.5,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Transparency: 1},
-		{Time: 1, Transparency: 0},
+		{Time: 0, Color: ui.Alpha(0)},
+		{Time: 1, Color: ui.Alpha(1)},
 	},
 }
 
@@ -729,8 +747,8 @@ var FadeOutAnimation = ui.BasicAnimation{
 	Save:     true,
 	Duration: 0.5,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Transparency: 0},
-		{Time: 1, Transparency: 1},
+		{Time: 0, Color: ui.Alpha(1)},
+		{Time: 1, Color: ui.Alpha(0)},
 	},
 }
 
@@ -739,7 +757,7 @@ var FadeOutSlideUpAnimation = ui.BasicAnimation{
 	Duration: 0.7,
 	Frames: []ui.BasicAnimationFrame{
 		{Time: 0, Origin: OriginCenter},
-		{Time: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter, Transparency: 1},
+		{Time: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter, Color: ui.Alpha(0)},
 	},
 }
 
@@ -747,7 +765,7 @@ var FadeInSlideDownAnimation = ui.BasicAnimation{
 	Save:     true,
 	Duration: 0.7,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Transparency: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter},
+		{Time: 0, Color: ui.Alpha(0), Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter},
 		{Time: 1, Origin: OriginCenter},
 	},
 }
@@ -756,7 +774,7 @@ var FadeInSlideRightAnimation = ui.BasicAnimation{
 	Save:     true,
 	Duration: 0.7,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Translate: ui.AmountPoint{X: ui.Amount{Value: -100}}, Origin: OriginCenter, Transparency: 1},
+		{Time: 0, Translate: ui.AmountPoint{X: ui.Amount{Value: -100}}, Origin: OriginCenter, Color: ui.Alpha(0)},
 		{Time: 1, Origin: OriginCenter},
 	},
 }
@@ -764,24 +782,24 @@ var FadeInSlideRightAnimation = ui.BasicAnimation{
 var ExplodeAnimation = ui.BasicAnimation{
 	Duration: 0.2,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Transparency: 0, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
-		{Time: 1, Transparency: 1, Scale: &ui.Coord{X: 4, Y: 4}, Origin: OriginCenter},
+		{Time: 0, Color: ui.Alpha(1), Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
+		{Time: 1, Color: ui.Alpha(0), Scale: &ui.Coord{X: 4, Y: 4}, Origin: OriginCenter},
 	},
 }
 
 var CollapseOpenAnimation = ui.BasicAnimation{
 	Duration: 0.3,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Scale: &ui.Coord{X: 1, Y: 0}, Transparency: 1},
-		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Transparency: 0},
+		{Time: 0, Scale: &ui.Coord{X: 1, Y: 0}, Color: ui.Alpha(0)},
+		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Color: ui.Alpha(1)},
 	},
 }
 
 var CollapseCloseAnimation = ui.BasicAnimation{
 	Duration: 0.3,
 	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Scale: &ui.Coord{X: 1, Y: 1}, Transparency: 0},
-		{Time: 1, Scale: &ui.Coord{X: 1, Y: 0}, Transparency: 1},
+		{Time: 0, Scale: &ui.Coord{X: 1, Y: 1}, Color: ui.Alpha(1)},
+		{Time: 1, Scale: &ui.Coord{X: 1, Y: 0}, Color: ui.Alpha(0)},
 	},
 }
 
@@ -1297,12 +1315,12 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 				}
 				switch ev.Type {
 				case ui.DragEventStart:
-					frame.Transparency.Set(0.2)
+					frame.SetTransparency(0.2)
 					frame.BringToFront()
 				case ui.DragEventMove:
 					frame.SetPlacement(frame.Placement.Shift(ev.DeltaMove.X, ev.DeltaMove.Y))
 				case ui.DragEventEnd:
-					frame.Transparency.Set(0)
+					frame.SetTransparency(0)
 				}
 			},
 		},
@@ -1369,11 +1387,11 @@ func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventUp {
-					win.Transparency.Set(1)
+					win.SetTransparency(1)
 
 					go func() {
 						time.Sleep(time.Second * 3)
-						win.Transparency.Set(0)
+						win.SetTransparency(0)
 					}()
 				}
 			},
@@ -1498,7 +1516,7 @@ func newWindowResizer(win *ui.Base, cursor id.Identifier, placement ui.Placement
 					ev.Stop = true
 					switch ev.Type {
 					case ui.DragEventStart:
-						win.Transparency.Set(0.2)
+						win.SetTransparency(0.2)
 						start = win.Placement
 					case ui.DragEventMove:
 						current := win.Placement
@@ -1515,7 +1533,7 @@ func newWindowResizer(win *ui.Base, cursor id.Identifier, placement ui.Placement
 					case ui.DragEventCancel:
 						win.SetPlacement(start)
 					case ui.DragEventEnd:
-						win.Transparency.Set(0)
+						win.SetTransparency(0)
 					}
 				}
 			},

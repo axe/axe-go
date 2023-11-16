@@ -7,6 +7,60 @@ import (
 	"github.com/axe/axe-go/pkg/ui"
 )
 
+func TestColorModify(t *testing.T) {
+	if ui.Alpha(1).HasAffect() {
+		t.Errorf("Alpha(1).HasAffect")
+	}
+}
+
+func TestLayoutGrid(t *testing.T) {
+	parent := ui.Bounds{Right: 300, Bottom: 300}
+	text := ui.MustTextToVisual("{h:0.5}{pv:0.5}Toggle FullHeight")
+	base := &ui.Base{
+		Placement: ui.Maximized(),
+		Layout: ui.LayoutGrid{
+			FullHeight:          false,
+			FullWidth:           false,
+			VerticalAlignment:   ui.AlignmentCenter,
+			HorizontalAlignment: ui.AlignmentCenter,
+			VerticalSpacing:     ui.Amount{Value: 10},
+			HorizontalSpacing:   ui.Amount{Value: 10},
+			Columns:             3,
+			AspectRatio:         0,
+		},
+		Children: []*ui.Base{{
+			Layers: []ui.Layer{{
+				Placement: ui.Maximized().Shrink(8),
+				Visual:    text,
+			}},
+		}},
+	}
+
+	ctx := getContextWithFont("roboto")
+	base.Place(ctx, parent, true)
+
+	fmt.Printf("Layoutable #1: %+v\n", base.Children[0].Bounds)
+	fmt.Printf("Layoutable #1 Visual: %+v\n", text.Paragraphs.Measure(ctx))
+}
+
+func TestFlagsTake(t *testing.T) {
+	var flags ui.Flags = 2 | 4 | 16 | 128
+	fmt.Printf("%d\n", flags.Take())
+	fmt.Printf("%d\n", flags.Take())
+	fmt.Printf("%d\n", flags.Take())
+	fmt.Printf("%d\n", flags.Take())
+	fmt.Printf("%d\n", flags.Take())
+}
+
+func TestVertexBufferClear(t *testing.T) {
+	vbs := ui.BufferPool.Get()
+	vb := vbs.Buffer()
+	vb.Add(ui.Vertex{X: 1}, ui.Vertex{X: 2}, ui.Vertex{X: 3})
+	vbs.Clear()
+	vb1 := vbs.Buffer()
+	vb1.Clear()
+}
+
 const EPSILON = 0.00001
 
 func floatEqual(a, b float32) bool {

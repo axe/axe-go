@@ -292,7 +292,7 @@ func (s *VisualText) Update(b *Base, update Update) Dirty {
 	return dirty
 }
 
-func (s *VisualText) Animate(factory TextAnimationFactory) *VisualText {
+func (s *VisualText) Play(factory TextAnimationFactory) *VisualText {
 	s.animationTime = 0
 	s.AnimationFactory = factory
 	return s

@@ -3,13 +3,16 @@ package buf
 import "github.com/axe/axe-go/pkg/util"
 
 type Buffer[D any] struct {
-	data       []D
-	dataCount  int
-	index      []int
-	indexCount int
+	data          []D
+	dataCount     int
+	dataReserved  int
+	index         []int
+	indexCount    int
+	indexReserved int
 }
 
 var _ Bufferable[int] = Buffer[int]{}
+var _ HasBuffers[Buffer[int]] = Buffer[int]{}
 
 func (b *Buffer[D]) Init(capacity int) {
 	if b.data == nil {
@@ -17,6 +20,14 @@ func (b *Buffer[D]) Init(capacity int) {
 		b.index = make([]int, capacity*3/2)
 	}
 	b.Clear()
+}
+
+func (b *Buffer[D]) CloneTo(target Buffer[D]) Buffer[D] {
+	target.data = util.SliceAppendAt(target.data, 0, b.data[:b.dataCount])
+	target.dataCount = b.dataCount
+	target.index = util.SliceAppendAt(target.index, 0, b.index[:b.indexCount])
+	target.indexCount = b.indexCount
+	return target
 }
 
 func (b *Buffer[D]) Clear() {
@@ -73,16 +84,18 @@ func (b Buffer[D]) Remaining() int {
 }
 
 func (b *Buffer[D]) Reserve(datas int, indices int) {
-	b.data = util.SliceEnsureSize(b.data, b.dataCount+datas+1)
-	b.index = util.SliceEnsureSize(b.index, b.indexCount+indices+1)
+	b.ReserveData(datas)
+	b.ReserveIndex(indices)
 }
 
 func (b *Buffer[D]) ReserveData(datas int) {
-	b.data = util.SliceEnsureSize(b.data, b.dataCount+datas+1)
+	b.dataReserved += datas
+	b.data = util.SliceEnsureSize(b.data, b.dataCount+b.dataReserved)
 }
 
 func (b *Buffer[D]) ReserveIndex(indices int) {
-	b.index = util.SliceEnsureSize(b.index, b.indexCount+indices+1)
+	b.indexReserved += indices
+	b.index = util.SliceEnsureSize(b.index, b.indexCount+b.indexReserved)
 }
 
 func (b *Buffer[D]) Reserved(dataCount, indexCount int) (dataIndex int, data []D, index []int) {
@@ -91,18 +104,22 @@ func (b *Buffer[D]) Reserved(dataCount, indexCount int) (dataIndex int, data []D
 	index = b.index[b.indexCount : b.indexCount+indexCount]
 	b.dataCount += dataCount
 	b.indexCount += indexCount
+	b.dataReserved -= dataCount
+	b.indexReserved -= indexCount
 	return
 }
 
 func (b *Buffer[D]) ReservedNext() *D {
 	data := &b.data[b.dataCount]
 	b.dataCount++
+	b.dataReserved--
 	return data
 }
 
 func (b *Buffer[D]) ReservedNextIndex() *int {
 	index := &b.index[b.indexCount]
 	b.indexCount++
+	b.indexReserved--
 	return index
 }
 
@@ -135,4 +152,8 @@ func (b *Buffer[D]) AddRelative(data []D, relative []int) {
 	for i := startAt; i < b.indexCount; i++ {
 		b.index[i] += index
 	}
+}
+
+func (b Buffer[D]) GetBuffers() []Buffer[D] {
+	return []Buffer[D]{b}
 }

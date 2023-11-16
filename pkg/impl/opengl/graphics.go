@@ -306,11 +306,11 @@ func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 		u.Place(bounds)
 
 		if u.NeedsRender() {
-			vertexBufferQueue.QueueClear()
+			vertexBufferQueue.Clear()
 			u.Render(vertexBufferQueue)
 		}
 
-		if vertexBufferQueue.QueueLen() > 0 {
+		if vertexBufferQueue.Len() > 0 {
 			renderBuffers(vertexBufferQueue, game, windowSize.Y)
 		}
 
@@ -318,8 +318,8 @@ func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 			cursor := u.GetCursor()
 			if cursor != nil {
 				buf := cursorBuffer.Buffer()
-				buf.ReserveQuads(1)
-				buf.AddReservedQuadSlice(cursor)
+				quad := buf.AddQuad()
+				copy(quad, cursor)
 				renderBuffers(cursorBuffer, game, windowSize.Y)
 				if !hadCursor {
 					glfw.GetCurrentContext().SetInputMode(glfw.CursorMode, glfw.CursorHidden)
@@ -333,7 +333,7 @@ func renderUserInterfaces(view axe.View2f, game *axe.Game) {
 	}
 }
 
-func renderBuffers(buffers *ui.VertexBuffers, game *axe.Game, windowHeight int32) {
+func renderBuffers(buffers ui.VertexIterable, game *axe.Game, windowHeight int32) {
 	gl.Disable(gl.LIGHTING)
 	gl.Disable(gl.TEXTURE_2D)
 

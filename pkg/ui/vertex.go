@@ -185,40 +185,97 @@ type VertexModifier func(*Vertex)
 
 type VertexIterator = buf.DataIterator[Vertex, VertexBuffer]
 
-func NewVertexIterator(vb *VertexBuffers) VertexIterator {
-	return buf.NewDataIterator(&vb.Buffers)
+func NewVertexIterator(iterable buf.Iterable[Vertex, VertexBuffer]) VertexIterator {
+	return buf.NewDataIterator[Vertex, VertexBuffer](iterable)
 }
 
 type IndexIterator = buf.IndexIterator[Vertex, VertexBuffer]
 
-func NewIndexIterator(vb *VertexBuffers) IndexIterator {
-	return buf.NewIndexIterator(&vb.Buffers)
+func NewIndexIterator(iterable buf.Iterable[Vertex, VertexBuffer]) IndexIterator {
+	return buf.NewIndexIterator[Vertex, VertexBuffer](iterable)
 }
 
 var (
 	BufferPoolCreate = func() *VertexBuffers {
 		return NewVertexBuffers(BufferCapacity, Buffers)
 	}
-	BufferPoolQueueCreate = func() *VertexBuffers {
-		return NewVertexBuffers(0, 0)
+	ClipPoolCreate = func() *VertexBuffers {
+		return NewVertexBuffers(ClipCapacity, Buffers)
+	}
+	BufferPoolQueueCreate = func() *VertexQueue {
+		return NewVertexQueue(BufferQueueCapacity)
 	}
 	BufferPoolReset = func(vbs *VertexBuffers) *VertexBuffers {
 		vbs.Clear()
 		return vbs
 	}
+	BufferPoolQueueReset = func(vbs *VertexQueue) *VertexQueue {
+		vbs.Clear()
+		return vbs
+	}
 
-	BufferPoolSize = 256
-	BufferCapacity = 64
-	Buffers        = 1
+	BufferPoolSize      = 256
+	BufferCapacity      = 64
+	ClipPoolSize        = 24
+	ClipCapacity        = 1024
+	BufferQueueCapacity = 12
+	BufferQueuePoolSize = 256
+	Buffers             = 1
 
 	BufferPool      = ds.NewPool(BufferPoolSize, BufferPoolCreate, BufferPoolReset)
-	BufferQueuePool = ds.NewPool(BufferPoolSize, BufferPoolQueueCreate, BufferPoolReset)
+	BufferQueuePool = ds.NewPool(BufferQueuePoolSize, BufferPoolQueueCreate, BufferPoolQueueReset)
+
+	ClipPool   = ds.NewPool(ClipPoolSize, ClipPoolCreate, BufferPoolReset)
+	ClipMemory = ds.NewStack[*VertexBuffers](32)
 )
 
 func NewVertexBuffers(capacity int, buffers int) *VertexBuffers {
 	vbs := &VertexBuffers{}
 	vbs.Buffers = *buf.NewBuffers[Vertex](capacity, buffers, vbs.initBuffer, vbs.resetBuffer)
 	return vbs
+}
+
+func NewVertexQueue(capacity int) *VertexQueue {
+	return &VertexQueue{
+		Queue: *buf.NewQueue[Vertex, VertexBuffer](capacity),
+	}
+}
+
+type VertexIterable = buf.Iterable[Vertex, VertexBuffer]
+
+type VertexQueue struct {
+	buf.Queue[Vertex, VertexBuffer]
+}
+
+func (vbs *VertexQueue) Clip(bounds Bounds, render func(clippable *VertexQueue, clipping bool)) bool {
+	if bounds.IsEmpty() {
+		render(vbs, false)
+
+		return false
+	} else {
+		clippable := BufferQueuePool.Get()
+		render(clippable, true)
+		clipped := ClipPool.Get()
+		clipIterable(bounds, clippable, clipped)
+		BufferQueuePool.Free(clippable)
+		ClipMemory.Push(clipped)
+		vbs.Add(clipped)
+
+		return true
+	}
+}
+
+func (vbs *VertexQueue) Clone(start, endExclusive int) {
+	if start == endExclusive {
+		return
+	}
+	buffers := vbs.GetBuffers()
+	clones := ClipPool.Get()
+	clones.Reserve(endExclusive - start)
+	for i := start; i < endExclusive; i++ {
+		buffers[i] = *buffers[i].CloneTo(clones.ReservedNext())
+	}
+	ClipMemory.Push(clones)
 }
 
 type VertexBuffers struct {
@@ -244,21 +301,24 @@ func (vbs *VertexBuffers) Clip(bounds Bounds, render func(clippable *VertexBuffe
 	if bounds.IsEmpty() {
 		render(vbs)
 	} else {
-		children := vbs.NewLike()
-		render(children)
-		childCount := children.Len()
-		out := vbs.Buffer()
+		clippable := BufferPool.Get()
+		render(clippable)
+		clipIterable(bounds, clippable, vbs)
+		BufferPool.Free(clippable)
+	}
+}
 
-		for bufferIndex := 0; bufferIndex < childCount; bufferIndex++ {
-			child := children.At(bufferIndex)
-			if !child.ClipCompatible(out) {
-				out = vbs.AddBuffer()
-				out.Blend = child.Blend
-			}
-			child.Clip(bounds, out)
+func clipIterable(bounds Bounds, clippable VertexIterable, clipped *VertexBuffers) {
+	childCount := clippable.Len()
+	vb := clipped.Buffer()
+
+	for bufferIndex := 0; bufferIndex < childCount; bufferIndex++ {
+		child := clippable.At(bufferIndex)
+		if !child.ClipCompatible(vb) {
+			vb = clipped.Add()
+			vb.Blend = child.Blend
 		}
-
-		BufferPool.Free(children)
+		child.Clip(bounds, vb)
 	}
 }
 
@@ -271,7 +331,7 @@ func (vbs *VertexBuffers) With(primitive Primitive, blend Blend, render func(out
 	} else {
 		vbs.Blend = blend
 		vbs.Primitive = primitive
-		vbs.AddBuffer()
+		vbs.Add()
 		render(vbs)
 		vbs.Blend = currentBlend
 		vbs.Primitive = currentPrimitive
@@ -283,7 +343,7 @@ func (vbs *VertexBuffers) Get(primitive Primitive, blend Blend) *VertexBuffer {
 	if current.Primitive == primitive && current.Blend == blend {
 		return current
 	}
-	added := vbs.AddBuffer()
+	added := vbs.Add()
 	added.Blend = blend
 	added.Primitive = primitive
 	return added
@@ -303,6 +363,13 @@ type VertexBuffer struct {
 	Primitive Primitive
 }
 
+func (b *VertexBuffer) CloneTo(out *VertexBuffer) *VertexBuffer {
+	out.Buffer = b.Buffer.CloneTo(out.Buffer)
+	out.Blend = b.Blend
+	out.Primitive = b.Primitive
+	return out
+}
+
 func (b *VertexBuffer) Clip(bounds Bounds, out *VertexBuffer) {
 	switch b.Primitive {
 	case PrimitiveTriangle:
@@ -320,11 +387,16 @@ func (vb *VertexBuffer) clipTriangles(bounds Bounds, out *VertexBuffer) {
 
 	out.ReserveTriangles(indexCount / 3)
 
+	clip := clipper{
+		out:    out,
+		bounds: bounds,
+	}
+
 	for i := 0; i < indexCount; i += 3 {
 		a := indices.At(i)
 		b := indices.At(i + 1)
 		c := indices.At(i + 2)
-		clipTriangle(bounds, out, *a, *b, *c)
+		clip.addTriangle(*a, *b, *c)
 	}
 }
 
@@ -332,14 +404,14 @@ func (b *VertexBuffer) clipLines(bounds Bounds, out *VertexBuffer) {
 	indices := b.IndexSpanAt(0)
 	indexCount := indices.Len()
 
-	out.ReserveLines(indexCount / 2)
+	out.ReserveLines(indexCount/2 + 1)
 
 	for i := 0; i < indexCount; i += 2 {
 		a := indices.At(i)
 		b := indices.At(i + 1)
 		line := bounds.ClipLine(a.X, a.Y, b.X, b.Y)
 
-		if line.Inside {
+		if !line.Outside {
 			if line.StartDelta == 0 && line.EndDelta == 1 {
 				out.AddReservedLine(*a, *b)
 			} else {
@@ -355,15 +427,20 @@ func (vb *VertexBuffer) clipQuads(bounds Bounds, out *VertexBuffer) {
 	indices := vb.IndexSpanAt(0)
 	indexCount := indices.Len()
 
-	out.ReserveTriangles(indexCount / 4 * 3)
+	out.ReserveTriangles(indexCount/4*3 + 1)
+
+	clip := clipper{
+		out:    out,
+		bounds: bounds,
+	}
 
 	for i := 0; i < indexCount; i += 4 {
 		a := indices.At(i)
 		b := indices.At(i + 1)
 		c := indices.At(i + 2)
 		d := indices.At(i + 3)
-		clipTriangle(bounds, out, *a, *b, *c)
-		clipTriangle(bounds, out, *c, *d, *a)
+		clip.addTriangle(*a, *b, *c)
+		clip.addTriangle(*c, *d, *a)
 	}
 }
 
@@ -428,8 +505,9 @@ func (b *VertexBuffer) ReserveLines(lines int) {
 	}
 }
 
-func (b *VertexBuffer) AddReservedQuadSlice(quad []Vertex) {
-	b.AddReservedQuad(quad[0], quad[1], quad[2], quad[3])
+func (b *VertexBuffer) AddQuad() []Vertex {
+	b.ReserveQuads(1)
+	return b.GetReservedQuad()
 }
 
 func (b *VertexBuffer) GetReservedQuad() (data []Vertex) {
@@ -472,6 +550,11 @@ func (b *VertexBuffer) AddReservedQuad(v0, v1, v2, v3 Vertex) {
 	quad[3] = v3
 }
 
+func (b *VertexBuffer) AddTriangle() []Vertex {
+	b.ReserveTriangles(1)
+	return b.GetReservedTriangle()
+}
+
 func (b *VertexBuffer) GetReservedTriangle() (data []Vertex) {
 	var index []int
 	var dataIndex int
@@ -506,6 +589,11 @@ func (b *VertexBuffer) AddReservedTriangle(v0, v1, v2 Vertex) {
 	tri[2] = v2
 }
 
+func (b *VertexBuffer) AddLine() []Vertex {
+	b.ReserveLines(1)
+	return b.GetReservedLine()
+}
+
 func (b *VertexBuffer) GetReservedLine() (data []Vertex) {
 	var index []int
 	var dataIndex int
@@ -535,69 +623,81 @@ func (b *VertexBuffer) AddReservedLine(v0, v1 Vertex) {
 	line[1] = v1
 }
 
-func clipTriangle(bounds Bounds, out *VertexBuffer, a, b, c Vertex) {
-	line0 := bounds.ClipLine(a.X, a.Y, b.X, b.Y)
-	line1 := bounds.ClipLine(b.X, b.Y, c.X, c.Y)
-	line2 := bounds.ClipLine(c.X, c.Y, a.X, a.Y)
+type clipper struct {
+	bounds Bounds
+	out    *VertexBuffer
+	i      int
+	tri    []Vertex
+	first  Vertex
+	last   Vertex
+}
 
-	if !line0.Inside && !line1.Inside && !line2.Inside {
+func (c *clipper) add(v Vertex) {
+	if c.i == 0 {
+		c.first = v
+	}
+	if c.i < 3 {
+		c.tri[c.i] = v
+	} else {
+		c.tri = c.out.AddTriangle()
+		c.tri[0] = c.last
+		c.tri[1] = v
+		c.tri[2] = c.first
+	}
+	c.last = v
+	c.i++
+}
+
+func (c *clipper) addInterpolate(a, b Vertex, delta, x, y float32) {
+	if delta == 0 {
+		c.add(a)
+	} else if delta == 1 {
+		c.add(b)
+	} else {
+		c.add(a.LerpWith(b, delta, x, y))
+	}
+}
+
+func (c *clipper) addTriangularInterpolate(v1, v2, v3 Vertex, p Coord) {
+	// https://codeplea.com/triangular-interpolation
+	dy23 := v2.Y - v3.Y
+	dxp3 := p.X - v3.X
+	dx32 := v3.X - v2.X
+	dyp3 := p.Y - v3.Y
+	dy31 := v3.Y - v1.Y
+	dx13 := v1.X - v3.X
+	dy13 := v1.Y - v3.Y
+	weight0 := (dy23*dxp3 + dx32*dyp3) / (dy31*dxp3 + dx13*dy13)
+	weight1 := (dy31*dxp3 + dx13*dyp3) / (dy23*dx13 + dx32*dy13)
+	weight2 := 1 - weight0 - weight1
+	c.add(v1.Scale(weight0).Add(v2.Scale(weight1)).Add(v3.Scale(weight2)))
+}
+
+func (c *clipper) addLine(line ClippedLine, a, b Vertex, only bool, other Vertex) {
+	if !line.Outside {
+		c.addInterpolate(a, b, line.StartDelta, line.Start.X, line.Start.Y)
+		if line.EndDelta < 1 {
+			c.addInterpolate(a, b, line.EndDelta, line.End.X, line.End.Y)
+		}
+		if only {
+			clipped := c.bounds.ClipCoord(Coord{X: other.X, Y: other.Y})
+			c.addTriangularInterpolate(a, b, other, clipped)
+		}
+	}
+}
+
+func (c *clipper) addTriangle(v1, v2, v3 Vertex) {
+	line0 := c.bounds.ClipLine(v1.X, v1.Y, v2.X, v2.Y)
+	line1 := c.bounds.ClipLine(v2.X, v2.Y, v3.X, v3.Y)
+	line2 := c.bounds.ClipLine(v3.X, v3.Y, v1.X, v1.Y)
+
+	if line0.Outside && line1.Outside && line2.Outside {
 		return
 	}
 
-	tri := out.GetReservedTriangle()
-	var last, first Vertex
-	i := 0
-
-	add := func(v Vertex) {
-		if i == 0 {
-			first = v
-		}
-		if i < 3 {
-			tri[i] = v
-		} else {
-			out.ReserveTriangles(1)
-			tri = out.GetReservedTriangle()
-			tri[0] = last
-			tri[1] = v
-			tri[2] = first
-		}
-		last = v
-		i++
-	}
-	addInterpolate := func(a, b Vertex, delta, x, y float32) {
-		if delta == 0 {
-			add(a)
-		} else if delta == 1 {
-			add(b)
-		} else {
-			add(a.LerpWith(b, delta, x, y))
-		}
-	}
-	addLine := func(line ClippedLine, a, b Vertex, only bool, c Vertex) {
-		if line.Inside {
-			addInterpolate(a, b, line.StartDelta, line.Start.X, line.Start.Y)
-			if line.EndDelta < 1 {
-				addInterpolate(a, b, line.EndDelta, line.End.X, line.End.Y)
-			}
-			if only {
-				// https://codeplea.com/triangular-interpolation
-				clipped := bounds.ClipCoord(Coord{X: c.X, Y: c.Y})
-				dy23 := b.Y - c.Y
-				dxp3 := clipped.X - c.X
-				dx32 := c.X - b.X
-				dyp3 := clipped.Y - c.Y
-				dy31 := c.Y - a.Y
-				dx13 := a.X - c.X
-				dy13 := a.Y - c.Y
-				weight0 := (dy23*dxp3 + dx32*dyp3) / (dy31*dxp3 + dx13*dy13)
-				weight1 := (dy31*dxp3 + dx13*dyp3) / (dy23*dx13 + dx32*dy13)
-				weight2 := 1 - weight0 - weight1
-				add(a.Scale(weight0).Add(b.Scale(weight1)).Add(c.Scale(weight2)))
-			}
-		}
-	}
-
-	addLine(line0, a, b, !line1.Inside && !line2.Inside, c)
-	addLine(line1, b, c, !line0.Inside && !line2.Inside, a)
-	addLine(line2, c, a, !line0.Inside && !line1.Inside, b)
+	c.i = 0
+	c.tri = c.out.GetReservedTriangle()
+	c.addLine(line0, v1, v2, line1.Outside && line2.Outside, v3)
+	c.addLine(line1, v2, v3, line0.Outside && line2.Outside, v1)
+	c.addLine(line2, v3, v1, line0.Outside && line1.Outside, v2)
 }

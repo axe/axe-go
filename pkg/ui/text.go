@@ -1109,16 +1109,6 @@ func (k BasicTextAnimationKind) Get(g *RenderedGlyph) int {
 	return -1
 }
 
-type BasicTextAnimationFrame struct {
-	Translate AmountPoint
-	Scale     *Coord
-	Rotate    float32
-	Origin    AmountPoint
-	Color     ColorModify
-	Time      float32
-	Easing    func(float32) float32
-}
-
 type BasicTextAnimationState struct {
 	Start, End int
 	Min, Max   int
@@ -1130,7 +1120,7 @@ type BasicTextAnimationSettings struct {
 	// How to break up the text into pieces to animate
 	Kind BasicTextAnimationKind
 	// The frames to animate over the given duration for a piece
-	Frames []BasicTextAnimationFrame
+	Frames []BasicAnimationFrame
 	// How long to animate a piece
 	Duration float32
 	// How long between starting each piece animation
@@ -1348,35 +1338,7 @@ func (ag *animateGlyphs) update(ctx *RenderContext) {
 
 	animateCtx := ctx.WithBounds(ag.bounds)
 
-	startTx, startTy := start.Translate.Get(animateCtx.AmountContext)
-	startOx, startOy := start.Origin.Get(animateCtx.AmountContext)
-	endTx, endTy := end.Translate.Get(animateCtx.AmountContext)
-	endOx, endOy := end.Origin.Get(animateCtx.AmountContext)
-
-	scaleX := float32(1)
-	scaleY := float32(1)
-	if start.Scale != nil && end.Scale != nil {
-		scaleX = util.Lerp(start.Scale.X, end.Scale.X, delta)
-		scaleY = util.Lerp(start.Scale.Y, end.Scale.Y, delta)
-	}
-	origX := util.Lerp(startOx, endOx, delta) + ag.bounds.Left
-	origY := util.Lerp(startOy, endOy, delta) + ag.bounds.Top
-	transX := util.Lerp(startTx, endTx, delta)
-	transY := util.Lerp(startTy, endTy, delta)
-	rotation := util.Lerp(start.Rotate, end.Rotate, delta)
-
-	ag.transform.SetRotateDegreesScaleAround(rotation, scaleX, scaleY, origX, origY)
-	ag.transform.PreTranslate(transX, transY)
-
-	if start.Color != nil && end.Color != nil {
-		ag.color = func(c Color) Color {
-			startColor := start.Color(c)
-			endColor := end.Color(c)
-			return startColor.Lerp(endColor, delta)
-		}
-	} else if start.Color != nil {
-		ag.color = start.Color
-	} else {
-		ag.color = end.Color
-	}
+	inter := start.Lerp(end, delta, animateCtx.AmountContext, ag.bounds.Left, ag.bounds.Top)
+	ag.transform = inter.Transform()
+	ag.color = inter.Color
 }

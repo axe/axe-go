@@ -759,7 +759,7 @@ func (l LayoutStatic) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 		return
 	}
 
-	if !l.EnforcePreferredSize || !l.KeepInside {
+	if !l.EnforcePreferredSize && !l.KeepInside {
 		return
 	}
 
