@@ -62,30 +62,40 @@ func UserInterfaceInputEventsFor(e *ecs.Entity) InputEvents {
 				gui := UI.Get(e)
 				switch i.Name {
 				case "MouseButton0": // left
-					gui.ProcessPointerEvent(newPointerEvent(p, pointerType, 0, 0))
+					gui.ProcessPointerEvent(newPointerEvent(p, pointerType, 0))
 				case "MouseButton1": // right
-					gui.ProcessPointerEvent(newPointerEvent(p, pointerType, 1, 0))
+					gui.ProcessPointerEvent(newPointerEvent(p, pointerType, 1))
 				case "MouseButton2": // middle
-					gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventWheel, 2, int(i.Value)))
+					gui.ProcessPointerEvent(newPointerEvent(p, pointerType, 2))
 				}
 			}
 		},
 		PointChange: func(p input.Point) {
 			gui := UI.Get(e)
-			gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventMove, 0, 0))
+			if p.Index == 0 {
+				gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventMove, 0))
+			} else {
+				inputSystem := ActiveGame().Input
+				p0 := *inputSystem.Points()[0]
+				ev := newPointerEvent(p0, ui.PointerEventWheel, 0)
+				ev.Button = 2
+				ev.Wheel.X = p.X
+				ev.Wheel.Y = p.Y
+				gui.ProcessPointerEvent(ev)
+			}
 		},
 		PointLeave: func(p input.Point) {
 			gui := UI.Get(e)
-			gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventLeave, 0, 0))
+			gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventLeave, 0))
 		},
 		PointEnter: func(p input.Point) {
 			gui := UI.Get(e)
-			gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventEnter, 0, 0))
+			gui.ProcessPointerEvent(newPointerEvent(p, ui.PointerEventEnter, 0))
 		},
 	}
 }
 
-func newPointerEvent(p input.Point, eventType ui.PointerEventType, button, amount int) ui.PointerEvent {
+func newPointerEvent(p input.Point, eventType ui.PointerEventType, button int) ui.PointerEvent {
 	return ui.PointerEvent{
 		Type: eventType,
 		Event: ui.Event{
@@ -96,7 +106,6 @@ func newPointerEvent(p input.Point, eventType ui.PointerEventType, button, amoun
 			Y: float32(p.Y),
 		},
 		Button: button,
-		Amount: amount,
 	}
 }
 

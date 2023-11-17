@@ -120,7 +120,7 @@ type PointerEvent struct {
 	Event
 	Point  Coord
 	Button int
-	Amount int
+	Wheel  Coord
 	Type   PointerEventType
 	*HasCursor
 }

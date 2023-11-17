@@ -671,29 +671,30 @@ func (c *clipper) addInterpolate(a, b Vertex, delta, x, y float32) {
 
 func (c *clipper) addTriangularInterpolate(v1, v2, v3 Vertex, p Coord) {
 	// https://codeplea.com/triangular-interpolation
-	dy23 := v2.Y - v3.Y
-	dxp3 := p.X - v3.X
-	dx32 := v3.X - v2.X
-	dyp3 := p.Y - v3.Y
+	// https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates ?
+	dy32 := v3.Y - v2.Y
 	dy31 := v3.Y - v1.Y
-	dx13 := v1.X - v3.X
 	dy13 := v1.Y - v3.Y
-	weight0 := (dy23*dxp3 + dx32*dyp3) / (dy31*dxp3 + dx13*dy13)
-	weight1 := (dy31*dxp3 + dx13*dyp3) / (dy23*dx13 + dx32*dy13)
-	weight2 := 1 - weight0 - weight1
+	dy21 := v2.Y - v1.Y
+	dy2p := v2.Y - p.Y
+	dy1p := v1.Y - p.Y
+	dyp3 := p.Y - v3.Y
+	invDenom := 1.0 / (v1.X*dy32 + v2.X*dy13 + v3.X*dy21)
+	weight0 := (p.X*dy32 + v2.X*dyp3 + v3.X*dy2p) * invDenom
+	weight1 := -(p.X*dy31 + v1.X*dyp3 + v3.X*dy1p) * invDenom
+	weight2 := 1.0 - weight0 - weight1
+
 	c.add(v1.Scale(weight0).Add(v2.Scale(weight1)).Add(v3.Scale(weight2)))
 }
 
 func (c *clipper) addLine(line ClippedLine, a, b Vertex, only bool, other Vertex) {
-	if !line.Outside {
-		c.addInterpolate(a, b, line.StartDelta, line.Start.X, line.Start.Y)
-		if line.EndDelta < 1 {
-			c.addInterpolate(a, b, line.EndDelta, line.End.X, line.End.Y)
-		}
-		if only {
-			clipped := c.bounds.ClipCoord(Coord{X: other.X, Y: other.Y})
-			c.addTriangularInterpolate(a, b, other, clipped)
-		}
+	c.addInterpolate(a, b, line.StartDelta, line.Start.X, line.Start.Y)
+	if line.EndDelta < 1 {
+		c.addInterpolate(a, b, line.EndDelta, line.End.X, line.End.Y)
+	}
+	if only {
+		clipped := c.bounds.ClipCoord(Coord{X: other.X, Y: other.Y})
+		c.addTriangularInterpolate(a, b, other, clipped)
 	}
 }
 
@@ -708,7 +709,13 @@ func (c *clipper) addTriangle(v1, v2, v3 Vertex) {
 
 	c.i = 0
 	c.tri = c.out.GetReservedTriangle()
-	c.addLine(line0, v1, v2, line1.Outside && line2.Outside, v3)
-	c.addLine(line1, v2, v3, line0.Outside && line2.Outside, v1)
-	c.addLine(line2, v3, v1, line0.Outside && line1.Outside, v2)
+	if !line0.Outside {
+		c.addLine(line0, v1, v2, line1.Outside && line2.Outside, v3)
+	}
+	if !line1.Outside {
+		c.addLine(line1, v2, v3, line0.Outside && line2.Outside, v1)
+	}
+	if !line2.Outside {
+		c.addLine(line2, v3, v1, line0.Outside && line1.Outside, v2)
+	}
 }

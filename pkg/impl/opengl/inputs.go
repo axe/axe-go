@@ -196,6 +196,7 @@ func (in *inputSystem) initMouse(game *axe.Game) {
 	mouse := input.NewDevice("mouse", input.DeviceTypeMouse)
 
 	in.AddPoint(&input.Point{})
+	in.AddPoint(&input.Point{Index: 1}) // Mouse
 
 	for button := glfw.MouseButton1; button < glfw.MouseButtonLast; button++ {
 		buttonName := fmt.Sprintf("MouseButton%d", button)
@@ -214,6 +215,9 @@ func (in *inputSystem) listenToWindow(axeWindow axe.Window) {
 		})
 		glfwWindow.SetMouseButtonCallback(func(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
 			in.onInputAction(in.buttons[button], action)
+		})
+		glfwWindow.SetScrollCallback(func(w *glfw.Window, xoff, yoff float64) {
+			in.SetInputPoint(in.Points()[1], float32(xoff), float32(yoff))
 		})
 		glfwWindow.SetCursorPosCallback(func(w *glfw.Window, xpos, ypos float64) {
 			in.SetInputPoint(in.Points()[0], float32(xpos), float32(ypos))
@@ -245,6 +249,7 @@ func (in *inputSystem) unlistenToWindow(w axe.Window) {
 		glfwWindow.SetMouseButtonCallback(nil)
 		glfwWindow.SetCursorPosCallback(nil)
 		glfwWindow.SetCursorEnterCallback(nil)
+		glfwWindow.SetScrollCallback(nil)
 	}
 }
 

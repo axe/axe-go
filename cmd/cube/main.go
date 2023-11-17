@@ -276,52 +276,47 @@ func main() {
 					}, "\n"))
 					textWindow.Children = append(textWindow.Children,
 						&ui.Base{
-							Placement:                   ui.MaximizeOffset(10, 44, 10, 10),
-							IgnoreLayoutPreferredHeight: true,
-							Clip:                        ui.Maximized(),
-							Layout: ui.LayoutStatic{
-								EnforcePreferredSize: true,
-							},
-							Events: ui.Events{
-								OnPointer: func(ev *ui.PointerEvent) {
-									if !ev.Capture && ev.Type == ui.PointerEventWheel {
-										fmt.Printf("Wheel event: %+v\n", ev.Amount)
-									}
-								},
-							},
-							Children: []*ui.Base{{
-								Layers: []ui.Layer{{
-									Visual: textWindowVisual.Play(textAnimation),
-								}},
-								Events: ui.Events{
-									OnPointer: func(ev *ui.PointerEvent) {
-										if !ev.Capture && ev.Type == ui.PointerEventDown {
-											text := ev.Target.Layers[0].Visual.(*ui.VisualText)
-											rendered := text.Rendered()
-											closest := rendered.ClosestByLine(ev.Point.X, ev.Point.Y)
-											glyph := rendered.Glyphs[closest]
-											input := rendered.Paragraphs.Paragraphs[glyph.Paragraph].Glyphs[glyph.ParagraphIndex]
-											fmt.Printf("Clicked on %s in paragraph %d and index %d\n", input.String(), glyph.Paragraph, glyph.Index)
-										}
+							Placement: ui.MaximizeOffset(10, 44, 10, 10),
+							Children: []*ui.Base{
+								newScrollingSection(20, &ui.Base{
+									Layout: ui.LayoutStatic{
+										EnforcePreferredSize: true,
 									},
-								},
-							},
-								newButton(ui.Placement{}.Attach(1, 0, 0, 0), "{h:center}{w:none}Do a barrel roll!", false, func() {
-									textWindow.Play(ui.BasicAnimation{
-										Duration: 1.0,
-										Easing: func(x float32) float32 {
-											inv := 1.0 - x
-											return (1.0 - util.Abs(inv*inv*util.Cos(x*x*7.0)))
+									Children: []*ui.Base{{
+										Layers: []ui.Layer{{
+											Visual: textWindowVisual.Play(textAnimation),
+										}},
+										Events: ui.Events{
+											OnPointer: func(ev *ui.PointerEvent) {
+												if !ev.Capture && ev.Type == ui.PointerEventDown {
+													text := ev.Target.Layers[0].Visual.(*ui.VisualText)
+													rendered := text.Rendered()
+													closest := rendered.ClosestByLine(ev.Point.X, ev.Point.Y)
+													glyph := rendered.Glyphs[closest]
+													input := rendered.Paragraphs.Paragraphs[glyph.Paragraph].Glyphs[glyph.ParagraphIndex]
+													fmt.Printf("Clicked on %s in paragraph %d and index %d\n", input.String(), glyph.Paragraph, glyph.Index)
+												}
+											},
 										},
-										Save: true,
-										Frames: []ui.BasicAnimationFrame{
-											{Rotate: 360, Time: 0, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
-											{Rotate: 0, Time: 1, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
-										},
-									})
-								}),
-								newButton(ui.Placement{}.Attach(1, 0, 0, 0).Shift(0, 40), "{h:center}{w:none}Animate text!", false, func() {
-									textWindowVisual.Play(textAnimation)
+									},
+										newButton(ui.Placement{}.Attach(1, 0, 0, 0), "{h:center}{w:none}Do a barrel roll!", false, func() {
+											textWindow.Play(ui.BasicAnimation{
+												Duration: 1.0,
+												Easing: func(x float32) float32 {
+													inv := 1.0 - x
+													return (1.0 - util.Abs(inv*inv*util.Cos(x*x*7.0)))
+												},
+												Save: true,
+												Frames: []ui.BasicAnimationFrame{
+													{Rotate: 360, Time: 0, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
+													{Rotate: 0, Time: 1, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
+												},
+											})
+										}),
+										newButton(ui.Placement{}.Attach(1, 0, 0, 0).Shift(0, 40), "{h:center}{w:none}Animate text!", false, func() {
+											textWindowVisual.Play(textAnimation)
+										}),
+									},
 								}),
 							},
 						},
@@ -808,6 +803,59 @@ var CollapseCloseAnimation = ui.BasicAnimation{
 }
 
 // Temporary component generators
+
+func newScrollingSection(sensitivity float32, children ...*ui.Base) *ui.Base {
+	section := &ui.Base{
+		Placement: ui.Maximized(),
+		Children:  children,
+		Layout: ui.LayoutStatic{
+			EnforcePreferredSize: true,
+		},
+	}
+
+	var scrollArea *ui.Base
+	scrollArea = &ui.Base{
+		Placement:                   ui.Maximized(),
+		IgnoreLayoutPreferredHeight: true,
+		Clip:                        ui.Maximized(),
+		Children:                    []*ui.Base{section},
+		Events: ui.Events{
+			OnPointer: func(ev *ui.PointerEvent) {
+				if !ev.Capture && ev.Type == ui.PointerEventWheel {
+					size := section.PreferredSize(section.ComputeRenderContext(), scrollArea.Bounds.Width())
+					dx := ev.Wheel.X * sensitivity
+					dy := ev.Wheel.Y * sensitivity
+
+					bounds := section.Bounds
+					bounds.Translate(-scrollArea.Bounds.Left, -scrollArea.Bounds.Top)
+					bounds.Bottom = bounds.Top + size.Y
+					bounds.Right = bounds.Left + size.X
+					bounds.Translate(dx, dy)
+					if bounds.Left > 0 {
+						bounds.Translate(-bounds.Left, 0)
+					}
+					if bounds.Top > 0 {
+						bounds.Translate(0, -bounds.Top)
+					}
+					overRight := scrollArea.Bounds.Width() - bounds.Right
+					if overRight > 0 {
+						bounds.Translate(overRight, 0)
+					}
+					overBottom := scrollArea.Bounds.Height() - bounds.Bottom
+					if overBottom > 0 {
+						bounds.Translate(0, overBottom)
+					}
+
+					section.SetPlacement(ui.Absolute(bounds.Left, bounds.Top, size.X, size.Y))
+
+					ev.Stop = true
+				}
+			},
+		},
+	}
+
+	return scrollArea
+}
 
 func newCollapsibleSection(text string, children ...*ui.Base) *ui.Base {
 	section := &ui.Base{
