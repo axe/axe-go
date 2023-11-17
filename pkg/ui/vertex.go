@@ -185,14 +185,14 @@ type VertexModifier func(*Vertex)
 
 type VertexIterator = buf.DataIterator[Vertex, VertexBuffer]
 
-func NewVertexIterator(iterable buf.Iterable[Vertex, VertexBuffer]) VertexIterator {
-	return buf.NewDataIterator[Vertex, VertexBuffer](iterable)
+func NewVertexIterator(iterable buf.Iterable[Vertex, VertexBuffer], beginning bool) VertexIterator {
+	return buf.NewDataIterator[Vertex, VertexBuffer](iterable, beginning)
 }
 
 type IndexIterator = buf.IndexIterator[Vertex, VertexBuffer]
 
-func NewIndexIterator(iterable buf.Iterable[Vertex, VertexBuffer]) IndexIterator {
-	return buf.NewIndexIterator[Vertex, VertexBuffer](iterable)
+func NewIndexIterator(iterable buf.Iterable[Vertex, VertexBuffer], beginning bool) IndexIterator {
+	return buf.NewIndexIterator[Vertex, VertexBuffer](iterable, beginning)
 }
 
 var (
@@ -247,35 +247,36 @@ type VertexQueue struct {
 	buf.Queue[Vertex, VertexBuffer]
 }
 
-func (vbs *VertexQueue) Clip(bounds Bounds, render func(clippable *VertexQueue, clipping bool)) bool {
+func (vbs *VertexQueue) Clip(bounds Bounds, clipOut **VertexBuffers, render func(clippable *VertexQueue, clipping bool)) {
 	if bounds.IsEmpty() {
-		render(vbs, false)
+		if *clipOut != nil {
+			ClipPool.Free(*clipOut)
+			*clipOut = nil
+		}
 
-		return false
+		render(vbs, false)
 	} else {
 		clippable := BufferQueuePool.Get()
-		render(clippable, true)
-		clipped := ClipPool.Get()
-		clipIterable(bounds, clippable, clipped)
-		BufferQueuePool.Free(clippable)
-		ClipMemory.Push(clipped)
-		vbs.Add(clipped)
 
-		return true
+		render(clippable, true)
+
+		if *clipOut == nil {
+			*clipOut = ClipPool.Get()
+		} else {
+			(*clipOut).Clear()
+		}
+
+		(*clipOut).ClipInto(bounds, clippable)
+
+		BufferQueuePool.Free(clippable)
 	}
 }
 
-func (vbs *VertexQueue) Clone(start, endExclusive int) {
-	if start == endExclusive {
-		return
+func (vbs *VertexQueue) ToBuffers() *VertexBuffers {
+	if vbs == nil {
+		return nil
 	}
-	buffers := vbs.GetBuffers()
-	clones := ClipPool.Get()
-	clones.Reserve(endExclusive - start)
-	for i := start; i < endExclusive; i++ {
-		buffers[i] = *buffers[i].CloneTo(clones.ReservedNext())
-	}
-	ClipMemory.Push(clones)
+	return &VertexBuffers{Buffers: vbs.Queue.ToBuffers()}
 }
 
 type VertexBuffers struct {
@@ -303,22 +304,8 @@ func (vbs *VertexBuffers) Clip(bounds Bounds, render func(clippable *VertexBuffe
 	} else {
 		clippable := BufferPool.Get()
 		render(clippable)
-		clipIterable(bounds, clippable, vbs)
+		vbs.ClipInto(bounds, clippable)
 		BufferPool.Free(clippable)
-	}
-}
-
-func clipIterable(bounds Bounds, clippable VertexIterable, clipped *VertexBuffers) {
-	childCount := clippable.Len()
-	vb := clipped.Buffer()
-
-	for bufferIndex := 0; bufferIndex < childCount; bufferIndex++ {
-		child := clippable.At(bufferIndex)
-		if !child.ClipCompatible(vb) {
-			vb = clipped.Add()
-			vb.Blend = child.Blend
-		}
-		child.Clip(bounds, vb)
 	}
 }
 
@@ -354,6 +341,30 @@ func (vbs *VertexBuffers) NewLike() *VertexBuffers {
 	like.Blend = vbs.Blend
 	like.Primitive = vbs.Primitive
 	return like
+}
+
+func (clipped *VertexBuffers) ClipInto(bounds Bounds, source VertexIterable) {
+	childCount := source.Len()
+	vb := clipped.Buffer()
+
+	for bufferIndex := 0; bufferIndex < childCount; bufferIndex++ {
+		child := source.At(bufferIndex)
+		if !child.ClipCompatible(vb) {
+			vb = clipped.Add()
+			vb.Blend = child.Blend
+		}
+
+		child.Clip(bounds, vb)
+	}
+}
+
+func (vbs *VertexBuffers) CloneTo(target *VertexBuffers) {
+	n := vbs.Len()
+	target.Clear()
+	target.Reserve(n)
+	for i := 0; i < n; i++ {
+		vbs.At(i).CloneTo(target.ReservedNext())
+	}
 }
 
 type VertexBuffer struct {

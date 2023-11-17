@@ -16,6 +16,11 @@ func (f Flags) WithAdd(other Flags) Flags    { return f | other }
 func (f *Flags) Clear()                      { *f = 0 }
 func (f *Flags) Remove(other Flags)          { *f = *f & ^other }
 func (f *Flags) Add(other Flags)             { *f = *f | other }
+func (f *Flags) Removed(other Flags) bool {
+	is := *f & other
+	*f = *f & ^is
+	return is != 0
+}
 func (f *Flags) Take() Flags {
 	if *f == 0 {
 		return 0

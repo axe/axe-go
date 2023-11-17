@@ -10,7 +10,7 @@ type Animation interface {
 	Init(base *Base)
 	Update(base *Base, animationTime float32, update Update) Dirty
 	IsDone(base *Base, animationTime float32) bool
-	PostProcess(base *Base, animationTime float32, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator)
+	PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers)
 }
 
 type AnimationFactory interface {
@@ -95,9 +95,9 @@ func (as *AnimationState) Update(base *Base, update Update) Dirty {
 	return dirty
 }
 
-func (as *AnimationState) PostProcess(base *Base, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator) {
+func (as *AnimationState) PostProcess(base *Base, ctx *RenderContext, out *VertexBuffers) {
 	if as.Current != nil {
-		as.Current.PostProcess(base, as.CurrentTime, ctx, out, index, vertex)
+		as.Current.PostProcess(base, as.CurrentTime, ctx, out)
 		if as.lastPostProcess {
 			as.Stop(true)
 		}
@@ -156,6 +156,7 @@ func (b *Base) playFactory(factory AnimationFactory, ev AnimationEvent) bool {
 	animation := factory.GetAnimation(b)
 	if animation != nil {
 		b.Animation.Set(animation, ev)
+		b.Dirty(DirtyPostProcess)
 		return true
 	}
 	return false
@@ -248,7 +249,7 @@ func (a BasicAnimation) Update(base *Base, animationTime float32, update Update)
 func (a BasicAnimation) IsDone(base *Base, animationTime float32) bool {
 	return animationTime > a.Duration
 }
-func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator) {
+func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers) {
 	animationDelta := util.Min(animationTime/a.Duration, 1)
 	animationEasingDelta := Ease(animationDelta, a.Easing)
 
@@ -267,13 +268,13 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 	transform := inter.Transform()
 
 	if a.Save {
-		if a.SaveSkipColor {
+		if !a.SaveSkipColor {
 			base.SetColor(inter.Color)
 		}
-		if a.SaveSkipColor {
+		if !a.SaveSkipColor {
 			base.SetTransparency(inter.Transparency)
 		}
-		if a.SaveSkipTransform {
+		if !a.SaveSkipTransform {
 			base.SetTransform(transform)
 		}
 	} else {
@@ -282,8 +283,10 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 		if colorModify == nil {
 			colorModify = func(c Color) Color { return c }
 		}
-		for vertex.HasNext() {
-			v := vertex.Next()
+
+		vertices := NewVertexIterator(out, true)
+		for vertices.HasNext() {
+			v := vertices.Next()
 			v.X, v.Y = transform.Transform(v.X, v.Y)
 			if !v.HasColor {
 				v.Color = ColorWhite

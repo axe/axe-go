@@ -40,7 +40,7 @@ func (l Layer) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coor
 
 func (l Layer) Render(b *Base, ctx *RenderContext, out *VertexBuffers) {
 	layerCtx := ctx.WithBounds(l.Bounds)
-	iter := NewVertexIterator(out)
+	iter := NewVertexIterator(out, false)
 
 	l.Visual.Visualize(b, l.Bounds, layerCtx, out)
 	if l.Background != nil {

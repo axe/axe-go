@@ -12,7 +12,7 @@ func TestIterator(t *testing.T) {
 		buffer.Reset(pos)
 	})
 
-	iter := NewDataIterator[int, Buffer[int]](bufs)
+	iter := NewDataIterator[int, Buffer[int]](bufs, false)
 	bufs.Buffer().Add(1, 2, 3)
 
 	for iter.HasNext() {

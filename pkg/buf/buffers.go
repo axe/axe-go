@@ -20,24 +20,28 @@ type BufferInit[B any] func(buffer *B, capacity int)
 type BufferReset[B any] func(buffer *B, pos Position)
 
 type Buffers[D any, B Bufferable[D]] struct {
-	buffers  []B
-	init     BufferInit[B]
-	reset    BufferReset[B]
+	// The underlying buffers
+	buffers []B
+	// The function to use to initial a buffer before we start using it.
+	init BufferInit[B]
+	// The function to use to reset a buffer to a specific position.
+	reset BufferReset[B]
+	// The capacity to initialize new buffers with.
 	capacity int
-	current  int
+	// The number of buffers. Len may be one less if the last buffer is empty.
+	count int
 }
 
 var _ Iterable[int, Buffer[int]] = &Buffers[int, Buffer[int]]{}
 var _ HasBuffers[Buffer[int]] = &Buffers[int, Buffer[int]]{}
 
 func NewBuffers[D any, B Bufferable[D]](bufferCapacity int, buffers int, init BufferInit[B], reset BufferReset[B]) *Buffers[D, B] {
-	buffers = util.Max(1, buffers)
 	b := &Buffers[D, B]{
 		buffers:  make([]B, buffers),
 		init:     init,
 		reset:    reset,
 		capacity: bufferCapacity,
-		current:  0,
+		count:    0,
 	}
 	for i := range b.buffers {
 		init(&b.buffers[i], bufferCapacity)
@@ -54,39 +58,47 @@ func (b *Buffers[D, B]) SetCapacity(capacity int) {
 }
 
 func (b *Buffers[D, B]) Clear() {
-	b.current = 0
-	for i := range b.buffers {
-		b.init(&b.buffers[i], b.capacity)
+	for b.count > 0 {
+		b.count--
+		b.init(&b.buffers[b.count], b.capacity)
 	}
 }
 
 func (b *Buffers[D, B]) Reserve(buffers int) {
-	total := b.current + buffers
-	b.buffers = util.SliceEnsureSize(b.buffers, total)
-	for i := b.current; i < total; i++ {
+	required := b.Len() + buffers
+	existing := len(b.buffers)
+	b.buffers = util.SliceEnsureSize(b.buffers, required)
+	for i := existing; i < required; i++ {
 		b.init(&b.buffers[i], b.capacity)
 	}
 }
 
 func (b *Buffers[D, B]) ReservedNext() *B {
-	next := &b.buffers[b.current]
-	b.current++
+	if !b.buffers[b.count].Empty() {
+		b.count++
+	}
+	next := &b.buffers[b.count]
+	b.count++
 	return next
 }
 
 func (b *Buffers[D, B]) Add() *B {
-	b.current++
-	if b.current >= len(b.buffers) {
+	if b.count >= len(b.buffers) {
 		var empty B
+		b.init(&empty, b.capacity)
 		b.buffers = append(b.buffers, empty)
 	}
-	added := &b.buffers[b.current]
-	b.init(added, b.capacity)
+	added := &b.buffers[b.count]
+	b.count++
 	return added
 }
 
 func (b *Buffers[D, B]) Buffer() *B {
-	return b.At(b.current)
+	if b.count == 0 {
+		return b.Add()
+	} else {
+		return b.At(b.count - 1)
+	}
 }
 
 func (b *Buffers[D, B]) BufferFor(count int) *B {
@@ -98,26 +110,26 @@ func (b *Buffers[D, B]) BufferFor(count int) *B {
 }
 
 func (b *Buffers[D, B]) Len() int {
-	last := b.Buffer()
-	if last == nil || (*last).Empty() {
-		return b.current
+	n := b.count
+	if n > 0 && b.buffers[n-1].Empty() {
+		n--
 	}
-	return util.Min(b.current+1, len(b.buffers))
+	return n
 }
 
 func (b *Buffers[D, B]) Current() int {
-	return b.current
+	return b.count - 1
 }
 
 func (b *Buffers[D, B]) At(i int) *B {
-	if i < 0 || i > b.current || i >= len(b.buffers) {
+	if i < 0 || i >= b.count {
 		return nil
 	}
 	return &b.buffers[i]
 }
 
 func (b *Buffers[D, B]) Empty() bool {
-	return b.current == 0 && (len(b.buffers) == 0 || b.buffers[0].Empty())
+	return b.count == 0 || (b.count == 1 && b.buffers[0].Empty())
 }
 
 func (b *Buffers[D, B]) GetBuffers() []B {

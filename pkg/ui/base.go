@@ -5,6 +5,7 @@ import (
 	"github.com/axe/axe-go/pkg/util"
 )
 
+// The Base UI component.
 type Base struct {
 	Name                        id.Identifier
 	Layers                      []Layer
@@ -37,25 +38,48 @@ type Base struct {
 	IgnoreLayoutPreferredWidth  bool
 	IgnoreLayoutPreferredHeight bool
 
-	visualBounds        Bounds
-	dirty               Dirty
-	parent              *Base
-	renderParent        *Base
-	ui                  *UI
-	shown               []*Base
-	shownDirty          bool
-	layerBuffers        *VertexBuffers
-	childrenBufferQueue *VertexQueue
+	visualBounds Bounds
+	dirty        Dirty
+	parent       *Base
+	renderParent *Base
+	ui           *UI
+	// A cache list of the visible children.
+	shown []*Base
+	// If children changed in some way where the ShownChildren method could return different results.
+	// This occurs at initialization, on reordering, showing, hiding, and removal.
+	shownDirty bool
+	// Any layer vertex data, unmodified by post processing.
+	// When layers are dirty this is updated which may trigger post processing even if not marked dirty.
+	// If there is no active post processing the buffers are added to the cachedBuffers.
+	layerBuffers *VertexBuffers
+	// If there is post processing this is non-nil and is used to copy layer data to before
+	// doing post processing. If this is non-nil and there's no post processing this is freed and
+	// returned back to the pool.
+	layerBuffersProcessed *VertexBuffers
+	// If there is no clipping and children the child vertex data is stored here, unmodified by post processing.
+	// When children are dirty this is updated which may trigger post processing even if not marked dirty.
+	childrenBuffers *VertexQueue
+	// If there is clipping and children the child vertex data is stored here, unmodified by post processing.
+	childrenBuffersClipped *VertexBuffers
+	// If there is post processing this is non-nil and is used to copy child data to before doing
+	// post processing. If this is non-nil and there's no post processing this is freed and
+	// returned back to the pool.
+	childrenBuffersProcessed *VertexBuffers
+	// All vertex buffers for layers and children. If there's any post processing this will have the processed versions.
+	cachedBuffers *VertexQueue
 }
 
+// The UI this component belongs to.
 func (b *Base) UI() *UI {
 	return b.ui
 }
 
+// The current dirty state of this component.
 func (b *Base) GetDirty() Dirty {
 	return b.dirty
 }
 
+// Dirties this component and potentially dirties the the parent lineage.
 func (b *Base) Dirty(dirty Dirty) {
 	if b.dirty.NotAll(dirty) {
 		b.dirty.Add(dirty)
@@ -69,40 +93,60 @@ func (b *Base) Dirty(dirty Dirty) {
 	}
 }
 
+// Sets the state of the component. If no state is given the default state is applied.
+// If the component is not visually dirty the state change is checked against the layers
+// and if any of the layers is shown/hidden based on the state change the component
+// is marked visually dirty. If post processing exists for the new state the component
+// is marked dirty for post processing.
 func (b *Base) SetState(state State) {
 	state.Remove(StateDefault)
 	if state.None() {
 		state.Add(StateDefault)
 	}
 
+	if state == b.States {
+		return
+	}
+
+	dirty := DirtyNone
+
 	if !b.dirty.Is(DirtyVisual) {
 		for _, layer := range b.Layers {
 			if layer.ForStates(state) != layer.ForStates(b.States) {
-				b.Dirty(DirtyVisual)
+				dirty.Add(DirtyVisual)
 				break
 			}
 		}
 	}
+
 	if b.ui.Theme.StatePostProcess[state] != nil {
-		b.Dirty(DirtyPostProcess)
+		dirty.Add(DirtyPostProcess)
 	}
 
+	b.Dirty(dirty)
 	b.States = state
 }
 
+// A handy function for editing the state of a component defined inline.
 func (b *Base) Edit(editor func(*Base)) *Base {
 	editor(b)
 	return b
 }
 
+// Removes the given states from the component. See SetState.
+// This operation has no effect if the state is unchanged.
 func (b *Base) RemoveStates(state State) {
 	b.SetState(b.States.WithRemove(state))
 }
 
+// Adds the given states to the component. See SetState.
+// This operation has no effect if the state is unchanged.
 func (b *Base) AddStates(state State) {
 	b.SetState(b.States.WithAdd(state))
 }
 
+// Sets the placement of the component and marks the placement as dirty
+// if the placement is different. All parents are notified they have a dirty child placement.
 func (b *Base) SetPlacement(placement Placement) {
 	if b.Placement != placement {
 		b.Placement = placement
@@ -110,6 +154,8 @@ func (b *Base) SetPlacement(placement Placement) {
 	}
 }
 
+// Sets the relative placement of the component and marks the placement as dirty
+// if the placement is different. All parents are notified they have a dirty child placement.
 func (b *Base) SetRelativePlacement(placement Placement) {
 	if b.RelativePlacement != placement {
 		b.RelativePlacement = placement
@@ -117,6 +163,8 @@ func (b *Base) SetRelativePlacement(placement Placement) {
 	}
 }
 
+// Sets the transform of the component and marks the post processing as dirty
+// if the transform is different. All parents are notified they have a dirty child visual.
 func (b *Base) SetTransform(transform Transform) {
 	if transform.IsEffectivelyIdentity() {
 		transform.Identity()
@@ -127,6 +175,8 @@ func (b *Base) SetTransform(transform Transform) {
 	}
 }
 
+// Sets the transparency of the component and marks the post processing as dirty
+// if the transparency is different. All parents are notified they have a dirty child visual.
 func (b *Base) SetTransparency(transparency float32) {
 	if b.Transparency != transparency {
 		b.Transparency = transparency
@@ -134,6 +184,9 @@ func (b *Base) SetTransparency(transparency float32) {
 	}
 }
 
+// Sets the color modification function that's applied to all vertices of this component
+// and marks the post processing as dirty if the modification function appears to be different.
+// All parents are notified they have a dirty child visual.
 func (b *Base) SetColor(color ColorModify) {
 	if !b.Color.Equals(color) {
 		b.Color = color.GetEffective()
@@ -141,6 +194,18 @@ func (b *Base) SetColor(color ColorModify) {
 	}
 }
 
+// Sets the clip placement of the children and marks the child placement as dirty
+// if the placement is different. All parents are notified they have a dirty child placement.
+func (b *Base) SetClip(clip Placement) {
+	if b.Clip != clip {
+		b.Clip = clip
+		b.Dirty(DirtyChildPlacement)
+	}
+}
+
+// Initializes the state of the component. Before this is done it is expected that the
+// component has been set on a UI and/or has a parent component. This should only be
+// called when the UI is first initialized or on a child component that is added or removed.
 func (b *Base) Init() {
 	if b.ui != nil && !b.Name.Empty() {
 		b.ui.Named.Set(b.Name, b)
@@ -167,6 +232,9 @@ func (b *Base) Init() {
 		child.ui = b.ui
 		child.Init()
 	}
+	if b.cachedBuffers == nil {
+		b.cachedBuffers = BufferQueuePool.Get()
+	}
 	b.Dirty(DirtyPlacement)
 	b.PlayEvent(AnimationEventShow)
 
@@ -175,23 +243,25 @@ func (b *Base) Init() {
 	}
 }
 
+// Places this component within the given bounds. If the component does not have any
+// dirty placements this may have no effect unless force is passed with true which will
+// cause all components in the tree to be placed. The context is expected to have the
+// size that matches the dimensions of the parent bounds passed.
 func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 	if !force && !b.dirty.Is(DirtyChildPlacement|DirtyPlacement) {
 		return
 	}
 
-	doPlacement := force || b.dirty.Is(DirtyPlacement)
+	doPlacement := b.dirty.Removed(DirtyPlacement) || force
 	if doPlacement {
 		relativeBounds := b.RelativePlacement.GetBoundsIn(parent)
 		newBounds := b.Placement.GetBoundsIn(relativeBounds)
 		force = b.SetBounds(newBounds)
-
-		b.dirty.Remove(DirtyPlacement)
 	}
 
 	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 
-	doChildPlacement := force || b.dirty.Is(DirtyChildPlacement)
+	doChildPlacement := b.dirty.Removed(DirtyChildPlacement) || force
 	if doChildPlacement {
 		shown := b.ShownChildren()
 
@@ -204,8 +274,6 @@ func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 				child.Place(baseCtx, child.parent.Bounds, force)
 			}
 		}
-
-		b.dirty.Remove(DirtyChildPlacement)
 	}
 
 	if b.Hooks.OnPlace != nil {
@@ -213,32 +281,39 @@ func (b *Base) Place(ctx *RenderContext, parent Bounds, force bool) {
 	}
 }
 
+// Sets the bounds of the component. If the bounds are different then each layer is
+// placed with the new bounds. If the component does not currently have a dirty placement
+// it is added. The component is also marked visually dirty. Returns whether the bounds have changed.
 func (b *Base) SetBounds(newBounds Bounds) bool {
 	if newBounds != b.Bounds {
 		b.Bounds = newBounds
 		for i := range b.Layers {
 			b.Layers[i].Place(b, b.Bounds)
 		}
-		dirty := DirtyVisual
-		if !b.dirty.Is(DirtyPlacement) {
-			dirty.Add(DirtyPlacement)
-		}
-		b.Dirty(dirty)
+		b.Dirty(DirtyVisual)
 		return true
 	}
 	return false
 }
 
+// Updates the component. This includes it's layers, children, animation, and hooks.
+// Each can return a dirty state which is applied to the component. A child is only
+// updated by its parent, never by its render parent. If the component is hidden
+// and UI.UpdateHidden is false then this has no effect. A component that is playing
+// a hide, show, or remove animation needs to be updated to complete the desired action.
 func (b *Base) Update(update Update) {
-	dirty := DirtyNone
-
 	if b.IsHidden() && !b.ui.UpdateHidden {
 		return
 	}
 
+	dirty := DirtyNone
+
 	for i := range b.Layers {
-		dirty.Add(b.Layers[i].Update(b, update))
+		if b.Layers[i].ForStates(b.States) {
+			dirty.Add(b.Layers[i].Update(b, update))
+		}
 	}
+
 	for childIndex := 0; childIndex < len(b.Children); childIndex++ {
 		child := b.Children[childIndex]
 		if child.parent == b {
@@ -270,14 +345,18 @@ func (b *Base) Update(update Update) {
 	}
 }
 
+// Marks the component's layout as dirty so its children are layed out next placement.
 func (b *Base) Relayout() {
 	b.Dirty(DirtyChildPlacement)
 }
 
+// Marks the component as visually dirty (layers, children, & post processing) so it's
+// rendered on next render.
 func (b *Base) Rerender() {
-	b.Dirty(DirtyVisual | DirtyChildVisual)
+	b.Dirty(DirtyVisual | DirtyChildVisual | DirtyPostProcess)
 }
 
+// Returns whether a component could render based on its invisible, animation, and hidden states.
 func (b *Base) CouldRender() bool {
 	if b.Transparency == 1 && !b.Animation.IsAnimating() {
 		return false
@@ -288,9 +367,14 @@ func (b *Base) CouldRender() bool {
 	return true
 }
 
+// Returns whether this component is invisible based on its transparency or color.
+func (b *Base) IsInvisible() bool {
+	return b.Transparency == 1 || b.Color.Modify(ColorWhite).A == 0
+}
+
+// Returns whether a component has a post processing function that needs to be applied.
 func (b *Base) HasPostProcess() bool {
-	return b.dirty.Is(DirtyPostProcess) ||
-		b.ui.Theme.StatePostProcess[b.States] != nil ||
+	return b.ui.Theme.StatePostProcess[b.States] != nil ||
 		b.Hooks.OnPostProcess != nil ||
 		b.Hooks.OnPostProcessLayers != nil ||
 		b.Hooks.OnPostProcessChildren != nil ||
@@ -300,40 +384,41 @@ func (b *Base) HasPostProcess() bool {
 		b.Transform.HasAffect()
 }
 
+// Renders a component and adds all buffers to the given queue. If the component is not
+// visible this returns immediately. This will use cached buffers if possible, otherwise
+// they may need to be regenerated. If this component has any post processing then the
+// vertices applied to the queue by this component are cloned and post processing is
+// applied to the clones to preserve the cached state.
 func (b *Base) Render(ctx *RenderContext, queue *VertexQueue) {
 	if !b.CouldRender() {
 		return
 	}
 
-	hasPostProcess := b.HasPostProcess()
+	shouldPostProcess := b.dirty.Is(DirtyPostProcess)
 	useCache := b.dirty.Not(DirtyVisual | DirtyChildVisual)
 
-	if !hasPostProcess && useCache {
-		if b.layerBuffers != nil {
-			queue.Add(b.layerBuffers)
-		}
-		if b.childrenBufferQueue != nil {
-			queue.Add(b.childrenBufferQueue)
-		}
+	// If we don't have a dirty post process, layer, or child, add the cached buffers.
+	if !shouldPostProcess && useCache {
+		queue.Add(b.cachedBuffers)
 
 		return
 	}
 
+	// We should do post process if its dirty or if a layer or child
+	// is dirty and it appears we have post processing operations.
+	hasPostProcess := b.HasPostProcess()
+	freePostProcess := !(shouldPostProcess || hasPostProcess)
+	willPostProcess := shouldPostProcess || (!useCache && hasPostProcess)
+
+	// If the parent is not the render parent, the context should always be from the parent.
 	if b.parent != b.renderParent {
 		ctx = b.ComputeRenderContext()
 	} else {
 		ctx = ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 	}
 
-	queueSizeBeforeLayers := queue.Len()
-
-	baseVertices := NewVertexIterator(queue)
-	baseIndices := NewIndexIterator(queue)
-
-	layerVertices := NewVertexIterator(queue)
-	layerIndices := NewIndexIterator(queue)
-
-	if b.dirty.Is(DirtyVisual) {
+	// Only update layer buffers if they reported dirty
+	if b.dirty.Removed(DirtyVisual) {
 		if b.layerBuffers == nil {
 			b.layerBuffers = BufferPool.Get()
 		}
@@ -347,125 +432,184 @@ func (b *Base) Render(ctx *RenderContext, queue *VertexQueue) {
 				}
 			}
 		}
-
-		b.dirty.Remove(DirtyVisual)
 	}
 
+	// If there are layers get the updated value...
 	if b.layerBuffers != nil {
-		queue.Add(b.layerBuffers)
-
-		if hasPostProcess {
-			queue.Clone(queueSizeBeforeLayers, queue.Len())
+		// Clone the buffers if we will do post processing
+		if willPostProcess {
+			if b.layerBuffersProcessed == nil {
+				b.layerBuffersProcessed = BufferPool.Get()
+			}
+			b.layerBuffers.CloneTo(b.layerBuffersProcessed)
+		} else if freePostProcess && b.layerBuffersProcessed != nil {
+			BufferPool.Free(b.layerBuffersProcessed)
+			b.layerBuffersProcessed = nil
 		}
 	}
 
-	layerVertices.Limit()
-	layerIndices.Limit()
-
-	queueSizeBeforeChildren := queue.Len()
-
-	childrenVertices := NewVertexIterator(queue)
-	childrenIndices := NewIndexIterator(queue)
-	clipped := false
-
-	if b.dirty.Is(DirtyChildVisual) {
-		if b.childrenBufferQueue == nil {
-			b.childrenBufferQueue = BufferQueuePool.Get()
+	// Only update children buffers if they reported dirty
+	if b.dirty.Removed(DirtyChildVisual) {
+		if b.childrenBuffers == nil {
+			b.childrenBuffers = BufferQueuePool.Get()
 		}
 
-		b.childrenBufferQueue.Clear()
+		b.childrenBuffers.Clear()
 
 		if len(b.Children) > 0 {
 			clipBounds := b.Clip.GetBoundsIn(b.Bounds)
 
-			clipped = b.childrenBufferQueue.Clip(clipBounds, func(innerQueue *VertexQueue, clipping bool) {
-				shown := b.ShownChildren()
-				for _, child := range shown {
-					beforeChild := innerQueue.Position()
+			b.childrenBuffers.Clip(
+				clipBounds,
+				&b.childrenBuffersClipped,
+				func(innerQueue *VertexQueue, clipping bool) {
+					shown := b.ShownChildren()
+					for _, child := range shown {
+						beforeChild := innerQueue.Position()
 
-					child.Render(ctx, innerQueue)
+						child.Render(ctx, innerQueue)
 
-					if clipping && !child.visualBounds.Intersects(clipBounds) {
-						innerQueue.Reset(beforeChild)
+						if clipping && !child.visualBounds.Intersects(clipBounds) {
+							innerQueue.Reset(beforeChild)
+						}
 					}
-				}
-			})
-		}
-
-		b.dirty.Remove(DirtyChildVisual)
-	}
-
-	if b.childrenBufferQueue != nil {
-		queue.Add(b.childrenBufferQueue)
-
-		if hasPostProcess && !clipped {
-			queue.Clone(queueSizeBeforeChildren, queue.Len())
+				},
+			)
 		}
 	}
 
-	if hasPostProcess {
-		childrenVertices.Limit()
-		childrenIndices.Limit()
-
-		baseVertices.Limit()
-		baseIndices.Limit()
-
-		b.Hooks.OnPostProcessLayers.Run(b, ctx, queue, layerIndices, layerVertices)
-		b.Hooks.OnPostProcessChildren.Run(b, ctx, queue, childrenIndices, childrenVertices)
-
-		b.PostProcess(ctx, queue, baseIndices, baseVertices)
+	// If there are children, get the updated value...
+	if b.childrenBuffers != nil {
+		// Clone the buffers if we will do post processing
+		if willPostProcess {
+			if b.childrenBuffersProcessed == nil {
+				b.childrenBuffersProcessed = ClipPool.Get()
+			}
+			if b.childrenBuffersClipped != nil {
+				b.childrenBuffersClipped.CloneTo(b.childrenBuffersProcessed)
+			} else {
+				b.childrenBuffers.ToBuffers().CloneTo(b.childrenBuffersProcessed)
+			}
+		} else if freePostProcess && b.childrenBuffersProcessed != nil {
+			BufferPool.Free(b.childrenBuffersProcessed)
+			b.childrenBuffersProcessed = nil
+		}
 	}
 
+	// Rebuild the cached buffers
+	b.cachedBuffers.Clear()
+	if b.layerBuffersProcessed != nil {
+		b.cachedBuffers.Add(b.layerBuffersProcessed)
+	} else if b.layerBuffers != nil {
+		b.cachedBuffers.Add(b.layerBuffers)
+	}
+	if b.childrenBuffersProcessed != nil {
+		b.cachedBuffers.Add(b.childrenBuffersProcessed)
+	} else if b.childrenBuffersClipped != nil {
+		b.cachedBuffers.Add(b.childrenBuffersClipped)
+	} else if b.childrenBuffers != nil {
+		b.cachedBuffers.Add(b.childrenBuffers)
+	}
+
+	// If we still need to post process...
+	if willPostProcess {
+		b.Hooks.OnPostProcessLayers.Run(b, ctx, b.layerBuffersProcessed)
+		b.Hooks.OnPostProcessChildren.Run(b, ctx, b.childrenBuffersProcessed)
+
+		b.PostProcess(ctx, b.cachedBuffers.ToBuffers())
+	}
+
+	// Pass the cached buffers to the OnRender.
 	if b.Hooks.OnRender != nil {
-		b.Hooks.OnRender(b, ctx, queue)
+		b.Hooks.OnRender(b, ctx, b.cachedBuffers)
 	}
 
-	b.updateVisualBounds(baseVertices)
+	// Update bounds based on cachedBuffers.
+	b.updateVisualBounds()
+
+	// Finally queue cachedBuffers for rendering.
+	queue.Add(b.cachedBuffers)
 }
 
-func (b *Base) PostProcess(ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator) {
+// Updates the visual bounds of this component based on all the vertices in the currently cached buffers.
+// This may be used by parent components to clip out a component entirely from the rendering process.
+func (b *Base) updateVisualBounds() {
+	b.visualBounds.Clear()
 
+	vertices := NewVertexIterator(b.cachedBuffers, true)
+	for vertices.HasNext() {
+		v := vertices.Next()
+		b.visualBounds.Include(v.X, v.Y)
+	}
+}
+
+// Performs the post processing that's defined on this component to the given vertex buffers.
+func (b *Base) PostProcess(ctx *RenderContext, out *VertexBuffers) {
+	b.postProcessState(ctx, out)
+	b.postProcessAnimation(ctx, out)
+	b.postProcessTransparency(ctx, out)
+	b.postProcessColor(ctx, out)
+	b.postProcessTransform(ctx, out)
+
+	b.Hooks.OnPostProcess.Run(b, ctx, out)
+
+	b.dirty.Remove(DirtyPostProcess)
+}
+
+// performs post processing based on the component's exact state.
+func (b *Base) postProcessState(ctx *RenderContext, out *VertexBuffers) {
 	modifier := b.ui.Theme.StatePostProcess[b.States]
-	modifier.Run(b, ctx, out, index, vertex)
+	modifier.Run(b, ctx, out)
+}
 
-	b.Animation.PostProcess(b, ctx, out, index, vertex)
+// performs post processing for the current animation.
+func (b *Base) postProcessAnimation(ctx *RenderContext, out *VertexBuffers) {
+	b.Animation.PostProcess(b, ctx, out)
+}
 
+// performs post processing if a non-zero transparency is defined.
+func (b *Base) postProcessTransparency(ctx *RenderContext, out *VertexBuffers) {
 	if alphaMultiplier := 1 - b.Transparency; alphaMultiplier < 1 {
-		for vertex.HasNext() {
-			v := vertex.Next()
+		vertices := NewVertexIterator(out, true)
+		for vertices.HasNext() {
+			v := vertices.Next()
 			if !v.HasColor {
 				v.Color = ColorWhite
 				v.HasColor = true
 			}
 			v.Color.A *= alphaMultiplier
 		}
-		vertex.Reset()
 	}
+}
 
+// performs post processing if a shading technique is defined.
+func (b *Base) postProcessColor(ctx *RenderContext, out *VertexBuffers) {
 	if colorModifier := b.Color; colorModifier != nil {
-		for vertex.HasNext() {
-			v := vertex.Next()
+		vertices := NewVertexIterator(out, true)
+		for vertices.HasNext() {
+			v := vertices.Next()
 			if !v.HasColor {
 				v.Color = ColorWhite
 				v.HasColor = true
 			}
 			v.Color = colorModifier(v.Color)
 		}
-		vertex.Reset()
 	}
+}
 
+// performs post processing if the transform is defined.
+func (b *Base) postProcessTransform(ctx *RenderContext, out *VertexBuffers) {
 	if transform := &b.Transform; transform.HasAffect() {
-		for vertex.HasNext() {
-			v := vertex.Next()
+		vertices := NewVertexIterator(out, true)
+		for vertices.HasNext() {
+			v := vertices.Next()
 			v.X, v.Y = transform.Transform(v.X, v.Y)
 		}
 	}
-
-	b.Hooks.OnPostProcess.Run(b, ctx, out, index, vertex)
-
-	b.dirty.Remove(DirtyPostProcess)
 }
 
+// Computes the render context for this component looking up through the parents
+// to get the effective text styles and relative to the bounds of this component.
 func (b *Base) ComputeRenderContext() *RenderContext {
 	if b.parent == nil {
 		return b.ui.renderContext.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
@@ -474,10 +618,12 @@ func (b *Base) ComputeRenderContext() *RenderContext {
 	}
 }
 
+// Returns true if this component is the render parent to the given component.
 func (b *Base) IsRenderParent(child *Base) bool {
-	return child.renderParent == b
+	return child != nil && child.renderParent == b
 }
 
+// Returns the children that are rendered by this component.
 func (b *Base) ShownChildren() []*Base {
 	if b.shownDirty {
 		b.shown = util.SliceEnsureSize(b.shown, len(b.Children))
@@ -497,8 +643,6 @@ func (b *Base) ShownChildren() []*Base {
 
 // PreferredSize computes the preferred size possibly given a width we are fitting this component into.
 // If maxWidth = 0 then the preferred size return will present one with a minimum possible width.
-// ctx should be relative to this component
-// maxWidth is the width we're aiming for for this component
 func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
 	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 
@@ -540,33 +684,29 @@ func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
 	return size
 }
 
-func (b *Base) Compact() {
-	b.CompactFor(b.ComputeRenderContext())
-}
-
-func (b *Base) CompactFor(ctx *RenderContext) {
-	size := b.PreferredSize(ctx, 0)
+// Updates the components placement to be the desired width if possible for the given render context.
+func (b *Base) PlaceWidthFor(width float32, ctx *RenderContext) {
+	size := b.PreferredSize(ctx, width)
 	b.SetPlacement(b.Placement.WithSize(size.X, size.Y))
 }
 
-func (b *Base) Tighten() {
-	b.TightenFor(b.ComputeRenderContext())
+// Updates the components placement to be the desired width if possible.
+func (b *Base) PlaceWidth(width float32) {
+	b.PlaceWidthFor(width, b.ComputeRenderContext())
 }
 
-func (b *Base) TightenFor(ctx *RenderContext) {
-	size := b.PreferredSize(ctx, b.Bounds.Width())
-	b.SetPlacement(b.Placement.WithSize(size.X, size.Y))
+// Updates the components placement to be the smallest width possible.
+func (b *Base) PlaceMinWidth() {
+	b.PlaceWidth(0)
 }
 
-func (b *Base) updateVisualBounds(baseVertices VertexIterator) {
-	b.visualBounds.Clear()
-
-	for baseVertices.HasNext() {
-		v := baseVertices.Next()
-		b.visualBounds.Include(v.X, v.Y)
-	}
+// Updates the components placement to be the smallest height possible for the
+// current width and the given render context.
+func (b *Base) PlaceMinHeight() {
+	b.PlaceWidth(b.Bounds.Width())
 }
 
+// The parent of this component, if any.
 func (b *Base) Parent() *Base {
 	if b == nil {
 		return nil
@@ -574,6 +714,9 @@ func (b *Base) Parent() *Base {
 	return b.parent
 }
 
+// Returns true if the point is inside the Bounds of this component. The point is expected
+// to be transformed to the relative orientation of this component. If an OverShape is
+// defined then point-in-polygon logic is used to determine inside-ness.
 func (b *Base) IsInside(pt Coord) bool {
 	if !b.Bounds.InsideCoord(pt) {
 		return false
@@ -592,6 +735,15 @@ func (b *Base) IsInside(pt Coord) bool {
 	return true
 }
 
+// Returns the component at the given point within this component.
+// If a TransparencyThreshold is defined on the UI and this component is too
+// transparent it is considered invisible to pointer events.
+// If the UI is configured to transform the pointer to the relative orientation
+// of this component then the coordinate is passed through the inverse transform
+// of this component before further inspection is done.
+// If the point is not within the Bounds or OverShape of this component then nil
+// is returned. Otherwise all ShownChildren are inspected using the same logic
+// as above and the first one to return a non-nil value is returned.
 func (b *Base) At(pt Coord) *Base {
 	transparency := b.Transparency
 	if transparency > 0 && b.ui.TransparencyThreshold > 0 && transparency >= b.ui.TransparencyThreshold {
@@ -620,6 +772,7 @@ func (b *Base) At(pt Coord) *Base {
 	return b
 }
 
+// Sets the visibility of this component to either show or hide. See Show & Hide.
 func (b *Base) SetVisible(show bool) {
 	if show {
 		b.Show()
@@ -628,6 +781,9 @@ func (b *Base) SetVisible(show bool) {
 	}
 }
 
+// Hides the component if it's not already hiding or hidden. If a hide animation
+// is defined the animation will play out before the component is hidden and
+// effectively removed from it's render parent's layout.
 func (b *Base) Hide() {
 	if !b.States.Is(StateHidden | StateHiding) {
 		if b.PlayEvent(AnimationEventHide) {
@@ -638,11 +794,20 @@ func (b *Base) Hide() {
 	}
 }
 
+// Hides the component now, fixing the states and updating the render parent.
 func (b *Base) hideNow() {
 	b.SetState(b.States.WithAdd(StateHidden).WithRemove(StateHiding | StateShowing))
 	b.renderParent.ChildrenUpdated()
+	if b.parent != b.renderParent {
+		b.parent.ChildrenUpdated()
+	}
 }
 
+// Shows the component if it's not already shown or showing. If a show
+// animation is defined the animation will play out before the component
+// is considered shown and can be interacted with. As soon as the showing
+// process begins it's effectively added back to its render parent in the same
+// position it previously was in it's layout.
 func (b *Base) Show() {
 	if !b.States.Is(StateShowing) && b.States.Is(StateHidden|StateHiding) {
 		if b.PlayEvent(AnimationEventShow) {
@@ -654,11 +819,19 @@ func (b *Base) Show() {
 	}
 }
 
+// Shows the component now, fixing the states and updating the render parent.
 func (b *Base) showNow() {
 	b.RemoveStates(StateHidden | StateHiding | StateShowing)
 	b.renderParent.ChildrenUpdated()
+	if b.parent != b.renderParent {
+		b.parent.ChildrenUpdated()
+	}
 }
 
+// Removes the component if it's not already removed or removing. If a
+// remove animation is defined the animation will play out before the component
+// is actually removed from the parent & render parent. On removal much of the cached
+// state of the component is freed until the component is Init again by a new parent.
 func (b *Base) Remove() {
 	if b.parent != nil && !b.States.Is(StateRemoving) {
 		if b.PlayEvent(AnimationEventRemove) {
@@ -669,6 +842,7 @@ func (b *Base) Remove() {
 	}
 }
 
+// Removes the component now cleaning up cached data and references.
 func (b *Base) removeNow() {
 	if b.renderParent != nil {
 		b.renderParent.ChildrenUpdated()
@@ -679,6 +853,8 @@ func (b *Base) removeNow() {
 	b.renderParent = nil
 }
 
+// Removes the component from any render parents, returns all buffers & queues
+// back to the pools, and does the same for all descendants.
 func (b *Base) cleanup() {
 	if b.parent != b.renderParent {
 		b.removeFrom(b.renderParent)
@@ -687,9 +863,25 @@ func (b *Base) cleanup() {
 		BufferPool.Free(b.layerBuffers)
 		b.layerBuffers = nil
 	}
-	if b.childrenBufferQueue != nil {
-		BufferQueuePool.Free(b.childrenBufferQueue)
-		b.childrenBufferQueue = nil
+	if b.layerBuffersProcessed != nil {
+		BufferPool.Free(b.layerBuffersProcessed)
+		b.layerBuffersProcessed = nil
+	}
+	if b.childrenBuffers != nil {
+		BufferQueuePool.Free(b.childrenBuffers)
+		b.childrenBuffers = nil
+	}
+	if b.childrenBuffersClipped != nil {
+		ClipPool.Free(b.childrenBuffersClipped)
+		b.childrenBuffersClipped = nil
+	}
+	if b.childrenBuffersProcessed != nil {
+		ClipPool.Free(b.childrenBuffersProcessed)
+		b.childrenBuffersProcessed = nil
+	}
+	if b.cachedBuffers != nil {
+		BufferQueuePool.Free(b.cachedBuffers)
+		b.cachedBuffers = nil
 	}
 	for _, child := range b.Children {
 		if child.parent == b {
@@ -698,6 +890,8 @@ func (b *Base) cleanup() {
 	}
 }
 
+// Removes the component from the given parent.
+// If this component does not exist in the given parent then this has no effect.
 func (b *Base) removeFrom(parent *Base) {
 	if b == nil || parent == nil {
 		return
@@ -713,6 +907,7 @@ func (b *Base) removeFrom(parent *Base) {
 	}
 }
 
+// Marks the children as updated and they required placement and visual updates.
 func (b *Base) ChildrenUpdated() {
 	if b != nil {
 		b.Dirty(DirtyChildPlacement | DirtyChildVisual)
@@ -720,6 +915,8 @@ func (b *Base) ChildrenUpdated() {
 	}
 }
 
+// Adds the given children to this parent and initializes them. This will
+// dirty this component and all parents.
 func (b *Base) AddChildren(children ...*Base) {
 	for _, child := range children {
 		child.parent = b
@@ -731,6 +928,12 @@ func (b *Base) AddChildren(children ...*Base) {
 	b.ChildrenUpdated()
 }
 
+// Changes the render parent of this component. You can have a component
+// exist in one tree which decides its initial placement but actually
+// be considered outside its parent and rendered under another. The
+// ordering, final layout, and rendering is done by the render parent.
+// You can pass nil to this to reset it back to the parent and remove
+// from the current render parent.
 func (b *Base) SetRenderParent(parent *Base) {
 	if b.renderParent != b.parent {
 		b.removeFrom(b.renderParent)
@@ -744,6 +947,9 @@ func (b *Base) SetRenderParent(parent *Base) {
 	b.renderParent.ChildrenUpdated()
 }
 
+// Returns index this component is in it's render parent's
+// children. Any hidden components in the parent are not
+// adjusted for to maintain consistent ordering.
 func (b *Base) Order() int {
 	if b.renderParent == nil {
 		return -1
@@ -751,6 +957,9 @@ func (b *Base) Order() int {
 	return util.SliceIndexOf(b.renderParent.Children, b)
 }
 
+// Sets the index this component is in it's render parent's
+// children. Any hidden components in the parent are not
+// adjusted for to maintain consistent ordering.
 func (b *Base) SetOrder(order int) {
 	currentOrder := b.Order()
 	if currentOrder == -1 || order == currentOrder {
@@ -760,40 +969,60 @@ func (b *Base) SetOrder(order int) {
 	b.renderParent.ChildrenUpdated()
 }
 
+// Sets this component to be the last one rendered in it's render parent.
 func (b *Base) BringToFront() {
 	if b.renderParent != nil {
 		b.SetOrder(len(b.renderParent.Children) - 1)
 	}
 }
 
+// Sets this component to be the first one rendered in it's render parent.
 func (b *Base) SendToBack() {
 	b.SetOrder(0)
 }
 
+// Returns whether this component is focusable. It must be marked focusable
+// and it cannot be in a state where it doesn't receive input events.
 func (b Base) IsFocusable() bool {
 	return b.Focusable && !b.IsDisabled()
 }
 
+// Returns whether this component is draggable. It must be marked draggable
+// and it cannot be in a state where it doesn't receive input events.
 func (b Base) IsDraggable() bool {
 	return b.Draggable && !b.IsDisabled()
 }
 
+// Returns whether this component is droppable. It must be marked droppable
+// and it cannot be in a state where it doesn't receive input events.
 func (b Base) IsDroppable() bool {
 	return b.Droppable && !b.IsDisabled()
 }
 
+// Returns whether this component is any disabled states.
 func (b Base) IsDisabled() bool {
 	return b.States.Is(StatesDisabled)
 }
 
+// Returns if this component is considered shown (not hidden). It may
+// be in the process of showing or hiding and still be considered shown.
 func (b Base) IsShown() bool {
 	return b.States.Not(StateHidden)
 }
 
+// Returns if this component is considered hidden. It is only hidden
+// when hiding is done and it's not trying to show.
 func (b Base) IsHidden() bool {
 	return b.States.Is(StateHidden)
 }
 
+// Returns if this component is the one currently being drug.
+func (b *Base) IsDragging() bool {
+	return b.ui.Dragging == b
+}
+
+// Sets the disabled state of this component. Any associated disabled
+// or enabled animations will be played if there is a change in state.
 func (b *Base) SetDisabled(disabled bool) {
 	if disabled == b.IsDisabled() {
 		return
@@ -807,6 +1036,9 @@ func (b *Base) SetDisabled(disabled bool) {
 	}
 }
 
+// Handles a pointer event. This is only invoked when the pointer is
+// over this component or one of it's children.
+// Updates state, plays any necessary animations, and can update the cursor.
 func (b *Base) OnPointer(ev *PointerEvent) {
 	if b.IsDisabled() {
 		return
@@ -836,6 +1068,8 @@ func (b *Base) OnPointer(ev *PointerEvent) {
 	b.Cursors.HandlePointer(ev, b)
 }
 
+// Handles a key event. This is only invoked when this component or
+// one of its children are focused.
 func (b *Base) OnKey(ev *KeyEvent) {
 	if b.IsDisabled() {
 		return
@@ -844,6 +1078,8 @@ func (b *Base) OnKey(ev *KeyEvent) {
 	b.Events.OnKey.Trigger(ev)
 }
 
+// Handles a focus event.
+// Updates state and plays any necessary animations.
 func (b *Base) OnFocus(ev *Event) {
 	if b.IsDisabled() || b.States.Is(StateFocused) {
 		return
@@ -859,6 +1095,8 @@ func (b *Base) OnFocus(ev *Event) {
 	b.PlayEvent(AnimationEventFocus)
 }
 
+// Handles a blur event.
+// Updates state and plays any necessary animations.
 func (b *Base) OnBlur(ev *Event) {
 	if b.IsDisabled() || b.States.Not(StateFocused) {
 		return
@@ -874,10 +1112,8 @@ func (b *Base) OnBlur(ev *Event) {
 	b.PlayEvent(AnimationEventBlur)
 }
 
-func (b *Base) IsDragging() bool {
-	return b.ui.Dragging == b
-}
-
+// Handles a drag or drop event.
+// Updates state and plays any necessary animations.
 func (b *Base) OnDrag(ev *DragEvent) {
 	if b.IsDisabled() {
 		return
@@ -910,6 +1146,7 @@ func (b *Base) OnDrag(ev *DragEvent) {
 	b.Cursors.HandleDrag(ev, b)
 }
 
+// A template for a base which can be applied.
 type Template struct {
 	PreLayers                   []Layer
 	PostLayers                  []Layer
@@ -941,6 +1178,8 @@ type Template struct {
 	IgnoreLayoutPreferredHeight bool
 }
 
+// Applies the template to this component, anywhere it appears an option
+// is defined on the template but not the component.
 func (b *Base) ApplyTemplate(t *Template) {
 	if t == nil {
 		return

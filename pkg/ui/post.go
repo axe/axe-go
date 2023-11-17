@@ -2,19 +2,20 @@ package ui
 
 import "github.com/axe/axe-go/pkg/util"
 
-type PostProcess func(b *Base, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator)
+type PostProcess func(b *Base, ctx *RenderContext, out *VertexBuffers)
 
 func PostProcessVertex(modify VertexModifier) PostProcess {
-	return func(b *Base, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator) {
-		for vertex.HasNext() {
-			modify(vertex.Next())
+	return func(b *Base, ctx *RenderContext, out *VertexBuffers) {
+		vertices := NewVertexIterator(out, true)
+		for vertices.HasNext() {
+			modify(vertices.Next())
 		}
 	}
 }
 
-func (pp PostProcess) Run(b *Base, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator) {
+func (pp PostProcess) Run(b *Base, ctx *RenderContext, out *VertexBuffers) {
 	if pp != nil {
-		pp(b, ctx, out, index, vertex)
+		pp(b, ctx, out)
 	}
 }
 
@@ -23,9 +24,9 @@ func postProcessNil(a PostProcess) bool {
 }
 
 func postProcessJoin(first, second PostProcess) PostProcess {
-	return func(b *Base, ctx *RenderContext, out VertexIterable, index IndexIterator, vertex VertexIterator) {
-		first(b, ctx, out, index, vertex)
-		second(b, ctx, out, index, vertex)
+	return func(b *Base, ctx *RenderContext, out *VertexBuffers) {
+		first(b, ctx, out)
+		second(b, ctx, out)
 	}
 }
 

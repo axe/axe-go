@@ -17,11 +17,11 @@ func NewQueue[D any, B Bufferable[D]](capacity int) *Queue[D, B] {
 }
 
 func (q *Queue[D, B]) Position() Position {
-	return Position{current: q.count}
+	return Position{count: q.count}
 }
 
 func (q *Queue[D, B]) Reset(pos Position) {
-	q.count = pos.current
+	q.count = pos.count
 }
 
 func (q *Queue[D, B]) Clear() {
@@ -56,4 +56,16 @@ func (q *Queue[D, B]) GetBuffers() []B {
 		return nil
 	}
 	return q.buffers[:q.Len()]
+}
+
+func (q *Queue[D, B]) ToBuffers() Buffers[D, B] {
+	if q == nil {
+		return Buffers[D, B]{}
+	}
+
+	buffers := q.GetBuffers()
+	return Buffers[D, B]{
+		buffers: buffers,
+		count:   q.count,
+	}
 }

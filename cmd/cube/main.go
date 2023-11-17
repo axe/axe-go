@@ -262,6 +262,18 @@ func main() {
 					}
 
 					textWindow := newWindow("Test Window", ui.Absolute(900, 20, 500, 400))
+					textWindowVisual := ui.MustTextToVisual(strings.Join([]string{
+						"{c:black}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
+						"{p}{h:0.5}This is centered.",
+						"{v:0.5}And {s:300%f}{f:warrior}THIS{s:150%f}{f} is big!",
+						"{v:1}This is bottom & center {s:300%f}aligned?",
+						"{p}{h:0}{v:0}Top{s:150%f} and left aligned.",
+						"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
+						"{p}{h:1}{c:white}Right aligned!",
+						"{p}{h:0.25}25% aligned?",
+						"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
+						"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
+					}, "\n"))
 					textWindow.Children = append(textWindow.Children,
 						&ui.Base{
 							Placement:                   ui.MaximizeOffset(10, 44, 10, 10),
@@ -279,18 +291,7 @@ func main() {
 							},
 							Children: []*ui.Base{{
 								Layers: []ui.Layer{{
-									Visual: ui.MustTextToVisual(strings.Join([]string{
-										"{c:black}{s:150%f}{ls:100%f}{ps:100%f}Dear Reader,",
-										"{p}{h:0.5}This is centered.",
-										"{v:0.5}And {s:300%f}{f:warrior}THIS{s:150%f}{f} is big!",
-										"{v:1}This is bottom & center {s:300%f}aligned?",
-										"{p}{h:0}{v:0}Top{s:150%f} and left aligned.",
-										"{p}{h:0.5}{c:red}And {c:orange}this {c:yellow}line {c:green}is {c:blue}super {c:indigo}duper {c:violet}gay!",
-										"{p}{h:1}{c:white}Right aligned!",
-										"{p}{h:0.25}25% aligned?",
-										"{p}{h}{w:word}This should wrap at the word and not at the character and should take up at least two lines. Resize the window!",
-										"{p}{pt:20}{h:0.5}{w:char}This should wrap at the character and not at the word and be centered.",
-									}, "\n")).Play(textAnimation),
+									Visual: textWindowVisual.Play(textAnimation),
 								}},
 								Events: ui.Events{
 									OnPointer: func(ev *ui.PointerEvent) {
@@ -318,6 +319,9 @@ func main() {
 											{Rotate: 0, Time: 1, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
 										},
 									})
+								}),
+								newButton(ui.Placement{}.Attach(1, 0, 0, 0).Shift(0, 40), "{h:center}{w:none}Animate text!", false, func() {
+									textWindowVisual.Play(textAnimation)
 								}),
 							},
 						},
@@ -370,11 +374,11 @@ func main() {
 									}
 								})
 							}),
-							newButton(ui.Placement{}, "Compact", false, func() {
-								layoutColumnWindow.Compact()
+							newButton(ui.Placement{}, "MinWidth", false, func() {
+								layoutColumnWindow.PlaceMinWidth()
 							}),
-							newButton(ui.Placement{}, "Tighten", false, func() {
-								layoutColumnWindow.Tighten()
+							newButton(ui.Placement{}, "MinHeight", false, func() {
+								layoutColumnWindow.PlaceMinHeight()
 							}),
 						},
 					})
@@ -430,11 +434,11 @@ func main() {
 									lr.Spacing.Value = float32(int(lr.Spacing.Value+5) % 15)
 								})
 							}),
-							newButton(ui.Placement{}, "Compact", false, func() {
-								layoutRowWindow.Compact()
+							newButton(ui.Placement{}, "MinWidth", false, func() {
+								layoutRowWindow.PlaceMinWidth()
 							}),
-							newButton(ui.Placement{}, "Tighten", false, func() {
-								layoutRowWindow.Tighten()
+							newButton(ui.Placement{}, "MinHeight", false, func() {
+								layoutRowWindow.PlaceMinHeight()
 							}),
 						},
 					})
@@ -444,7 +448,7 @@ func main() {
 						frame := userInterface.Named.Get(layoutGridName)
 						layout := frame.Layout.(*ui.LayoutGrid)
 						change(layout)
-						frame.Dirty(ui.DirtyPlacement)
+						frame.Relayout()
 					}
 					layoutGridWindow := newWindow("Layout Grid", ui.Absolute(1000, 300, 300, 300))
 					layoutGridWindow.Children = append(layoutGridWindow.Children, &ui.Base{
@@ -542,11 +546,11 @@ func main() {
 									}
 								})
 							}),
-							newButton(ui.Placement{}, "Compact", false, func() {
-								layoutGridWindow.Compact()
+							newButton(ui.Placement{}, "MinWidth", false, func() {
+								layoutGridWindow.PlaceMinWidth()
 							}),
-							newButton(ui.Placement{}, "Tighten", false, func() {
-								layoutGridWindow.Tighten()
+							newButton(ui.Placement{}, "MinHeight", false, func() {
+								layoutGridWindow.PlaceMinHeight()
 							}),
 							newButton(ui.Placement{}, "Hide & Show Animation", false, nil).Edit(func(b *ui.Base) {
 								b.Colors.Set(BackgroundColor, ui.ColorOrange)
@@ -631,14 +635,14 @@ func main() {
 											lg.HorizontalSpacing.Value = float32(math.Mod(float64(lg.HorizontalSpacing.Value)+10, 30))
 										})
 									}),
-									newButton(ui.Placement{}, "Compact", false, func() {
-										layoutInlineWindow.Compact()
+									newButton(ui.Placement{}, "MinWidth", false, func() {
+										layoutInlineWindow.PlaceMinWidth()
 									}).Edit(func(b *ui.Base) {
 										b.Colors.Set(BackgroundColor, ui.ColorPurple)
 										b.Colors.Set(TextColor, ui.ColorWhite)
 									}),
-									newButton(ui.Placement{}, "Tighten", false, func() {
-										layoutInlineWindow.Tighten()
+									newButton(ui.Placement{}, "MinHeight", false, func() {
+										layoutInlineWindow.PlaceMinHeight()
 									}),
 								},
 							},
@@ -1135,7 +1139,7 @@ func (r *RippleLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderCont
 			Top:    centerY - radius,
 			Bottom: centerY + radius,
 		}
-		visualized := ui.NewVertexIterator(out)
+		visualized := ui.NewVertexIterator(out, false)
 		background.Visualize(b, rippleBounds, ctx, out)
 		for visualized.HasNext() {
 			v := visualized.Next()
@@ -1206,7 +1210,7 @@ func (r *PulseLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderConte
 		if background.Shape == nil {
 			background.Shape = b.Shape
 		}
-		visualized := ui.NewVertexIterator(out)
+		visualized := ui.NewVertexIterator(out, false)
 		background.Visualize(b, pulseBounds, ctx, out)
 		for visualized.HasNext() {
 			v := visualized.Next()

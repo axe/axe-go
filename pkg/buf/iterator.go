@@ -1,5 +1,7 @@
 package buf
 
+import "github.com/axe/axe-go/pkg/util"
+
 type Iterable[D any, B Bufferable[D]] interface {
 	Current() int
 	Len() int
@@ -7,20 +9,30 @@ type Iterable[D any, B Bufferable[D]] interface {
 }
 
 type DataIterator[D any, B Bufferable[D]] struct {
-	startBuffer   int
-	startData     int
+	// The index of the starting buffer
+	startBuffer int
+	// The index of the starting data. Initially this is -1 since HasNext() looks at +1.
+	startData int
+	// The index of the current buffer
 	currentBuffer int
-	currentData   int
-	limitBuffer   int
-	limitData     int
-	iterable      Iterable[D, B]
+	// The index of the current data
+	currentData int
+	// If set to a positive value, the exclusive buffer end to iterate.
+	limitBuffer int
+	// If set to a positive value, the exclusive data end to iterate on the last buffer.
+	limitData int
+	// The iterable object
+	iterable Iterable[D, B]
 }
 
-func NewDataIterator[D any, B Bufferable[D]](iterable Iterable[D, B]) DataIterator[D, B] {
+func NewDataIterator[D any, B Bufferable[D]](iterable Iterable[D, B], beginning bool) DataIterator[D, B] {
 	start := -1
-	current := iterable.Current()
-	if current < iterable.Len() {
-		start = (*iterable.At(current)).DataCount() - 1
+	current := 0
+	if !beginning {
+		current = util.Max(0, iterable.Current())
+		if current < iterable.Len() {
+			start = (*iterable.At(current)).DataCount() - 1
+		}
 	}
 
 	return DataIterator[D, B]{
@@ -32,6 +44,13 @@ func NewDataIterator[D any, B Bufferable[D]](iterable Iterable[D, B]) DataIterat
 		limitData:     -1,
 		iterable:      iterable,
 	}
+}
+
+func (i *DataIterator[D, B]) Flip() {
+	i.Limit()
+	i.startBuffer = 0
+	i.startData = 0
+	i.Reset()
 }
 
 func (i *DataIterator[D, B]) Reset() {
@@ -54,7 +73,10 @@ func (i *DataIterator[D, B]) Limit() {
 }
 
 func (i *DataIterator[D, B]) dataLimit() int {
-	if i.limitData != -1 && i.limitBuffer == i.currentBuffer+1 {
+	if i.currentBuffer >= i.bufferLimit() {
+		return 0
+	}
+	if i.limitData != -1 && i.currentBuffer+1 >= i.limitBuffer {
 		return i.limitData
 	}
 	return i.current().DataCount()
@@ -105,11 +127,14 @@ type IndexIterator[D any, B Bufferable[D]] struct {
 	iterable      Iterable[D, B]
 }
 
-func NewIndexIterator[D any, B Bufferable[D]](iterable Iterable[D, B]) IndexIterator[D, B] {
+func NewIndexIterator[D any, B Bufferable[D]](iterable Iterable[D, B], beginning bool) IndexIterator[D, B] {
 	start := -1
-	current := iterable.Current()
-	if current < iterable.Len() {
-		start = (*iterable.At(current)).DataCount() - 1
+	current := 0
+	if !beginning {
+		current = util.Max(0, iterable.Current())
+		if current < iterable.Len() {
+			start = (*iterable.At(current)).DataCount() - 1
+		}
 	}
 
 	return IndexIterator[D, B]{
@@ -121,6 +146,13 @@ func NewIndexIterator[D any, B Bufferable[D]](iterable Iterable[D, B]) IndexIter
 		limitIndex:    -1,
 		iterable:      iterable,
 	}
+}
+
+func (i *IndexIterator[D, B]) Flip() {
+	i.Limit()
+	i.startBuffer = 0
+	i.startIndex = 0
+	i.Reset()
 }
 
 func (i *IndexIterator[D, B]) Reset() {
@@ -143,7 +175,10 @@ func (i *IndexIterator[D, B]) Limit() {
 }
 
 func (i *IndexIterator[D, B]) indexLimit() int {
-	if i.limitIndex != -1 && i.limitBuffer == i.currentBuffer+1 {
+	if i.currentBuffer >= i.bufferLimit() {
+		return 0
+	}
+	if i.limitIndex != -1 && i.currentBuffer+1 >= i.limitBuffer {
 		return i.limitIndex
 	}
 	return i.current().IndexCount()

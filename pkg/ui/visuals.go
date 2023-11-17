@@ -199,7 +199,7 @@ func (s VisualShadow) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out 
 		filled := VisualFilled{
 			Shape: innerShape,
 		}
-		start := NewVertexIterator(out)
+		start := NewVertexIterator(out, false)
 		filled.Visualize(b, offsetBounds, ctx, out)
 		for start.HasNext() {
 			start.Next().AddColor(ColorWhite)
@@ -279,9 +279,6 @@ func (s *VisualText) Update(b *Base, update Update) Dirty {
 	dirty := s.dirty
 	s.dirty.Clear()
 	if s.Animation != nil {
-		if s.animationTime == 0 {
-			s.Init(b)
-		}
 		dirty.Add(s.Animation.Update(b, s.animationTime, update))
 		if s.Animation.IsDone(b, s.animationTime) {
 			s.Animation = nil
@@ -294,7 +291,18 @@ func (s *VisualText) Update(b *Base, update Update) Dirty {
 
 func (s *VisualText) Play(factory TextAnimationFactory) *VisualText {
 	s.animationTime = 0
+	s.Animation = nil
 	s.AnimationFactory = factory
+	return s.Dirty()
+}
+
+func (s *VisualText) Stop() *VisualText {
+	if s.Animation != nil {
+		s.animationTime = 0
+		s.Animation = nil
+		s.AnimationFactory = nil
+		return s.Dirty()
+	}
 	return s
 }
 
@@ -345,6 +353,7 @@ func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 
 		if s.animationTime == 0 && s.Animation == nil && s.AnimationFactory != nil {
 			s.Animation = s.AnimationFactory.GetAnimation(&s.rendered)
+			s.Animation.Init(b)
 		}
 	}
 	clipBounds := Bounds{}

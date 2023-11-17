@@ -25,14 +25,18 @@ func (b *Buffer[D]) Init(capacity int) {
 func (b *Buffer[D]) CloneTo(target Buffer[D]) Buffer[D] {
 	target.data = util.SliceAppendAt(target.data, 0, b.data[:b.dataCount])
 	target.dataCount = b.dataCount
+	target.dataReserved = b.dataReserved
 	target.index = util.SliceAppendAt(target.index, 0, b.index[:b.indexCount])
 	target.indexCount = b.indexCount
+	target.indexReserved = b.indexReserved
 	return target
 }
 
 func (b *Buffer[D]) Clear() {
 	b.dataCount = 0
+	b.dataReserved = 0
 	b.indexCount = 0
+	b.indexReserved = 0
 }
 
 func (b Buffer[D]) Empty() bool {

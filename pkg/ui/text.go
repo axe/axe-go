@@ -1173,7 +1173,13 @@ type BasicTextAnimation struct {
 	states                []BasicTextAnimationState
 }
 
-func (a *BasicTextAnimation) Init(base *Base) {}
+func (a *BasicTextAnimation) Init(base *Base) {
+	a.duration = 0
+	a.states = a.GetStates(a.text)
+	for _, state := range a.states {
+		a.duration += state.Duration
+	}
+}
 
 func (a *BasicTextAnimation) Update(b *Base, animationTime float32, update Update) Dirty {
 	prevTime := a.EasedTime(a.previousAnimationTime)
@@ -1311,19 +1317,10 @@ func (a *BasicTextAnimation) GetStates(text *RenderedText) []BasicTextAnimationS
 }
 
 func (a BasicTextAnimation) GetAnimation(text *RenderedText) TextAnimation {
-	duration := float32(0)
-	states := a.GetStates(text)
-	for _, state := range states {
-		duration += state.Duration
-	}
-
 	return &BasicTextAnimation{
 		Settings: a.Settings,
 		Easing:   a.Easing,
-
 		text:     text,
-		states:   states,
-		duration: duration,
 	}
 }
 
