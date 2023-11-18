@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/axe/axe-go/pkg/ease"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/util"
 )
@@ -1126,7 +1127,7 @@ type BasicTextAnimationSettings struct {
 	// How long between starting each piece animation
 	Delay float32
 	// Optional easing function for determining the frame
-	Easing func(float32) float32
+	Easing ease.Easing
 	// The index of the glyph to start at
 	Start int
 }
@@ -1165,7 +1166,7 @@ func (s BasicTextAnimationSettings) GetFrames(time float32) (first int, delta fl
 
 type BasicTextAnimation struct {
 	Settings []BasicTextAnimationSettings
-	Easing   func(float32) float32
+	Easing   ease.Easing
 
 	previousAnimationTime float32
 	text                  *RenderedText
@@ -1280,14 +1281,14 @@ func (a *BasicTextAnimation) Render(b *Base, animationTime float32, bounds Bound
 }
 
 func (a *BasicTextAnimation) EasedTime(time float32) float32 {
-	return Ease(time/a.duration, a.Easing) * a.duration
+	return ease.Get(time/a.duration, a.Easing) * a.duration
 }
 
 func (a *BasicTextAnimation) ValueAt(time float32) (state int, value int, timeInValue float32) {
 	for stateIndex, s := range a.states {
 		if time <= s.Duration {
 			settings := a.Settings[stateIndex]
-			stateTime := Ease(time/s.Duration, settings.Easing) * s.Duration
+			stateTime := ease.Get(time/s.Duration, settings.Easing) * s.Duration
 			state = stateIndex
 			value = util.Max(0, int((stateTime-settings.Duration+settings.Delay)/settings.Delay))
 			timeInValue = stateTime - float32(value)*settings.Delay
@@ -1343,7 +1344,7 @@ func (ag *animateGlyphs) update(ctx *RenderContext) {
 	frameStart, frameDelta := ag.settings.GetFrames(ag.delta)
 	start := ag.settings.Frames[frameStart]
 	end := ag.settings.Frames[frameStart+1]
-	delta := Ease(frameDelta, start.Easing)
+	delta := ease.Get(frameDelta, start.Easing)
 
 	animateCtx := ctx.WithBounds(ag.bounds)
 

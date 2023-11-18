@@ -8,6 +8,13 @@ type LargeArea = Area[uint32, uint32]
 type MediumArea = Area[uint32, uint16]
 type SmallArea = Area[uint32, uint8]
 
+// Constants
+
+const (
+	None  Identifier = -1
+	Empty Identifier = 0
+)
+
 // Identifier
 
 type Identifier int32

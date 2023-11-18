@@ -10,6 +10,7 @@ import (
 	axe "github.com/axe/axe-go/pkg"
 	"github.com/axe/axe-go/pkg/asset"
 	"github.com/axe/axe-go/pkg/ds"
+	"github.com/axe/axe-go/pkg/ease"
 	"github.com/axe/axe-go/pkg/ecs"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/impl/opengl"
@@ -302,11 +303,8 @@ func main() {
 										newButton(ui.Placement{}.Attach(1, 0, 0, 0), "{h:center}{w:none}Do a barrel roll!", false, func() {
 											textWindow.Play(ui.BasicAnimation{
 												Duration: 1.0,
-												Easing: func(x float32) float32 {
-													inv := 1.0 - x
-													return (1.0 - util.Abs(inv*inv*util.Cos(x*x*7.0)))
-												},
-												Save: true,
+												Easing:   ease.TinyBounce,
+												Save:     true,
 												Frames: []ui.BasicAnimationFrame{
 													{Rotate: 360, Time: 0, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
 													{Rotate: 0, Time: 1, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},

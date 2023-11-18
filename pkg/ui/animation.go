@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/axe/axe-go/pkg/ds"
+	"github.com/axe/axe-go/pkg/ease"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/util"
 )
@@ -170,7 +171,7 @@ type BasicAnimationFrame struct {
 	Time         float32
 	Color        ColorModify
 	Transparency float32
-	Easing       func(float32) float32
+	Easing       ease.Easing
 }
 
 func (start BasicAnimationFrame) Lerp(end BasicAnimationFrame, delta float32, ctx *AmountContext, x, y float32) BasicAnimationFrameInterpolated {
@@ -220,7 +221,7 @@ func (inter BasicAnimationFrameInterpolated) Transform() Transform {
 
 type BasicAnimation struct {
 	Duration            float32
-	Easing              func(float32) float32
+	Easing              ease.Easing
 	Save                bool
 	SaveSkipColor       bool
 	SaveSkipTransparent bool
@@ -237,9 +238,17 @@ func (a BasicAnimation) WithDuration(duration float32) BasicAnimation {
 	copy.Duration = duration
 	return copy
 }
-func (a BasicAnimation) WithEasing(easing func(float32) float32) BasicAnimation {
+func (a BasicAnimation) WithEasing(easing ease.Easing) BasicAnimation {
 	copy := a
 	copy.Easing = easing
+	return copy
+}
+func (a BasicAnimation) WithSave(save, skipColor, skipTransparent, skipTransform bool) BasicAnimation {
+	copy := a
+	copy.Save = save
+	copy.SaveSkipColor = skipColor
+	copy.SaveSkipTransparent = skipTransparent
+	copy.SaveSkipTransform = skipTransform
 	return copy
 }
 func (a BasicAnimation) Init(base *Base) {}
@@ -251,7 +260,7 @@ func (a BasicAnimation) IsDone(base *Base, animationTime float32) bool {
 }
 func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers) {
 	animationDelta := util.Min(animationTime/a.Duration, 1)
-	animationEasingDelta := Ease(animationDelta, a.Easing)
+	animationEasingDelta := ease.Get(animationDelta, a.Easing)
 
 	i := len(a.Frames) - 2
 	for i > 0 && a.Frames[i].Time > animationEasingDelta {
@@ -262,7 +271,7 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 	end := a.Frames[i+1]
 
 	timeDelta := util.Delta(start.Time, end.Time, animationEasingDelta)
-	timeEasingDelta := Ease(timeDelta, start.Easing)
+	timeEasingDelta := ease.Get(timeDelta, start.Easing)
 
 	inter := start.Lerp(end, timeEasingDelta, ctx.AmountContext, base.Bounds.Left, base.Bounds.Top)
 	transform := inter.Transform()

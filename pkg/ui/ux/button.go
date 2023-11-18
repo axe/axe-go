@@ -13,8 +13,8 @@ type Button struct {
 
 	Text      string
 	TextValue Value[string]
-	LeftIcon  Icon
-	RightIcon Icon
+	LeftIcon  *Icon
+	RightIcon *Icon
 
 	OnClick   func()
 	OnEnter   func()
@@ -23,6 +23,21 @@ type Button struct {
 }
 
 var _ HasComponent = Button{}
+
+type ButtonBase struct {
+	Component  *ui.Base
+	Text       Value[string]
+	Options    Button
+	TextVisual *ui.VisualText
+
+	clickTrigger  Trigger
+	enterTrigger  Trigger
+	actionTrigger Trigger
+	clicks        Counter
+	enters        Counter
+}
+
+var _ HasComponent = &ButtonBase{}
 
 func (b Button) Build(theme *Theme) *ButtonBase {
 
@@ -93,6 +108,7 @@ func (b Button) Build(theme *Theme) *ButtonBase {
 		},
 	}
 
+	base.Component.ApplyTemplate(theme.Templates[KindButton])
 	base.Component.ApplyTemplate(b.Template)
 
 	return base
@@ -101,21 +117,6 @@ func (b Button) Build(theme *Theme) *ButtonBase {
 func (b Button) GetComponent(theme *Theme) *ui.Base {
 	return b.Build(theme).GetComponent(theme)
 }
-
-type ButtonBase struct {
-	Component  *ui.Base
-	Text       Value[string]
-	Options    Button
-	TextVisual *ui.VisualText
-
-	clickTrigger  Trigger
-	enterTrigger  Trigger
-	actionTrigger Trigger
-	clicks        Counter
-	enters        Counter
-}
-
-var _ HasComponent = &ButtonBase{}
 
 func (b *ButtonBase) GetComponent(theme *Theme) *ui.Base { return b.Component }
 func (b *ButtonBase) Clicked() bool                      { return b.clicks.Changed() }
