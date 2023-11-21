@@ -177,13 +177,13 @@ var (
 	}
 
 	// FadeIn
-	FadeInDown     = TranslateGen(ui.NewAmountPointParent(0, -100), ui.AmountPoint{}).Merge(FadeIn)
+	FadeInDown     = TranslateGen(ui.NewAmountPointParent(0, -1), ui.AmountPoint{}).Merge(FadeIn)
 	FadeInDownBig  = TranslateGen(ui.NewAmountPoint(0, -2000), ui.AmountPoint{}).Merge(FadeIn)
-	FadeInLeft     = TranslateGen(ui.NewAmountPointParent(-100, 0), ui.AmountPoint{}).Merge(FadeIn)
+	FadeInLeft     = TranslateGen(ui.NewAmountPointParent(-1, 0), ui.AmountPoint{}).Merge(FadeIn)
 	FadeInLeftBig  = TranslateGen(ui.NewAmountPoint(-2000, 0), ui.AmountPoint{}).Merge(FadeIn)
-	FadeInRight    = TranslateGen(ui.NewAmountPointParent(100, 0), ui.AmountPoint{}).Merge(FadeIn)
+	FadeInRight    = TranslateGen(ui.NewAmountPointParent(1, 0), ui.AmountPoint{}).Merge(FadeIn)
 	FadeInRightBig = TranslateGen(ui.NewAmountPoint(2000, 0), ui.AmountPoint{}).Merge(FadeIn)
-	FadeInUp       = TranslateGen(ui.NewAmountPointParent(0, 100), ui.AmountPoint{}).Merge(FadeIn)
+	FadeInUp       = TranslateGen(ui.NewAmountPointParent(0, 1), ui.AmountPoint{}).Merge(FadeIn)
 	FadeInUpBig    = TranslateGen(ui.NewAmountPoint(0, 2000), ui.AmountPoint{}).Merge(FadeIn)
 
 	// FadeOut
@@ -253,9 +253,9 @@ var (
 	// ZoomOut
 	ZoomOutGen = func(bigX, bigY, smallX, smallY float32) ui.BasicAnimation {
 		return AnimationGen([]ui.BasicAnimationFrame{
-			{Time: 0.00, Scale: &ui.Coord{X: 1, Y: 1}, Origin: originCenter},
+			{Time: 0.00, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
 			{Time: 0.40, Scale: &ui.Coord{X: 0.475, Y: 0.475}, Easing: zoomBezier1, Translate: ui.NewAmountPoint(smallX, smallY), Origin: ui.NewAmountPointParent(0.5, 0.75)},
-			{Time: 1.00, Scale: &ui.Coord{X: 0.1, Y: 0.1}, Transparency: 1, Translate: ui.NewAmountPoint(bigX, bigY), Origin: originCenterBottom},
+			{Time: 1.00, Scale: &ui.Coord{X: 0.1, Y: 0.1}, Transparency: 1, Translate: ui.NewAmountPoint(bigX, bigY), Origin: OriginBottom},
 		})
 	}
 	ZoomOut = AnimationGen([]ui.BasicAnimationFrame{
@@ -268,14 +268,14 @@ var (
 	ZoomOutUp    = ZoomOutGen(0, -2000, 0, 60)
 
 	// Slide
-	SlideInDown   = TranslateGen(ui.NewAmountPointParent(0, -100), ui.AmountPoint{})
-	SlideInLeft   = TranslateGen(ui.NewAmountPointParent(-100, 0), ui.AmountPoint{})
-	SlideInRight  = TranslateGen(ui.NewAmountPointParent(100, 0), ui.AmountPoint{})
-	SlideInUp     = TranslateGen(ui.NewAmountPointParent(0, 100), ui.AmountPoint{})
-	SlideOutDown  = TranslateGen(ui.AmountPoint{}, ui.NewAmountPointParent(0, 100)).Merge(FadeOutEnd)
-	SlideOutLeft  = TranslateGen(ui.AmountPoint{}, ui.NewAmountPointParent(-100, 0)).Merge(FadeOutEnd)
-	SlideOutRight = TranslateGen(ui.AmountPoint{}, ui.NewAmountPointParent(100, 0)).Merge(FadeOutEnd)
-	SlideOutUp    = TranslateGen(ui.AmountPoint{}, ui.NewAmountPointParent(0, -100)).Merge(FadeOutEnd)
+	SlideInDown   = TranslateGen(ui.NewAmountPointParent(0, -1), ui.AmountPoint{})
+	SlideInLeft   = TranslateGen(ui.NewAmountPointParent(-1, 0), ui.AmountPoint{})
+	SlideInRight  = TranslateGen(ui.NewAmountPointParent(1, 0), ui.AmountPoint{})
+	SlideInUp     = TranslateGen(ui.NewAmountPointParent(0, 1), ui.AmountPoint{})
+	SlideOutDown  = TranslateGen(ui.AmountPoint{}, ui.NewAmountPointParent(0, 1)).Merge(FadeOutEnd)
+	SlideOutLeft  = TranslateGen(ui.AmountPoint{}, ui.NewAmountPointParent(-1, 0)).Merge(FadeOutEnd)
+	SlideOutRight = TranslateGen(ui.AmountPoint{}, ui.NewAmountPointParent(1, 0)).Merge(FadeOutEnd)
+	SlideOutUp    = TranslateGen(ui.AmountPoint{}, ui.NewAmountPointParent(0, -1)).Merge(FadeOutEnd)
 
 	/* Template
 	TemplateGen = func() ui.BasicAnimation {

@@ -5,4 +5,5 @@ type Styles struct {
 	Dialog   DialogStyles
 	Checkbox CheckboxStyles
 	Editable EditableStyles
+	Icon     IconStyles
 }

@@ -83,6 +83,14 @@ var (
 			"slideoutup":         SlideOutUp,
 			// anim8js
 			"wiggle": Wiggle,
+			// axe
+			"explode":         Explode,
+			"revealdown":      RevealDown,
+			"revealup":        RevealUp,
+			"revealupdown":    RevealUpDown,
+			"revealleft":      RevealLeft,
+			"revealright":     RevealRight,
+			"revealleftright": RevealLeftRight,
 		}),
 	)
 
@@ -100,6 +108,13 @@ var (
 	}
 
 	// Common
-	originCenter       = ui.NewAmountPointParent(0.5, 0.5)
-	originCenterBottom = ui.NewAmountPointParent(0.5, 1.0)
+	OriginTop         = ui.NewAmountPointParent(0.5, 0)
+	OriginCenter      = ui.NewAmountPointParent(0.5, 0.5)
+	OriginBottom      = ui.NewAmountPointParent(0.5, 1.0)
+	OriginTopLeft     = ui.NewAmountPointParent(0, 0)
+	OriginTopRight    = ui.NewAmountPointParent(1, 0)
+	OriginCenterRight = ui.NewAmountPointParent(1, 0.5)
+	OriginBottomLeft  = ui.NewAmountPointParent(0, 1)
+	OriginBottomRight = ui.NewAmountPointParent(1, 1)
+	OriginCenterLeft  = ui.NewAmountPointParent(0, 0.5)
 )

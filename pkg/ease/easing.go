@@ -183,6 +183,10 @@ type Subset struct {
 var _ Easing = Subset{}
 
 func NewSubset(easing Easing, start, end float32) Subset {
+	if easing == nil {
+		return Subset{}
+	}
+
 	return Subset{
 		Easing: easing,
 		Start:  start,

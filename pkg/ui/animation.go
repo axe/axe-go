@@ -259,20 +259,20 @@ const (
 	BasicAnimationPropScale BasicAnimationProp = 1 << iota
 	BasicAnimationPropOrigin
 	BasicAnimationPropTranslate
-	BasicAnimationPropRotation
+	BasicAnimationPropRotate
 	BasicAnimationPropColor
 	BasicAnimationPropTransparency
 	BasicAnimationPropEasing
 )
 
 type BasicAnimation struct {
-	Duration            float32
-	Easing              ease.Easing
-	Save                bool
-	SaveSkipColor       bool
-	SaveSkipTransparent bool
-	SaveSkipTransform   bool
-	Frames              []BasicAnimationFrame
+	Duration             float32
+	Easing               ease.Easing
+	Save                 bool
+	SaveSkipColor        bool
+	SaveSkipTransparency bool
+	SaveSkipTransform    bool
+	Frames               []BasicAnimationFrame
 }
 
 func (a BasicAnimation) GetAnimation(b *Base) Animation {
@@ -293,7 +293,7 @@ func (a BasicAnimation) WithSave(save, skipColor, skipTransparent, skipTransform
 	copy := a
 	copy.Save = save
 	copy.SaveSkipColor = skipColor
-	copy.SaveSkipTransparent = skipTransparent
+	copy.SaveSkipTransparency = skipTransparent
 	copy.SaveSkipTransform = skipTransform
 	return copy
 }
@@ -326,7 +326,7 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 		if !a.SaveSkipColor {
 			base.SetColor(inter.Color)
 		}
-		if !a.SaveSkipColor {
+		if !a.SaveSkipTransparency {
 			base.SetTransparency(inter.Transparency)
 		}
 		if !a.SaveSkipTransform {
@@ -376,7 +376,7 @@ func (a BasicAnimation) GetProps() BasicAnimationProp {
 			props |= BasicAnimationPropEasing
 		}
 		if frame.Rotate != 0 {
-			props |= BasicAnimationPropRotation
+			props |= BasicAnimationPropRotate
 		}
 		if !frame.Origin.IsZero() {
 			props |= BasicAnimationPropOrigin
@@ -417,7 +417,7 @@ func (a BasicAnimation) Only(props BasicAnimationProp) BasicAnimation {
 		if props&BasicAnimationPropOrigin == 0 {
 			frame.Origin = AmountPoint{}
 		}
-		if props&BasicAnimationPropRotation == 0 {
+		if props&BasicAnimationPropRotate == 0 {
 			frame.Rotate = 0
 		}
 		if props&BasicAnimationPropScale == 0 {
@@ -459,10 +459,11 @@ func (a BasicAnimation) Merge(b BasicAnimation) BasicAnimation {
 		bFrame := b.PreLerpForTime(time)
 
 		frames[index] = BasicAnimationFrame{
+			Time:         time,
 			Color:        util.If(bProps&BasicAnimationPropColor == 0, aFrame.Color, bFrame.Color),
 			Easing:       util.If(bProps&BasicAnimationPropEasing == 0, aFrame.Easing, bFrame.Easing),
 			Origin:       util.If(bProps&BasicAnimationPropOrigin == 0, aFrame.Origin, bFrame.Origin),
-			Rotate:       util.If(bProps&BasicAnimationPropRotation == 0, aFrame.Rotate, bFrame.Rotate),
+			Rotate:       util.If(bProps&BasicAnimationPropRotate == 0, aFrame.Rotate, bFrame.Rotate),
 			Scale:        util.If(bProps&BasicAnimationPropScale == 0, aFrame.Scale, bFrame.Scale),
 			Translate:    util.If(bProps&BasicAnimationPropTranslate == 0, aFrame.Translate, bFrame.Translate),
 			Transparency: util.If(bProps&BasicAnimationPropTransparency == 0, aFrame.Transparency, bFrame.Transparency),
@@ -470,13 +471,13 @@ func (a BasicAnimation) Merge(b BasicAnimation) BasicAnimation {
 	}
 
 	return BasicAnimation{
-		Duration:            util.Max(a.Duration, b.Duration),
-		Easing:              a.Easing,
-		Save:                a.Save || b.Save,
-		SaveSkipColor:       a.SaveSkipColor && b.SaveSkipColor,
-		SaveSkipTransparent: a.SaveSkipTransparent && b.SaveSkipTransparent,
-		SaveSkipTransform:   a.SaveSkipTransform && b.SaveSkipTransform,
-		Frames:              frames,
+		Duration:             util.Max(a.Duration, b.Duration),
+		Easing:               a.Easing,
+		Save:                 a.Save || b.Save,
+		SaveSkipColor:        a.SaveSkipColor && b.SaveSkipColor,
+		SaveSkipTransparency: a.SaveSkipTransparency && b.SaveSkipTransparency,
+		SaveSkipTransform:    a.SaveSkipTransform && b.SaveSkipTransform,
+		Frames:               frames,
 	}
 }
 

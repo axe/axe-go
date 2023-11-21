@@ -16,6 +16,7 @@ import (
 	"github.com/axe/axe-go/pkg/impl/opengl"
 	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/ui"
+	"github.com/axe/axe-go/pkg/ui/ua"
 	"github.com/axe/axe-go/pkg/util"
 )
 
@@ -168,7 +169,7 @@ func main() {
 					})
 
 					// Global Animations
-					userInterface.Theme.Animations.ForEvent.Set(ui.AnimationEventEnabled, WiggleAnimation)
+					userInterface.Theme.Animations.ForEvent.Set(ui.AnimationEventEnabled, ua.Wiggle)
 
 					// Cursors
 					cursors := ui.TileGrid(10, 8, 56, 56, 559, 449, 0, 0, "cursors")
@@ -306,8 +307,8 @@ func main() {
 												Easing:   ease.TinyBounce,
 												Save:     true,
 												Frames: []ui.BasicAnimationFrame{
-													{Rotate: 360, Time: 0, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
-													{Rotate: 0, Time: 1, Origin: ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)},
+													{Rotate: 360, Time: 0, Origin: ui.NewAmountPointParent(0.5, 0.5)},
+													{Rotate: 0, Time: 1, Origin: ui.NewAmountPointParent(0.5, 0.5)},
 												},
 											})
 										}),
@@ -548,8 +549,8 @@ func main() {
 							newButton(ui.Placement{}, "Hide & Show Animation", false, nil).Edit(func(b *ui.Base) {
 								b.Colors.Set(BackgroundColor, ui.ColorOrange)
 								b.Colors.Set(TextColor, ui.ColorBlack)
-								b.Animations.ForEvent.Set(ui.AnimationEventShow, FadeInAnimation)
-								b.Animations.ForEvent.Set(ui.AnimationEventHide, FadeOutAnimation)
+								b.Animations.ForEvent.Set(ui.AnimationEventShow, ua.FadeIn)
+								b.Animations.ForEvent.Set(ui.AnimationEventHide, ua.FadeOut)
 								b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
 									if !ev.Capture && ev.Type == ui.PointerEventDown {
 										b.Hide()
@@ -568,7 +569,7 @@ func main() {
 								}, false)
 							}),
 							newButton(ui.Placement{}, "Remove Animating", false, nil).Edit(func(b *ui.Base) {
-								b.Animations.ForEvent.Set(ui.AnimationEventRemove, ExplodeAnimation)
+								b.Animations.ForEvent.Set(ui.AnimationEventRemove, ua.Explode.WithDuration(0.2))
 								b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
 									if !ev.Capture && ev.Type == ui.PointerEventDown {
 										b.Remove()
@@ -704,102 +705,6 @@ const (
 	TextColor
 )
 
-// Animations
-
-var OriginCenter = ui.NewAmountPointUnit(0.5, 0.5, ui.UnitParent)
-
-var WiggleAnimation = ui.BasicAnimation{
-	Save:     true, // save on component so the pointer is inverse transformed against it
-	Duration: 1.0,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Rotate: 0, Origin: OriginCenter},
-		{Time: .125, Rotate: -45, Origin: OriginCenter},
-		{Time: .375, Rotate: 45, Origin: OriginCenter},
-		{Time: .583, Rotate: -30, Origin: OriginCenter},
-		{Time: .75, Rotate: 30, Origin: OriginCenter},
-		{Time: .875, Rotate: -15, Origin: OriginCenter},
-		{Time: .9583, Rotate: 15, Origin: OriginCenter},
-		{Time: 1, Rotate: 0, Origin: OriginCenter},
-	},
-}
-
-var RevealAnimation = ui.BasicAnimation{
-	Duration: 1.0,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Scale: &ui.Coord{X: 1}, Origin: OriginCenter},
-		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
-	},
-}
-
-var FadeInAnimation = ui.BasicAnimation{
-	Save:     true,
-	Duration: 0.5,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Transparency: 1},
-		{Time: 1, Transparency: 0},
-	},
-}
-
-var FadeOutAnimation = ui.BasicAnimation{
-	Save:     true,
-	Duration: 0.5,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Transparency: 0},
-		{Time: 1, Transparency: 1},
-	},
-}
-
-var FadeOutSlideUpAnimation = ui.BasicAnimation{
-	Save:     true,
-	Duration: 0.7,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Origin: OriginCenter},
-		{Time: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter, Transparency: 1},
-	},
-}
-
-var FadeInSlideDownAnimation = ui.BasicAnimation{
-	Save:     true,
-	Duration: 0.7,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Transparency: 1, Translate: ui.AmountPoint{Y: ui.Amount{Value: -100}}, Origin: OriginCenter},
-		{Time: 1, Origin: OriginCenter},
-	},
-}
-
-var FadeInSlideRightAnimation = ui.BasicAnimation{
-	Save:     true,
-	Duration: 0.7,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Translate: ui.AmountPoint{X: ui.Amount{Value: -100}}, Origin: OriginCenter, Transparency: 1},
-		{Time: 1, Origin: OriginCenter},
-	},
-}
-
-var ExplodeAnimation = ui.BasicAnimation{
-	Duration: 0.2,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Transparency: 0, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
-		{Time: 1, Transparency: 1, Scale: &ui.Coord{X: 4, Y: 4}, Origin: OriginCenter},
-	},
-}
-
-var CollapseOpenAnimation = ui.BasicAnimation{
-	Duration: 0.3,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Scale: &ui.Coord{X: 1, Y: 0}, Transparency: 1},
-		{Time: 1, Scale: &ui.Coord{X: 1, Y: 1}, Transparency: 0},
-	},
-}
-
-var CollapseCloseAnimation = ui.BasicAnimation{
-	Duration: 0.3,
-	Frames: []ui.BasicAnimationFrame{
-		{Time: 0, Scale: &ui.Coord{X: 1, Y: 1}, Transparency: 0},
-		{Time: 1, Scale: &ui.Coord{X: 1, Y: 0}, Transparency: 1},
-	},
-}
-
 // Temporary component generators
 
 func newScrollingSection(sensitivity float32, children ...*ui.Base) *ui.Base {
@@ -859,8 +764,8 @@ func newCollapsibleSection(text string, children ...*ui.Base) *ui.Base {
 	section := &ui.Base{
 		Animations: &ui.Animations{
 			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
-				ui.AnimationEventShow: CollapseOpenAnimation,
-				ui.AnimationEventHide: CollapseCloseAnimation,
+				ui.AnimationEventShow: ua.RevealDown.Merge(ua.FadeIn).WithDuration(0.3),
+				ui.AnimationEventHide: ua.RevealDown.Merge(ua.FadeIn).Reverse().WithDuration(0.3),
 			}),
 		},
 		Children: children,
@@ -942,7 +847,7 @@ func newDraggable() *ui.Base {
 var buttonTemplate = &ui.Template{
 	Animations: &ui.Animations{
 		ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
-			ui.AnimationEventShow: FadeInAnimation,
+			ui.AnimationEventShow: ua.FadeIn,
 		}),
 	},
 	Colors: ui.NewColors(map[ui.ThemeColor]ui.Colorable{
@@ -1039,8 +944,8 @@ func newTooltip(text string, delayTime float32, hideTime float32, around *ui.Bas
 		},
 		Animations: &ui.Animations{
 			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
-				ui.AnimationEventShow:   FadeInAnimation,
-				ui.AnimationEventRemove: FadeOutAnimation,
+				ui.AnimationEventShow:   ua.FadeIn,
+				ui.AnimationEventRemove: ua.FadeOut,
 			}),
 		},
 		Layers: []ui.Layer{{
@@ -1309,12 +1214,12 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 		Focusable: true,
 		Animations: &ui.Animations{
 			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
-				ui.AnimationEventShow: FadeInSlideDownAnimation,
+				ui.AnimationEventShow: ua.FadeInDown,
 			}),
 			Named: id.NewDenseKeyMap[ui.AnimationFactory, uint16, uint8](
 				id.WithStringMap(map[string]ui.AnimationFactory{
-					"hide": FadeOutSlideUpAnimation,
-					"show": FadeInSlideRightAnimation,
+					"hide": ua.FadeOutUp,
+					"show": ua.FadeInDown,
 				}),
 			),
 		},

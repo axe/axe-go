@@ -161,7 +161,7 @@ func Lerp[D Numeric](start, end D, delta float32) D {
 
 // Computes the delta of v between a start and end value where a delta of 0 is at start and a delta of 1 is at end.
 func Delta[D Numeric](start, end, value D) float32 {
-	return float32(value-start) / float32(end-start)
+	return Div(float32(value-start), float32(end-start))
 }
 
 // Returns if two numbers are equal enough (based on EPSILON)
