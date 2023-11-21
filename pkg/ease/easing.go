@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/axe/axe-go/pkg/id"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type Easing interface {
@@ -135,6 +136,10 @@ type Bezier struct {
 
 var _ Easing = Bezier{}
 
+func NewBezier(MX1, MY1, MX2, MY2 float32) Bezier {
+	return Bezier{MX1: MX1, MY1: MY1, MX2: MX2, MY2: MY2}
+}
+
 func (b Bezier) A(aA1, aA2 float32) float32 { return 1.0 - 3.0*aA2 + 3.0*aA1 }
 func (b Bezier) B(aA1, aA2 float32) float32 { return 3.0*aA2 - 6.0*aA1 }
 func (b Bezier) C(aA1 float32) float32      { return 3.0 * aA1 }
@@ -164,4 +169,39 @@ func (b Bezier) Name() id.Identifier {
 }
 func (b Bezier) String() string {
 	return fmt.Sprintf("bezier(%f,%f,%f,%f)", b.MX1, b.MY1, b.MX2, b.MY2)
+}
+
+// Subset
+
+type Subset struct {
+	Easing     Easing
+	Start, End float32
+
+	startValue, endValue float32
+}
+
+var _ Easing = Subset{}
+
+func NewSubset(easing Easing, start, end float32) Subset {
+	return Subset{
+		Easing: easing,
+		Start:  start,
+		End:    end,
+
+		startValue: easing.Ease(start),
+		endValue:   easing.Ease(end),
+	}
+}
+func (s Subset) Ease(x float32) float32 {
+	easingDelta := util.Lerp(s.Start, s.End, x)
+	rangeDelta := s.Easing.Ease(easingDelta)
+	easedDelta := util.Delta(s.startValue, s.endValue, rangeDelta)
+
+	return easedDelta
+}
+func (s Subset) Name() id.Identifier {
+	return id.None
+}
+func (s Subset) String() string {
+	return fmt.Sprintf("%s{%f,%f}", s.Easing.String(), s.Start, s.End)
 }

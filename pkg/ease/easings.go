@@ -1,6 +1,8 @@
 package ease
 
 import (
+	"math"
+
 	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/id"
 )
@@ -22,6 +24,7 @@ func init() {
 	Add(Quintic)
 	Add(Back)
 	Add(Sine)
+	Add(Cos)
 	Add(Overshot)
 	Add(Elastic)
 	Add(Revisit)
@@ -37,6 +40,11 @@ func init() {
 	Add(Slingshot)
 	Add(Circular)
 	Add(Gentle)
+	Add(CssEase)
+	Add(CssEaseIn)
+	Add(CssEaseInOut)
+	Add(CssEaseOut)
+	Add(CssLinear)
 }
 
 func AddModifier(modifier Modifier) {
@@ -173,6 +181,9 @@ var (
 	Sqrt = Name("sqrt", Fn(func(x float32) float32 {
 		return core.Sqrt(x)
 	}))
+	Cos = Name("cos", Fn(func(x float32) float32 {
+		return 0.5 - core.Cos(x*math.Pi)*0.5
+	}))
 	Sqrtf = Name("sqrtf", Fn(func(x float32) float32 {
 		i := (1.0 - x)
 		i2 := i * i
@@ -195,4 +206,11 @@ var (
 	Gentle = Name("gentle", Fn(func(x float32) float32 {
 		return (3.0 * (1.0 - x) * x * x) + (x * x * x)
 	}))
+
+	// CSS easing functions
+	CssEase      = Name("cssease", Ease)
+	CssEaseIn    = Name("csseasein", Quad)
+	CssEaseOut   = Name("csseaseout", Out.Modify(Quad))
+	CssEaseInOut = Name("csseaseinout", InOut.Modify(Quad))
+	CssLinear    = Name("csslinear", Linear)
 )

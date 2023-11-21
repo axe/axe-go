@@ -5,6 +5,10 @@ import (
 	"reflect"
 )
 
+func SliceCopy[E any](slice []E) []E {
+	return append(make([]E, 0, len(slice)), slice...)
+}
+
 func SliceRemoveAt[E any](slice []E, index int) []E {
 	return append(slice[:index], slice[index+1:]...)
 }
@@ -90,6 +94,12 @@ func SliceEnsureSize[V any](slice []V, size int) []V {
 	}
 }
 
+func SliceReverse[E any](s []E) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
 func MapKeys[K comparable, V any](m map[K]V) []K {
 	keys := make([]K, 0, len(m))
 	for k := range m {
@@ -137,6 +147,14 @@ func Clone[V any](nilable *V) *V {
 	}
 	copy := *nilable
 	return &copy
+}
+
+func If[V any](condition bool, trueValue, falseValue V) V {
+	if condition {
+		return trueValue
+	} else {
+		return falseValue
+	}
 }
 
 func Copy(dst any, src any) {

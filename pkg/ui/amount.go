@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type Unit int
@@ -296,6 +298,10 @@ func NewAmountPoint(x, y float32) AmountPoint {
 	return NewAmountPointUnit(x, y, UnitConstant)
 }
 
+func NewAmountPointParent(x, y float32) AmountPoint {
+	return NewAmountPointUnit(x, y, UnitParent)
+}
+
 func NewAmountPointUnit(x, y float32, unit Unit) AmountPoint {
 	return AmountPoint{
 		X: Amount{Value: x, Unit: unit},
@@ -314,4 +320,11 @@ func (a AmountPoint) Get(ctx *AmountContext) (float32, float32) {
 func (a *AmountPoint) Set(value float32, unit Unit) {
 	a.X.Set(value, unit)
 	a.Y.Set(value, unit)
+}
+
+func (start AmountPoint) Lerp(end AmountPoint, delta float32) AmountPoint {
+	return AmountPoint{
+		X: Amount{Value: util.Lerp(start.X.Value, end.X.Value, delta), Unit: start.X.Unit},
+		Y: Amount{Value: util.Lerp(start.Y.Value, end.Y.Value, delta), Unit: start.Y.Unit},
+	}
 }

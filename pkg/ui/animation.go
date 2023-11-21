@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"sort"
+
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/ease"
 	"github.com/axe/axe-go/pkg/id"
@@ -196,6 +198,38 @@ func (start BasicAnimationFrame) Lerp(end BasicAnimationFrame, delta float32, ct
 	return inter
 }
 
+func (start BasicAnimationFrame) PreLerp(end BasicAnimationFrame, delta float32) BasicAnimationFrame {
+	if delta == 0 {
+		return start
+	}
+	if delta == 1 {
+		return end
+	}
+
+	startScale := getScale(start.Scale)
+	endScale := getScale(end.Scale)
+
+	lerped := BasicAnimationFrame{
+		Translate:    start.Translate.Lerp(end.Translate, delta),
+		Scale:        Override(startScale.Lerp(endScale, delta)),
+		Rotate:       util.Lerp(start.Rotate, end.Rotate, delta),
+		Origin:       start.Origin.Lerp(end.Origin, delta),
+		Time:         util.Lerp(start.Time, end.Time, delta),
+		Transparency: util.Lerp(start.Time, end.Time, delta),
+		Easing:       ease.NewSubset(start.Easing, delta, 1),
+		Color:        start.Color.Lerp(end.Color, delta),
+	}
+
+	if start.Scale == nil && end.Scale == nil {
+		lerped.Scale = nil
+	}
+	if start.Easing == nil {
+		lerped.Easing = nil
+	}
+
+	return lerped
+}
+
 func getScale(c *Coord) Coord {
 	if c == nil {
 		return Coord{X: 1, Y: 1}
@@ -218,6 +252,18 @@ func (inter BasicAnimationFrameInterpolated) Transform() Transform {
 	transform.PreTranslate(inter.TranslateX, inter.TranslateY)
 	return transform
 }
+
+type BasicAnimationProp int
+
+const (
+	BasicAnimationPropScale BasicAnimationProp = 1 << iota
+	BasicAnimationPropOrigin
+	BasicAnimationPropTranslate
+	BasicAnimationPropRotation
+	BasicAnimationPropColor
+	BasicAnimationPropTransparency
+	BasicAnimationPropEasing
+)
 
 type BasicAnimation struct {
 	Duration            float32
@@ -251,6 +297,11 @@ func (a BasicAnimation) WithSave(save, skipColor, skipTransparent, skipTransform
 	copy.SaveSkipTransform = skipTransform
 	return copy
 }
+func (a BasicAnimation) WithNoSave() BasicAnimation {
+	copy := a
+	copy.Save = false
+	return copy
+}
 func (a BasicAnimation) Init(base *Base) {}
 func (a BasicAnimation) Update(base *Base, animationTime float32, update Update) Dirty {
 	return DirtyPostProcess
@@ -261,12 +312,7 @@ func (a BasicAnimation) IsDone(base *Base, animationTime float32) bool {
 func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers) {
 	animationDelta := util.Min(animationTime/a.Duration, 1)
 	animationEasingDelta := ease.Get(animationDelta, a.Easing)
-
-	i := len(a.Frames) - 2
-	for i > 0 && a.Frames[i].Time > animationEasingDelta {
-		i--
-	}
-
+	i := a.IndexForTime(animationEasingDelta)
 	start := a.Frames[i]
 	end := a.Frames[i+1]
 
@@ -305,4 +351,141 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 			v.Color.A *= alphaMultiplier
 		}
 	}
+}
+func (a BasicAnimation) IndexForTime(time float32) int {
+	i := len(a.Frames) - 2
+	for i > 0 && a.Frames[i].Time > time {
+		i--
+	}
+	return i
+}
+func (a BasicAnimation) PreLerpForTime(time float32) BasicAnimationFrame {
+	i := a.IndexForTime(time)
+	start := a.Frames[i]
+	end := a.Frames[i+1]
+	delta := util.Delta(start.Time, end.Time, time)
+	return start.PreLerp(end, delta)
+}
+func (a BasicAnimation) GetProps() BasicAnimationProp {
+	var props BasicAnimationProp
+	for _, frame := range a.Frames {
+		if frame.Color != nil {
+			props |= BasicAnimationPropColor
+		}
+		if frame.Easing != nil {
+			props |= BasicAnimationPropEasing
+		}
+		if frame.Rotate != 0 {
+			props |= BasicAnimationPropRotation
+		}
+		if !frame.Origin.IsZero() {
+			props |= BasicAnimationPropOrigin
+		}
+		if frame.Scale != nil {
+			props |= BasicAnimationPropScale
+		}
+		if !frame.Translate.IsZero() {
+			props |= BasicAnimationPropTranslate
+		}
+		if frame.Transparency > 0 {
+			props |= BasicAnimationPropTransparency
+		}
+	}
+	return props
+}
+func (a BasicAnimation) Copy() BasicAnimation {
+	copy := a
+	copy.Frames = util.SliceCopy(a.Frames)
+	for i := range copy.Frames {
+		frame := &copy.Frames[i]
+		if frame.Scale != nil {
+			frame.Scale = util.Clone(frame.Scale)
+		}
+	}
+	return copy
+}
+func (a BasicAnimation) Only(props BasicAnimationProp) BasicAnimation {
+	copy := a.Copy()
+	for i := range copy.Frames {
+		frame := &copy.Frames[i]
+		if props&BasicAnimationPropColor == 0 {
+			frame.Color = nil
+		}
+		if props&BasicAnimationPropEasing == 0 {
+			frame.Easing = nil
+		}
+		if props&BasicAnimationPropOrigin == 0 {
+			frame.Origin = AmountPoint{}
+		}
+		if props&BasicAnimationPropRotation == 0 {
+			frame.Rotate = 0
+		}
+		if props&BasicAnimationPropScale == 0 {
+			frame.Scale = nil
+		}
+		if props&BasicAnimationPropTranslate == 0 {
+			frame.Translate = AmountPoint{}
+		}
+		if props&BasicAnimationPropTransparency == 0 {
+			frame.Transparency = 0
+		}
+	}
+	return copy
+}
+func (a BasicAnimation) Without(props BasicAnimationProp) BasicAnimation {
+	return a.Only(^props)
+}
+func (a BasicAnimation) Merge(b BasicAnimation) BasicAnimation {
+	times := map[float32]struct{}{}
+	for _, frame := range a.Frames {
+		times[frame.Time] = struct{}{}
+	}
+	for _, frame := range b.Frames {
+		times[frame.Time] = struct{}{}
+	}
+	timesOrdered := make([]float32, 0, len(times))
+	for time := range times {
+		timesOrdered = append(timesOrdered, time)
+	}
+	sort.Slice(timesOrdered, func(i, j int) bool {
+		return timesOrdered[i] < timesOrdered[j]
+	})
+
+	bProps := b.GetProps()
+
+	frames := make([]BasicAnimationFrame, len(timesOrdered))
+	for index, time := range timesOrdered {
+		aFrame := a.PreLerpForTime(time)
+		bFrame := b.PreLerpForTime(time)
+
+		frames[index] = BasicAnimationFrame{
+			Color:        util.If(bProps&BasicAnimationPropColor == 0, aFrame.Color, bFrame.Color),
+			Easing:       util.If(bProps&BasicAnimationPropEasing == 0, aFrame.Easing, bFrame.Easing),
+			Origin:       util.If(bProps&BasicAnimationPropOrigin == 0, aFrame.Origin, bFrame.Origin),
+			Rotate:       util.If(bProps&BasicAnimationPropRotation == 0, aFrame.Rotate, bFrame.Rotate),
+			Scale:        util.If(bProps&BasicAnimationPropScale == 0, aFrame.Scale, bFrame.Scale),
+			Translate:    util.If(bProps&BasicAnimationPropTranslate == 0, aFrame.Translate, bFrame.Translate),
+			Transparency: util.If(bProps&BasicAnimationPropTransparency == 0, aFrame.Transparency, bFrame.Transparency),
+		}
+	}
+
+	return BasicAnimation{
+		Duration:            util.Max(a.Duration, b.Duration),
+		Easing:              a.Easing,
+		Save:                a.Save || b.Save,
+		SaveSkipColor:       a.SaveSkipColor && b.SaveSkipColor,
+		SaveSkipTransparent: a.SaveSkipTransparent && b.SaveSkipTransparent,
+		SaveSkipTransform:   a.SaveSkipTransform && b.SaveSkipTransform,
+		Frames:              frames,
+	}
+}
+
+func (a BasicAnimation) Reverse() BasicAnimation {
+	copy := a.Copy()
+	for i := range copy.Frames {
+		frame := &copy.Frames[i]
+		frame.Time = 1 - frame.Time
+	}
+	util.SliceReverse(copy.Frames)
+	return copy
 }
