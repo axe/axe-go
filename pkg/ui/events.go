@@ -108,11 +108,21 @@ func (ev DragEvent) as(dragType DragEventType) *DragEvent {
 type PointerEventType int
 
 const (
+	// Press down (might not be followed by up)
 	PointerEventDown PointerEventType = iota
+	// Press up (might not be followed by )
 	PointerEventUp
+	// When a component previously received a down but the latest down excludes them.
+	PointerEventDownOut
+	// When a component previously received an up but the latest up excludes them.
+	PointerEventUpOut
+	// A pointer has leaved a component.
 	PointerEventLeave
+	// A pointer has entered a component.
 	PointerEventEnter
+	// A scroll/wheel event.
 	PointerEventWheel
+	// The pointer has moved.
 	PointerEventMove
 )
 

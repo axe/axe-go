@@ -29,6 +29,9 @@ type UI struct {
 	PointerEntersOnDrag   bool
 	PointerMovesOnDrag    bool
 
+	previousDowns ComponentMap
+	previousUps   ComponentMap
+
 	amountContext AmountContext
 	renderContext RenderContext
 	bounds        Bounds
@@ -70,6 +73,9 @@ func NewUI() *UI {
 			id.WithArea(Area),
 			id.WithCapacity(128),
 		),
+
+		previousDowns: NewComponentMap(),
+		previousUps:   NewComponentMap(),
 	}
 }
 
@@ -253,7 +259,31 @@ func (ui *UI) ProcessPointerEvent(ev PointerEvent) error {
 
 	// Handle down/up/wheel event
 	if (ev.Type == PointerEventDown || ev.Type == PointerEventUp || ev.Type == PointerEventWheel) && ui.PointerOver != nil && ui.Dragging == nil {
-		triggerPointerEvent(getPath(ui.PointerOver), ev.withTarget(ui.PointerOver))
+		skip := false
+
+		overPath := getPath(ui.PointerOver)
+		overComponents := NewComponentMap()
+		overComponents.AddMany(overPath)
+
+		if ev.Type == PointerEventDown {
+			downOut, _, _ := ui.previousDowns.Compare(overComponents)
+			if triggerPointerEvent(downOut, ev.as(PointerEventDownOut)).Stop {
+				skip = true
+			}
+			ui.previousDowns = overComponents
+		}
+
+		if ev.Type == PointerEventUp {
+			upOut, _, _ := ui.previousUps.Compare(overComponents)
+			if triggerPointerEvent(upOut, ev.as(PointerEventUpOut)).Stop {
+				skip = true
+			}
+			ui.previousUps = overComponents
+		}
+
+		if !skip {
+			triggerPointerEvent(overPath, ev.withTarget(ui.PointerOver))
+		}
 	}
 
 	// Handle drag end/drop
@@ -364,10 +394,11 @@ func getPathWhere(c *Base, where func(*Base) bool) []*Base {
 	return path
 }
 
-func triggerPointerEvent(path []*Base, ev PointerEvent) {
+func triggerPointerEvent(path []*Base, ev PointerEvent) *PointerEvent {
 	triggerEvent(path, &ev.Event, func(c *Base) {
 		c.OnPointer(&ev)
 	})
+	return &ev
 }
 
 func triggerKeyEvent(path []*Base, ev KeyEvent) {

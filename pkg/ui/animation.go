@@ -490,3 +490,54 @@ func (a BasicAnimation) Reverse() BasicAnimation {
 	util.SliceReverse(copy.Frames)
 	return copy
 }
+
+type PlacementAnimation struct {
+	Target       Placement
+	Easing       ease.Easing
+	Duration     float32
+	ApplyMaxSize bool
+
+	start   Bounds
+	maxSize AmountPoint
+}
+
+func (a *PlacementAnimation) Init(base *Base) {
+	a.start = base.Bounds
+	a.maxSize = base.MaxSize
+}
+func (a *PlacementAnimation) Update(base *Base, animationTime float32, update Update) Dirty {
+	parentBounds := base.parent.Bounds
+	end := a.Target.GetBoundsIn(parentBounds)
+	delta := ease.Get(animationTime/a.Duration, a.Easing)
+	deltaClamped := util.Clamp(delta, 0, 1)
+	lerped := end.Sub(a.start).Scale(deltaClamped).Add(a.start)
+
+	lerpedPlacement := Absolute(lerped.Left, lerped.Top, lerped.Width(), lerped.Height())
+
+	if delta >= 1 {
+		base.SetPlacement(a.Target)
+	} else {
+		base.SetPlacement(lerpedPlacement)
+	}
+
+	if a.ApplyMaxSize {
+		if delta >= 1 {
+			base.MaxSize = a.maxSize
+		} else {
+			base.MaxSize = AmountPoint{
+				X: Amount{Value: lerped.Width()},
+				Y: Amount{Value: lerped.Height()},
+			}
+		}
+	}
+	return DirtyPlacement
+}
+func (a *PlacementAnimation) IsDone(base *Base, animationTime float32) bool {
+	return animationTime > a.Duration
+}
+func (a *PlacementAnimation) PostProcess(base *Base, animationTime float32, ctx *RenderContext, out *VertexBuffers) {
+
+}
+func (a PlacementAnimation) GetAnimation(base *Base) Animation {
+	return &a
+}

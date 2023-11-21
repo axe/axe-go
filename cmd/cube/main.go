@@ -198,6 +198,22 @@ func main() {
 					textCoordinates := ui.MustTextToVisual("{h:1}{pa:10}{pv:1}0,0")
 
 					btnPress := newButton(ui.Absolute(20, 20, 200, 50), "{f:warrior}{s:24}{h:0.5}{pv:0.5}Press me", true, nil)
+					newDropdown(
+						btnPress,
+						util.SliceSorted(ua.Named.Keys(), func(a, b id.Identifier) bool {
+							return a.String() < b.String()
+						}),
+						func(id id.Identifier) string {
+							return id.String()
+						},
+						func(id id.Identifier) {
+							anim := ua.Named.Get(id)
+							if basic, ok := anim.(ui.BasicAnimation); ok {
+								anim = basic.WithNoSave()
+							}
+							btnPress.Play(anim)
+						},
+					)
 
 					btnToggle := newButton(ui.Absolute(20, 100, 200, 50), "{f:roboto}{s:18}{h:0.5}{pv:0.5}TOGGLE DISABLED", false, func() {
 						btnPress.SetDisabled(!btnPress.IsDisabled())
@@ -646,6 +662,7 @@ func main() {
 					)
 
 					userInterface.Root = &ui.Base{
+						Name: id.Get("root"),
 						Layout: ui.LayoutStatic{
 							EnforcePreferredSize: true,
 							KeepInside:           true,
@@ -734,12 +751,6 @@ func newScrollingSection(sensitivity float32, children ...*ui.Base) *ui.Base {
 					bounds.Bottom = bounds.Top + size.Y
 					bounds.Right = bounds.Left + size.X
 					bounds.Translate(dx, dy)
-					if bounds.Left > 0 {
-						bounds.Translate(-bounds.Left, 0)
-					}
-					if bounds.Top > 0 {
-						bounds.Translate(0, -bounds.Top)
-					}
 					overRight := scrollArea.Bounds.Width() - bounds.Right
 					if overRight > 0 {
 						bounds.Translate(overRight, 0)
@@ -747,6 +758,12 @@ func newScrollingSection(sensitivity float32, children ...*ui.Base) *ui.Base {
 					overBottom := scrollArea.Bounds.Height() - bounds.Bottom
 					if overBottom > 0 {
 						bounds.Translate(0, overBottom)
+					}
+					if bounds.Left > 0 {
+						bounds.Translate(-bounds.Left, 0)
+					}
+					if bounds.Top > 0 {
+						bounds.Translate(0, -bounds.Top)
 					}
 
 					section.SetPlacement(ui.Absolute(bounds.Left, bounds.Top, size.X, size.Y))
@@ -797,6 +814,189 @@ func newCollapsibleSection(text string, children ...*ui.Base) *ui.Base {
 			section,
 		},
 	}
+}
+
+func newDropdown[T any](parent *ui.Base, items []T, toText func(T) string, onItem func(T)) *ui.Base {
+	var dropdown *ui.Base
+	var visible = false
+	dropdown = &ui.Base{
+		Name: id.Get("dropdown"),
+		// centered below parent with bottom being -10px above parent's top
+		Placement: ui.Placement{}.Relative(0, 0, 1, 0),
+		// 0px below the parent
+		RelativePlacement: ui.Placement{
+			Left:   ui.Anchor{Delta: 0},
+			Right:  ui.Anchor{Delta: 1},
+			Top:    ui.Anchor{Delta: 1},
+			Bottom: ui.Anchor{Delta: 1},
+		},
+		MaxSize: ui.AmountPoint{
+			X: ui.Amount{Value: 1, Unit: ui.UnitParent},
+			// Y: ui.Amount{Value: 200},
+		},
+		MinSize: ui.AmountPoint{
+			Y: ui.Amount{Value: float32(util.Min(10, len(items))) * 24},
+		},
+		Shape: ui.ShapeRectangle{},
+		TextStyles: &ui.TextStylesOverride{
+			Color:    ui.Override[ui.Colorable](ui.ColorBlack),
+			FontSize: &ui.Amount{Value: 16},
+			ParagraphStylesOverride: &ui.ParagraphStylesOverride{
+				ParagraphPadding: ui.Override(ui.NewAmountBoundsUniform(4, ui.UnitConstant)),
+			},
+			ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
+				VerticalAlignment: ui.Override(ui.AlignmentCenter),
+			},
+		},
+		Animations: &ui.Animations{
+			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
+				ui.AnimationEventShow: ua.RevealDown.WithDuration(0.2),
+				ui.AnimationEventHide: ua.RevealDown.Reverse().WithDuration(0.2),
+			}),
+		},
+		Layers: []ui.Layer{{
+			Visual: ui.VisualShadow{
+				Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
+				Offsets: ui.NewAmountBounds(2, 2, -2, -2),
+			},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+		}, {
+			Visual:     ui.VisualFilled{},
+			Background: ui.BackgroundColor{Color: ui.ColorWhite},
+		}},
+		Layout: ui.LayoutStatic{
+			EnforcePreferredSize: true,
+		},
+		Children: []*ui.Base{
+			newScrollingSection(100, &ui.Base{
+				Name:   id.Get("dropdown-scroll-section"),
+				Layout: ui.LayoutColumn{},
+				Children: util.SliceMap(items, func(item T) *ui.Base {
+					return &ui.Base{
+						Placement: ui.Maximized().Shrink(4),
+						Focusable: true,
+						Layers: []ui.Layer{{
+							Visual: ui.MustTextToVisual(toText(item)),
+						}},
+						Events: ui.Events{
+							OnPointer: func(ev *ui.PointerEvent) {
+								if !ev.Capture && ev.Type == ui.PointerEventDown {
+									onItem(item)
+									dropdown.Hide()
+									visible = false
+									ev.Stop = true
+								}
+							},
+						},
+					}
+				}),
+			}),
+		},
+	}
+
+	parent.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
+		if !ev.Capture && ev.Type == ui.PointerEventDown {
+			if dropdown.Parent() != parent {
+				parent.AddChildren(dropdown)
+				dropdown.SetRenderParent(parent.UI().Root)
+			} else {
+				if !visible {
+					dropdown.Show()
+				} else {
+					dropdown.Hide()
+				}
+
+			}
+			visible = !visible
+			ev.Stop = true
+		}
+		if ev.Capture && ev.Type == ui.PointerEventDownOut && visible {
+			dropdown.Hide()
+			ev.Stop = true
+		}
+	}, true)
+
+	return dropdown
+}
+
+func newTooltip(text string, delayTime float32, hideTime float32, around *ui.Base) *ui.Base {
+	showAt := time.Time{}
+	hideAt := time.Time{}
+
+	tooltip := &ui.Base{
+		// centered above parent with bottom being -10px above parent's top
+		Placement: ui.Placement{}.Relative(0.5, 1, 0.5, 1),
+		// -10px above the parent
+		RelativePlacement: ui.Placement{
+			Left:   ui.Anchor{Delta: 0.5},
+			Right:  ui.Anchor{Delta: 0.5},
+			Top:    ui.Anchor{Base: -10},
+			Bottom: ui.Anchor{Base: -10},
+		},
+		MaxSize: ui.AmountPoint{
+			X: ui.Amount{Value: 1, Unit: ui.UnitParent},
+		},
+		Shape: ui.ShapeRounded{
+			Radius: ui.NewAmountCornersUniform(6, ui.UnitConstant),
+		},
+		TextStyles: &ui.TextStylesOverride{
+			Color: ui.Override[ui.Colorable](ui.ColorWhite),
+			ParagraphStylesOverride: &ui.ParagraphStylesOverride{
+				HorizontalAlignment: ui.Override(ui.AlignmentCenter),
+				ParagraphPadding:    ui.Override(ui.NewAmountBoundsUniform(6, ui.UnitConstant)),
+			},
+			ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
+				VerticalAlignment: ui.Override(ui.AlignmentCenter),
+			},
+		},
+		Animations: &ui.Animations{
+			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
+				ui.AnimationEventShow:   ua.FadeIn,
+				ui.AnimationEventRemove: ua.FadeOut,
+			}),
+		},
+		Layers: []ui.Layer{{
+			Visual: ui.VisualShadow{
+				Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
+				Offsets: ui.NewAmountBounds(2, 2, -2, -2),
+			},
+			Background: ui.BackgroundColor{Color: ui.ColorWhite},
+		}, {
+			Visual:     ui.VisualFilled{},
+			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+		}, {
+			Visual: ui.MustTextToVisual(text),
+		}},
+	}
+
+	around.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
+		if ev.Capture {
+			if ev.Type == ui.PointerEventEnter {
+				showAt = time.Now().Add(time.Duration(float32(time.Second) * delayTime))
+				hideAt = showAt.Add(time.Duration(float32(time.Second) * hideTime))
+			} else if ev.Type == ui.PointerEventLeave {
+				showAt = time.Time{}
+				if tooltip.Parent() != nil {
+					tooltip.Remove()
+				}
+			}
+		}
+	}, false)
+
+	around.Hooks.OnUpdate.Add(func(b *ui.Base, update ui.Update) ui.Dirty {
+		if tooltip.Parent() == nil && !showAt.IsZero() && time.Now().After(showAt) && !around.IsDisabled() {
+			around.AddChildren(tooltip)
+			tooltip.SetRenderParent(around.UI().Root)
+		}
+		if tooltip.Parent() != nil && hideAt != showAt && time.Now().After(hideAt) {
+			tooltip.Remove()
+			showAt = time.Time{}
+			hideAt = time.Time{}
+		}
+		return ui.DirtyNone
+	}, false)
+
+	return tooltip
 }
 
 func newDraggable() *ui.Base {
@@ -910,86 +1110,6 @@ var buttonTemplate = &ui.Template{
 			Duration:    1,
 		},
 	}},
-}
-
-func newTooltip(text string, delayTime float32, hideTime float32, around *ui.Base) *ui.Base {
-	showAt := time.Time{}
-	hideAt := time.Time{}
-
-	tooltip := &ui.Base{
-		// centered above parent with bottom being -10px above parent's top
-		Placement: ui.Placement{}.Relative(0.5, 1, 0.5, 1),
-		// -10px above the parent
-		RelativePlacement: ui.Placement{
-			Left:   ui.Anchor{Delta: 0.5},
-			Right:  ui.Anchor{Delta: 0.5},
-			Top:    ui.Anchor{Base: -10},
-			Bottom: ui.Anchor{Base: -10},
-		},
-		MaxSize: ui.AmountPoint{
-			X: ui.Amount{Value: 1, Unit: ui.UnitParent},
-		},
-		Shape: ui.ShapeRounded{
-			Radius: ui.NewAmountCornersUniform(6, ui.UnitConstant),
-		},
-		TextStyles: &ui.TextStylesOverride{
-			Color: ui.Override[ui.Colorable](ui.ColorWhite),
-			ParagraphStylesOverride: &ui.ParagraphStylesOverride{
-				HorizontalAlignment: ui.Override(ui.AlignmentCenter),
-				ParagraphPadding:    ui.Override(ui.NewAmountBoundsUniform(6, ui.UnitConstant)),
-			},
-			ParagraphsStylesOverride: &ui.ParagraphsStylesOverride{
-				VerticalAlignment: ui.Override(ui.AlignmentCenter),
-			},
-		},
-		Animations: &ui.Animations{
-			ForEvent: ds.NewEnumMap(map[ui.AnimationEvent]ui.AnimationFactory{
-				ui.AnimationEventShow:   ua.FadeIn,
-				ui.AnimationEventRemove: ua.FadeOut,
-			}),
-		},
-		Layers: []ui.Layer{{
-			Visual: ui.VisualShadow{
-				Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
-				Offsets: ui.NewAmountBounds(2, 2, -2, -2),
-			},
-			Background: ui.BackgroundColor{Color: ui.ColorWhite},
-		}, {
-			Visual:     ui.VisualFilled{},
-			Background: ui.BackgroundColor{Color: ui.ColorBlack},
-		}, {
-			Visual: ui.MustTextToVisual(text),
-		}},
-	}
-
-	around.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
-		if ev.Capture {
-			if ev.Type == ui.PointerEventEnter {
-				showAt = time.Now().Add(time.Duration(float32(time.Second) * delayTime))
-				hideAt = showAt.Add(time.Duration(float32(time.Second) * hideTime))
-			} else if ev.Type == ui.PointerEventLeave {
-				showAt = time.Time{}
-				if tooltip.Parent() != nil {
-					tooltip.Remove()
-				}
-			}
-		}
-	}, false)
-
-	around.Hooks.OnUpdate.Add(func(b *ui.Base, update ui.Update) ui.Dirty {
-		if tooltip.Parent() == nil && !showAt.IsZero() && time.Now().After(showAt) && !around.IsDisabled() {
-			around.AddChildren(tooltip)
-			tooltip.SetRenderParent(around.UI().Root)
-		}
-		if tooltip.Parent() != nil && hideAt != showAt && time.Now().After(hideAt) {
-			tooltip.Remove()
-			showAt = time.Time{}
-			hideAt = time.Time{}
-		}
-		return ui.DirtyNone
-	}, false)
-
-	return tooltip
 }
 
 func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.Base {
@@ -1390,10 +1510,16 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventUp {
 					if maximized {
-						win.SetPlacement(minimized)
+						win.Play(ui.PlacementAnimation{
+							Target:   minimized,
+							Duration: 0.3,
+						})
 					} else {
 						minimized = win.Placement
-						win.SetPlacement(ui.Maximized())
+						win.Play(ui.PlacementAnimation{
+							Target:   ui.Maximized(),
+							Duration: 0.3,
+						})
 					}
 					maximized = !maximized
 				}
@@ -1407,6 +1533,9 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 }
 
 func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
+	hiding := false
+	hidingPlacement := ui.Placement{}
+
 	return &ui.Base{
 		MinSize: ui.NewAmountPoint(barSize, barSize),
 		Layers: []ui.Layer{{
@@ -1428,11 +1557,34 @@ func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 		Events: ui.Events{
 			OnPointer: func(ev *ui.PointerEvent) {
 				if !ev.Capture && ev.Type == ui.PointerEventUp {
-					win.PlayMaybe("hide")
-					go func() {
-						time.Sleep(time.Second * 3)
-						win.PlayMaybe("show")
-					}()
+					if hiding {
+						win.Play(ui.PlacementAnimation{
+							Target:       hidingPlacement,
+							Duration:     0.3,
+							ApplyMaxSize: true,
+						})
+					} else {
+						hidingPlacement = win.Placement
+						win.Play(ui.PlacementAnimation{
+							Target: ui.Placement{
+								Top:    ui.Anchor{Delta: 1},
+								Bottom: ui.Anchor{Delta: 1},
+							},
+							Duration:     0.3,
+							ApplyMaxSize: true,
+						})
+					}
+					for i := range win.Children {
+						if i > 0 {
+							win.Children[i].SetVisible(hiding)
+						}
+					}
+					hiding = !hiding
+					// win.PlayMaybe("hide")
+					// go func() {
+					// 	time.Sleep(time.Second * 3)
+					// 	win.PlayMaybe("show")
+					// }()
 				}
 			},
 			OnDrag: func(ev *ui.DragEvent) {

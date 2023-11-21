@@ -54,6 +54,17 @@ func (p Placement) WithWidth(width float32) Placement {
 	return p
 }
 
+func (p Placement) WithWidthRelative(width, parentWidth float32) Placement {
+	if p.Left.Delta == p.Right.Delta {
+		return p.WithWidth(width)
+	}
+	currentWidth := p.GetWidth(parentWidth)
+	adjustX := (currentWidth - width) * 0.5
+	p.Left.Base += adjustX
+	p.Right.Base -= adjustX
+	return p
+}
+
 func (p Placement) WithHeight(height float32) Placement {
 	delta := p.Top.Delta
 	if delta == p.Bottom.Delta {
@@ -64,8 +75,43 @@ func (p Placement) WithHeight(height float32) Placement {
 	return p
 }
 
+func (p Placement) WithHeightRelative(height, parentHeight float32) Placement {
+	if p.Top.Delta == p.Bottom.Delta {
+		return p.WithHeight(height)
+	}
+	currentHeight := p.GetHeight(parentHeight)
+	adjustY := (currentHeight - height) * 0.5
+	p.Top.Base += adjustY
+	p.Bottom.Base -= adjustY
+	return p
+}
+
 func (p Placement) WithSize(width, height float32) Placement {
 	return p.WithWidth(width).WithHeight(height)
+}
+
+func (p Placement) WithSizeRelative(width, height, parentWidth, parentHeight float32) Placement {
+	return p.WithWidthRelative(width, parentWidth).WithHeightRelative(height, parentHeight)
+}
+
+func (p Placement) WithLeft(left, parentWidth float32) Placement {
+	p.Left.Base = left - p.Left.Delta*parentWidth
+	return p
+}
+
+func (p Placement) WithTop(top, parentHeight float32) Placement {
+	p.Top.Base = top - p.Top.Delta*parentHeight
+	return p
+}
+
+func (p Placement) WithRight(right, parentWidth float32) Placement {
+	p.Right.Base = right - p.Right.Delta*parentWidth
+	return p
+}
+
+func (p Placement) WithBottom(bottom, parentHeight float32) Placement {
+	p.Bottom.Base = bottom - p.Bottom.Delta*parentHeight
+	return p
 }
 
 func (p Placement) Defined() bool {

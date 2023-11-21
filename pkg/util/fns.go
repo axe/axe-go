@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"reflect"
+	"sort"
 )
 
 func SliceCopy[E any](slice []E) []E {
@@ -98,6 +99,14 @@ func SliceReverse[E any](s []E) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
+}
+
+func SliceSorted[E any](slice []E, isLess func(E, E) bool) []E {
+	copy := SliceCopy(slice)
+	sort.Slice(copy, func(i, j int) bool {
+		return isLess(copy[i], copy[j])
+	})
+	return copy
 }
 
 func MapKeys[K comparable, V any](m map[K]V) []K {

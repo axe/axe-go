@@ -714,6 +714,32 @@ func (b *Base) Parent() *Base {
 	return b.parent
 }
 
+// If the component is a child to this component.
+func (b *Base) IsChild(c *Base) bool {
+	return c.IsParent(b)
+}
+
+// If the component is a child to this component or is this component.
+func (b *Base) IsChildOrSelf(c *Base) bool {
+	return c == b || c.IsParent(b)
+}
+
+// If the component is a parent to this component.
+func (b *Base) IsParent(p *Base) bool {
+	if b.parent == p {
+		return true
+	}
+	if b.parent == nil {
+		return false
+	}
+	return b.parent.IsParent(p)
+}
+
+// If the component is a parent to this component or is this component.
+func (b *Base) IsParentOrSelf(p *Base) bool {
+	return b == p || b.IsParent(p)
+}
+
 // Returns true if the point is inside the Bounds of this component. The point is expected
 // to be transformed to the relative orientation of this component. If an OverShape is
 // defined then point-in-polygon logic is used to determine inside-ness.

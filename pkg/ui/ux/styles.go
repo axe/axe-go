@@ -6,4 +6,5 @@ type Styles struct {
 	Checkbox CheckboxStyles
 	Editable EditableStyles
 	Icon     IconStyles
+	Dropdown DropdownStyles
 }
