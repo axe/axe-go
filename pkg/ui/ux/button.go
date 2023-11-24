@@ -5,7 +5,7 @@ import (
 	"github.com/axe/axe-go/pkg/ui"
 )
 
-type ButtonStyles struct {
+type ButtonSettings struct {
 }
 
 type Button struct {

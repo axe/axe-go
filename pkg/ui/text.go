@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ease"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/util"
@@ -259,7 +260,7 @@ func (o *ParagraphsStylesOverride) HasOverride() bool {
 type TextStyles struct {
 	ParagraphStyles
 	ParagraphsStyles
-	Color    Colorable
+	Color    color.Able
 	Font     id.Identifier
 	FontSize Amount
 }
@@ -280,7 +281,7 @@ func (s *TextStyles) Override(o *TextStylesOverride) *TextStyles {
 type TextStylesOverride struct {
 	ParagraphStylesOverride  *ParagraphStylesOverride
 	ParagraphsStylesOverride *ParagraphsStylesOverride
-	Color                    *Colorable
+	Color                    *color.Able
 	Font                     *id.Identifier
 	FontSize                 *Amount
 }
@@ -374,7 +375,7 @@ func (text RenderedText) ClosestByLine(x, y float32) int {
 type RenderedGlyph struct {
 	Tile
 	Bounds         Bounds
-	Color          Color
+	Color          color.Color
 	Visibility     GlyphVisibility
 	Line           int
 	Column         int
@@ -786,7 +787,7 @@ type BaseGlyph struct {
 	Text  rune
 	Font  id.Identifier
 	Size  Amount
-	Color Color
+	Color color.Color
 
 	initialized bool
 	font        *Font
@@ -812,9 +813,9 @@ func (g *BaseGlyph) init(ctx *RenderContext) {
 	}
 }
 
-func (g BaseGlyph) getColor(ctx *RenderContext, b *Base) Color {
+func (g BaseGlyph) getColor(ctx *RenderContext, b *Base) color.Color {
 	if g.Color.IsZero() {
-		color, _ := GetColor(ctx.TextStyles.Color, b)
+		color, _ := color.Get(ctx.TextStyles.Color, b)
 		return color
 	} else {
 		return g.Color
@@ -954,8 +955,8 @@ func TextToParagraphs(text string) (paragraphs Paragraphs, err error) {
 		err = wrap.UnmarshalText([]byte(s))
 		return &wrap
 	}
-	readColor := func(s string) Color {
-		color := Color{}
+	readColor := func(s string) color.Color {
+		color := color.Color{}
 		if s != "" {
 			err = color.UnmarshalText([]byte(s))
 		}
@@ -1329,7 +1330,7 @@ type animateGlyphs struct {
 	delta        float32
 	bounds       Bounds
 	transform    Transform
-	color        ColorModify
+	color        color.Modify
 	transparency float32
 	glyphs       []*RenderedGlyph
 	settings     *BasicTextAnimationSettings

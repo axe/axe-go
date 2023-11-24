@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ui"
 )
 
 func TestColorModify(t *testing.T) {
-	if ui.Alpha(1).HasAffect() {
+	if color.Alpha(1).HasAffect() {
 		t.Errorf("Alpha(1).HasAffect")
 	}
 }

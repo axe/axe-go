@@ -2,7 +2,7 @@ package ux
 
 import "github.com/axe/axe-go/pkg/ui"
 
-type DialogStyles struct {
+type DialogSettings struct {
 	BarHeight        ui.Amount
 	BarPadding       ui.AmountBounds
 	ChildrenPadding  ui.AmountBounds

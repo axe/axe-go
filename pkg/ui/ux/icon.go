@@ -1,6 +1,6 @@
 package ux
 
-type IconStyles struct {
+type IconSettings struct {
 }
 
 type Icon struct {

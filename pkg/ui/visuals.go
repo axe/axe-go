@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/axe/axe-go/pkg/util"
+import (
+	"github.com/axe/axe-go/pkg/color"
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type Visual interface {
 	Init(b *Base)
@@ -66,8 +69,8 @@ type VisualBorderScale struct {
 
 type VisualBordered struct {
 	Width      float32
-	OuterColor Colorable
-	InnerColor Colorable
+	OuterColor color.Able
+	InnerColor color.Able
 	Scales     []VisualBorderScale
 	Shape      Shape
 }
@@ -120,8 +123,8 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 		i1 = i2
 	}
 
-	outerColor, hasOuterColor := GetColor(s.OuterColor, b)
-	innerColor, hasInnerColor := GetColor(s.InnerColor, b)
+	outerColor, hasOuterColor := color.Get(s.OuterColor, b)
+	innerColor, hasInnerColor := color.Get(s.InnerColor, b)
 
 	prev := last
 	buffer := out.Buffer()
@@ -180,8 +183,8 @@ func (s VisualShadow) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out 
 	bordered := VisualBordered{
 		Shape:      innerShape,
 		Width:      1,
-		InnerColor: ColorWhite,
-		OuterColor: ColorTransparent,
+		InnerColor: color.White,
+		OuterColor: color.Transparent,
 	}
 	if blur.IsUniform() {
 		bordered.Width = blur.Left
@@ -202,7 +205,7 @@ func (s VisualShadow) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out 
 		start := NewVertexIterator(out, false)
 		filled.Visualize(b, offsetBounds, ctx, out)
 		for start.HasNext() {
-			start.Next().AddColor(ColorWhite)
+			start.Next().AddColor(color.White)
 		}
 	}
 }

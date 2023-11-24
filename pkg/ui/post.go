@@ -33,3 +33,7 @@ func postProcessJoin(first, second PostProcess) PostProcess {
 func (pp *PostProcess) Add(other PostProcess, before bool) {
 	*pp = util.CoalesceJoin(*pp, other, before, postProcessNil, postProcessJoin)
 }
+
+func (pp *PostProcess) Clear() {
+	*pp = nil
+}

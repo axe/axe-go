@@ -1,6 +1,6 @@
 package ux
 
-type EditableStyles struct {
+type EditableSettings struct {
 }
 
 type Editable struct {

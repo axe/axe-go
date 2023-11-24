@@ -3,6 +3,7 @@ package ux
 import (
 	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/ui"
+	"github.com/axe/axe-go/pkg/util"
 )
 
 type HasComponent interface {
@@ -141,3 +142,25 @@ func (t Trigger) Update(inputs input.InputSystem) (input.Data, bool) {
 	return input.Data{Value: float32(t)}, true
 }
 func (t Trigger) InputCount() int { return 0 }
+
+type Listener[E any] func(ev E)
+
+func (l Listener[E]) Trigger(ev E) {
+	if l != nil {
+		l(ev)
+	}
+}
+
+func listenerNil[E any](a Listener[E]) bool {
+	return a == nil
+}
+func listenerJoin[E any](first Listener[E], second Listener[E]) Listener[E] {
+	return func(ev E) {
+		first(ev)
+		second(ev)
+	}
+}
+
+func (a *Listener[E]) Add(b Listener[E], before bool) {
+	*a = util.CoalesceJoin(*a, b, before, listenerNil[E], listenerJoin[E])
+}

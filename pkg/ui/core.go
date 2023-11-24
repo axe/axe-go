@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/axe/axe-go/pkg/id"
+import (
+	"github.com/axe/axe-go/pkg/color"
+	"github.com/axe/axe-go/pkg/id"
+)
 
 // The Theme of a UI. Contains the base text styles, state specific post processing, the collection
 // of supported fonts & cursors, the default cursor, the theme wide named animations, and the theme
@@ -12,7 +15,7 @@ type Theme struct {
 	Cursors          id.DenseMap[ExtentTile, uint16, uint8]
 	DefaultCursor    id.Identifier
 	Animations       Animations
-	Colors           Colors
+	Colors           color.Colors
 }
 
 // One or more states of a component. The states can define which layers or post processing is done.

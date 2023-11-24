@@ -3,10 +3,11 @@ package ui
 import "github.com/axe/axe-go/pkg/util"
 
 type Hooks struct {
-	OnInit                HookInit
+	OnInit                HookBase
 	OnPlace               HookPlace
 	OnUpdate              HookUpdate
 	OnRender              HookRender
+	OnRemove              HookBase
 	OnPostProcess         PostProcess
 	OnPostProcessLayers   PostProcess
 	OnPostProcessChildren PostProcess
@@ -17,25 +18,47 @@ func (h *Hooks) Add(add Hooks, before bool) {
 	h.OnPlace.Add(add.OnPlace, before)
 	h.OnUpdate.Add(add.OnUpdate, before)
 	h.OnRender.Add(add.OnRender, before)
+	h.OnRemove.Add(add.OnRemove, before)
 	h.OnPostProcess.Add(add.OnPostProcess, before)
 	h.OnPostProcessLayers.Add(add.OnPostProcessLayers, before)
 	h.OnPostProcessChildren.Add(add.OnPostProcessChildren, before)
 }
 
-type HookInit func(b *Base)
+func (h *Hooks) Clear() {
+	h.OnInit.Clear()
+	h.OnPlace.Clear()
+	h.OnUpdate.Clear()
+	h.OnRender.Clear()
+	h.OnRemove.Clear()
+	h.OnPostProcess.Clear()
+	h.OnPostProcessLayers.Clear()
+	h.OnPostProcessChildren.Clear()
+}
 
-func hookInitNil(h HookInit) bool {
+type HookBase func(b *Base)
+
+func hookBaseNil(h HookBase) bool {
 	return h == nil
 }
-func hookInitJoin(first, second HookInit) HookInit {
+func hookBaseJoin(first, second HookBase) HookBase {
 	return func(b *Base) {
 		first(b)
 		second(b)
 	}
 }
 
-func (h *HookInit) Add(add HookInit, before bool) {
-	*h = util.CoalesceJoin(*h, add, before, hookInitNil, hookInitJoin)
+func (h HookBase) Run(b *Base) {
+	if h != nil {
+		h(b)
+	}
+}
+
+func (h *HookBase) Add(add HookBase, before bool) {
+	*h = util.CoalesceJoin(*h, add, before, hookBaseNil, hookBaseJoin)
+}
+
+func (h *HookBase) Clear() {
+	*h = nil
 }
 
 type HookPlace func(b *Base, parent Bounds, ctx *RenderContext, force bool)
@@ -50,8 +73,18 @@ func hookPlaceJoin(first, second HookPlace) HookPlace {
 	}
 }
 
+func (h HookPlace) Run(b *Base, parent Bounds, ctx *RenderContext, force bool) {
+	if h != nil {
+		h(b, parent, ctx, force)
+	}
+}
+
 func (h *HookPlace) Add(add HookPlace, before bool) {
 	*h = util.CoalesceJoin(*h, add, before, hookPlaceNil, hookPlaceJoin)
+}
+
+func (h *HookPlace) Clear() {
+	*h = nil
 }
 
 type HookUpdate func(b *Base, update Update) Dirty
@@ -68,8 +101,18 @@ func hookUpdateJoin(first, second HookUpdate) HookUpdate {
 	}
 }
 
+func (h HookUpdate) Run(b *Base, update Update) {
+	if h != nil {
+		h(b, update)
+	}
+}
+
 func (h *HookUpdate) Add(add HookUpdate, before bool) {
 	*h = util.CoalesceJoin(*h, add, before, hookUpdateNil, hookUpdateJoin)
+}
+
+func (h *HookUpdate) Clear() {
+	*h = nil
 }
 
 type HookRender func(b *Base, ctx *RenderContext, out *VertexQueue)
@@ -86,4 +129,8 @@ func hookRenderJoin(first, second HookRender) HookRender {
 
 func (h *HookRender) Add(add HookRender, before bool) {
 	*h = util.CoalesceJoin(*h, add, before, hookRenderNil, hookRenderJoin)
+}
+
+func (h *HookRender) Clear() {
+	*h = nil
 }

@@ -2,6 +2,7 @@ package opengl
 
 import (
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/geom"
@@ -372,7 +373,7 @@ func renderBuffers(buffers ui.VertexIterable, game *axe.Game, windowHeight int32
 
 	applyPrimitive(ui.PrimitiveNone, &lastPrimitive, &began)
 	applyBlend(ui.BlendNone, &lastBlend)
-	applyColor(ui.ColorWhite, false, &coloring)
+	applyColor(color.White, false, &coloring)
 }
 
 var blendSources = ds.NewEnumMap(map[ui.Blend]uint32{
@@ -455,7 +456,7 @@ func applyPrimitive(primitive ui.Primitive, lastPrimitive *ui.Primitive, began *
 	}
 }
 
-func applyColor(c ui.Color, has bool, coloring *bool) {
+func applyColor(c color.Color, has bool, coloring *bool) {
 	if has {
 		gl.Color4f(c.R, c.G, c.B, c.A)
 		*coloring = true

@@ -6,6 +6,7 @@ import (
 	"github.com/go-gl/glfw/v3.3/glfw"
 
 	axe "github.com/axe/axe-go/pkg"
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/geom"
 	"github.com/axe/axe-go/pkg/react"
@@ -228,7 +229,7 @@ type window struct {
 	placement ui.Placement
 	window    *glfw.Window
 	size      geom.Vec2i
-	clear     ui.Color
+	clear     color.Color
 	screen    *screen
 }
 
@@ -241,7 +242,7 @@ func newWindow() *window {
 		title:     react.Val(""),
 		placement: place,
 		size:      geom.Vec2i{X: 512, Y: 512},
-		clear:     ui.ColorBlack,
+		clear:     color.Black,
 	}
 }
 

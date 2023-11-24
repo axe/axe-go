@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/axe/axe-go/pkg/buf"
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/util"
 )
@@ -117,16 +118,23 @@ type Vertex struct {
 	X, Y     float32
 	Tex      TexCoord
 	HasCoord bool
-	Color    Color
+	Color    color.Color
 	HasColor bool
 }
 
-func (v *Vertex) AddColor(c Color) {
+func (v *Vertex) AddColor(c color.Color) {
 	if v.HasColor {
 		v.Color = v.Color.Multiply(c)
 	} else {
 		v.Color = c
 		v.HasColor = true
+	}
+}
+
+func (v *Vertex) InitColor() {
+	if !v.HasColor {
+		v.HasColor = true
+		v.Color = color.White
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/axe/axe-go/pkg/asset"
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/ui"
@@ -13,7 +14,7 @@ type StageWindow struct {
 	Name       string
 	Title      string
 	Placement  ui.Placement
-	ClearColor ui.Color
+	ClearColor color.Color
 	Mode       WindowMode
 	Screen     int
 }

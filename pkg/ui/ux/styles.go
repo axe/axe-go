@@ -1,10 +1,10 @@
 package ux
 
-type Styles struct {
-	Button   ButtonStyles
-	Dialog   DialogStyles
-	Checkbox CheckboxStyles
-	Editable EditableStyles
-	Icon     IconStyles
-	Dropdown DropdownStyles
+type Settings struct {
+	Button   ButtonSettings
+	Dialog   DialogSettings
+	Checkbox CheckboxSettings
+	Editable EditableSettings
+	Icon     IconSettings
+	Dropdown DropdownSettings
 }

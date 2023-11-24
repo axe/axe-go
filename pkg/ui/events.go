@@ -34,6 +34,10 @@ func (a *Listener[E]) Add(b Listener[E], before bool) {
 	*a = util.CoalesceJoin(*a, b, before, listenerNil[E], listenerJoin[E])
 }
 
+func (a *Listener[E]) Clear() {
+	*a = nil
+}
+
 type Events struct {
 	OnPointer Listener[*PointerEvent]
 	OnKey     Listener[*KeyEvent]
@@ -48,6 +52,14 @@ func (e *Events) Add(add Events, before bool) {
 	e.OnFocus.Add(add.OnFocus, before)
 	e.OnBlur.Add(add.OnBlur, before)
 	e.OnDrag.Add(add.OnDrag, before)
+}
+
+func (e *Events) Clear() {
+	e.OnPointer.Clear()
+	e.OnKey.Clear()
+	e.OnFocus.Clear()
+	e.OnBlur.Clear()
+	e.OnDrag.Clear()
 }
 
 type Event struct {

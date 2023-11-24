@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/axe/axe-go/pkg/util"
+import (
+	"github.com/axe/axe-go/pkg/color"
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type Background interface {
 	Init(b *Base)
@@ -14,7 +17,7 @@ var _ Background = BackgroundRadialGradient{}
 var _ Background = BackgroundImage{}
 
 type BackgroundColor struct {
-	Color Colorable
+	Color color.Able
 }
 
 func (bc BackgroundColor) Init(b *Base)                        {}
@@ -24,9 +27,9 @@ func (bc BackgroundColor) Backgroundify(b *Base, bounds Bounds, ctx *RenderConte
 }
 
 type BackgroundLinearGradient struct {
-	StartColor Colorable
+	StartColor color.Able
 	Start      Coord
-	EndColor   Colorable
+	EndColor   color.Able
 	End        Coord
 }
 
@@ -64,8 +67,8 @@ func (bi BackgroundImage) Backgroundify(b *Base, bounds Bounds, ctx *RenderConte
 }
 
 type BackgroundRadialGradient struct {
-	InnerColor Colorable
-	OuterColor Colorable
+	InnerColor color.Able
+	OuterColor color.Able
 	Radius     AmountPoint
 	Offset     AmountPoint
 }

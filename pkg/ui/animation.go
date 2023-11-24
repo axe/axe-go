@@ -3,6 +3,7 @@ package ui
 import (
 	"sort"
 
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/ease"
 	"github.com/axe/axe-go/pkg/id"
@@ -171,7 +172,7 @@ type BasicAnimationFrame struct {
 	Rotate       float32
 	Origin       AmountPoint
 	Time         float32
-	Color        ColorModify
+	Color        color.Modify
 	Transparency float32
 	Easing       ease.Easing
 }
@@ -242,7 +243,7 @@ type BasicAnimationFrameInterpolated struct {
 	OriginX, OriginY       float32
 	TranslateX, TranslateY float32
 	Rotation               float32
-	Color                  ColorModify
+	Color                  color.Modify
 	Transparency           float32
 }
 
@@ -336,17 +337,14 @@ func (a BasicAnimation) PostProcess(base *Base, animationTime float32, ctx *Rend
 		alphaMultiplier := 1 - inter.Transparency
 		colorModify := inter.Color
 		if colorModify == nil {
-			colorModify = func(c Color) Color { return c }
+			colorModify = func(c color.Color) color.Color { return c }
 		}
 
 		vertices := NewVertexIterator(out, true)
 		for vertices.HasNext() {
 			v := vertices.Next()
 			v.X, v.Y = transform.Transform(v.X, v.Y)
-			if !v.HasColor {
-				v.Color = ColorWhite
-				v.HasColor = true
-			}
+			v.InitColor()
 			v.Color = colorModify(v.Color)
 			v.Color.A *= alphaMultiplier
 		}

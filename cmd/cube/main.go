@@ -9,6 +9,7 @@ import (
 
 	axe "github.com/axe/axe-go/pkg"
 	"github.com/axe/axe-go/pkg/asset"
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/ease"
 	"github.com/axe/axe-go/pkg/ecs"
@@ -40,7 +41,7 @@ func main() {
 		Windows: []axe.StageWindow{{
 			Title:      "Test GLFW Main Window",
 			Placement:  ui.Centered(720*2, 480*2),
-			ClearColor: ui.ColorWhite,
+			ClearColor: color.White,
 		}},
 		Stages: []axe.Stage{{
 			Name: "cube",
@@ -190,10 +191,10 @@ func main() {
 
 					// Colors
 					userInterface.Theme.TextStyles.Color = TextColor
-					userInterface.Theme.Colors.Set(PrimaryColor, ui.ColorCornflowerBlue /* ui.ColorFromHex("#009090")*/)
-					userInterface.Theme.Colors.Set(SecondaryColor, ui.ColorPurple)
-					userInterface.Theme.Colors.Set(BackgroundColor, ui.ColorWhite)
-					userInterface.Theme.Colors.Set(TextColor, ui.ColorBlack)
+					userInterface.Theme.Colors.Set(PrimaryColor, color.CornflowerBlue /* color.FromHex("#009090")*/)
+					userInterface.Theme.Colors.Set(SecondaryColor, color.Purple)
+					userInterface.Theme.Colors.Set(BackgroundColor, color.White)
+					userInterface.Theme.Colors.Set(TextColor, color.Black)
 
 					textCoordinates := ui.MustTextToVisual("{h:1}{pa:10}{pv:1}0,0")
 
@@ -336,7 +337,7 @@ func main() {
 							},
 						},
 					)
-					textWindow.Colors.Set(BackgroundColor, ui.ColorGray)
+					textWindow.Colors.Set(BackgroundColor, color.Gray)
 
 					layoutColumnName := id.Get("layoutColumn")
 					layoutColumnChange := func(change func(*ui.LayoutColumn)) {
@@ -563,8 +564,8 @@ func main() {
 								layoutGridWindow.PlaceMinHeight()
 							}),
 							newButton(ui.Placement{}, "Hide & Show Animation", false, nil).Edit(func(b *ui.Base) {
-								b.Colors.Set(BackgroundColor, ui.ColorOrange)
-								b.Colors.Set(TextColor, ui.ColorBlack)
+								b.Colors.Set(BackgroundColor, color.Orange)
+								b.Colors.Set(TextColor, color.Black)
 								b.Animations.ForEvent.Set(ui.AnimationEventShow, ua.FadeIn)
 								b.Animations.ForEvent.Set(ui.AnimationEventHide, ua.FadeOut)
 								b.Events.OnPointer.Add(func(ev *ui.PointerEvent) {
@@ -648,8 +649,8 @@ func main() {
 									newButton(ui.Placement{}, "MinWidth", false, func() {
 										layoutInlineWindow.PlaceMinWidth()
 									}).Edit(func(b *ui.Base) {
-										b.Colors.Set(BackgroundColor, ui.ColorPurple)
-										b.Colors.Set(TextColor, ui.ColorWhite)
+										b.Colors.Set(BackgroundColor, color.Purple)
+										b.Colors.Set(TextColor, color.White)
 									}),
 									newButton(ui.Placement{}, "MinHeight", false, func() {
 										layoutInlineWindow.PlaceMinHeight()
@@ -716,7 +717,7 @@ func main() {
 // Colors
 
 const (
-	PrimaryColor ui.ThemeColor = iota
+	PrimaryColor color.Themed = iota
 	SecondaryColor
 	BackgroundColor
 	TextColor
@@ -839,7 +840,7 @@ func newDropdown[T any](parent *ui.Base, items []T, toText func(T) string, onIte
 		},
 		Shape: ui.ShapeRectangle{},
 		TextStyles: &ui.TextStylesOverride{
-			Color:    ui.Override[ui.Colorable](ui.ColorBlack),
+			Color:    ui.Override[color.Able](color.Black),
 			FontSize: &ui.Amount{Value: 16},
 			ParagraphStylesOverride: &ui.ParagraphStylesOverride{
 				ParagraphPadding: ui.Override(ui.NewAmountBoundsUniform(4, ui.UnitConstant)),
@@ -856,13 +857,13 @@ func newDropdown[T any](parent *ui.Base, items []T, toText func(T) string, onIte
 		},
 		Layers: []ui.Layer{{
 			Visual: ui.VisualShadow{
-				Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
+				Blur:    ui.NewAmountBoundsUniform(8, ui.UnitConstant),
 				Offsets: ui.NewAmountBounds(2, 2, -2, -2),
 			},
-			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+			Background: ui.BackgroundColor{Color: color.Black},
 		}, {
 			Visual:     ui.VisualFilled{},
-			Background: ui.BackgroundColor{Color: ui.ColorWhite},
+			Background: ui.BackgroundColor{Color: color.White},
 		}},
 		Layout: ui.LayoutStatic{
 			EnforcePreferredSize: true,
@@ -940,7 +941,7 @@ func newTooltip(text string, delayTime float32, hideTime float32, around *ui.Bas
 			Radius: ui.NewAmountCornersUniform(6, ui.UnitConstant),
 		},
 		TextStyles: &ui.TextStylesOverride{
-			Color: ui.Override[ui.Colorable](ui.ColorWhite),
+			Color: ui.Override[color.Able](color.White),
 			ParagraphStylesOverride: &ui.ParagraphStylesOverride{
 				HorizontalAlignment: ui.Override(ui.AlignmentCenter),
 				ParagraphPadding:    ui.Override(ui.NewAmountBoundsUniform(6, ui.UnitConstant)),
@@ -960,10 +961,10 @@ func newTooltip(text string, delayTime float32, hideTime float32, around *ui.Bas
 				Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
 				Offsets: ui.NewAmountBounds(2, 2, -2, -2),
 			},
-			Background: ui.BackgroundColor{Color: ui.ColorWhite},
+			Background: ui.BackgroundColor{Color: color.White},
 		}, {
 			Visual:     ui.VisualFilled{},
-			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+			Background: ui.BackgroundColor{Color: color.Black},
 		}, {
 			Visual: ui.MustTextToVisual(text),
 		}},
@@ -1012,8 +1013,8 @@ func newDraggable() *ui.Base {
 	draggable = &ui.Base{
 		Placement: ui.Absolute(10, 200, 80, 80),
 		Draggable: true,
-		Colors: ui.NewColors(map[ui.ThemeColor]ui.Colorable{
-			BackgroundColor: ui.ColorBlack,
+		Colors: color.NewColors(map[color.Themed]color.Able{
+			BackgroundColor: color.Black,
 		}),
 		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
 			ui.CursorEventHover: id.Get("drag"),
@@ -1034,7 +1035,7 @@ func newDraggable() *ui.Base {
 			States:     ui.StateHover.Not,
 		}, {
 			Visual:     ui.VisualFilled{Shape: ui.ShapePolygon{Points: shape}},
-			Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Lighten(0.3))},
+			Background: ui.BackgroundColor{Color: BackgroundColor.Modify(color.Lighten(0.3))},
 			States:     ui.StateHover.Is,
 		}, {
 			Visual: ui.MustTextToVisual("{f:roboto}{s:14}{c:white}{h:0.5}{pv:0.5}drag me"),
@@ -1050,7 +1051,7 @@ var buttonTemplate = &ui.Template{
 			ui.AnimationEventShow: ua.FadeIn,
 		}),
 	},
-	Colors: ui.NewColors(map[ui.ThemeColor]ui.Colorable{
+	Colors: color.NewColors(map[color.Themed]color.Able{
 		BackgroundColor: PrimaryColor,
 	}),
 	Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
@@ -1071,14 +1072,14 @@ var buttonTemplate = &ui.Template{
 			Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
 			Offsets: ui.NewAmountBounds(5, 8, -3, 0),
 		},
-		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Darken(0.5).Then(ui.Alpha(0.2)))},
+		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(color.Darken(0.5).Then(color.Alpha(0.2)))},
 		States:     (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Not,
 	}, {
 		Visual: ui.VisualShadow{
 			Blur:    ui.NewAmountBoundsUniform(6, ui.UnitConstant),
 			Offsets: ui.NewAmountBounds(5, 8, -3, 0),
 		},
-		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Darken(0.5).Then(ui.Alpha(0.5)))},
+		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(color.Darken(0.5).Then(color.Alpha(0.5)))},
 		States:     (ui.StateHover | ui.StatePressed | ui.StateFocused | ui.StateSelected).Is,
 	}, {
 		// Background
@@ -1090,13 +1091,13 @@ var buttonTemplate = &ui.Template{
 		// Background on hover
 		Placement:  ui.Maximized(),
 		Visual:     ui.VisualFilled{},
-		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Lighten(0.1))},
+		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(color.Lighten(0.1))},
 		States:     ui.StateHover.Is,
 	}, {
 		// Background on press
 		Placement:  ui.Maximized(),
 		Visual:     ui.VisualFilled{},
-		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(ui.Darken(0.1))},
+		Background: ui.BackgroundColor{Color: BackgroundColor.Modify(color.Darken(0.1))},
 		States:     ui.StatePressed.Is,
 	}},
 	PostLayers: []ui.Layer{{
@@ -1105,8 +1106,8 @@ var buttonTemplate = &ui.Template{
 		Visual: &RippleLayer{
 			StartRadius: ui.Amount{Value: 0},
 			EndRadius:   ui.Amount{Value: 4, Unit: ui.UnitParent},
-			StartColor:  ui.NewColor(1, 1, 1, 0.3),
-			EndColor:    ui.ColorTransparent,
+			StartColor:  color.New(1, 1, 1, 0.3),
+			EndColor:    color.Transparent,
 			Duration:    1,
 		},
 	}},
@@ -1139,8 +1140,8 @@ func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.
 	if pulse {
 		button.Layers = append([]ui.Layer{{
 			Visual: &PulseLayer{
-				StartColor: BackgroundColor.Modify(ui.Lighten(0.2)),
-				EndColor:   ui.ColorTransparent,
+				StartColor: BackgroundColor.Modify(color.Lighten(0.2)),
+				EndColor:   color.Transparent,
 				Duration:   1.5,
 				PulseTime:  0.6,
 				Size:       12,
@@ -1154,7 +1155,7 @@ func newButton(place ui.Placement, text string, pulse bool, onClick func()) *ui.
 
 type RippleLayer struct {
 	StartRadius, EndRadius ui.Amount
-	StartColor, EndColor   ui.Colorable
+	StartColor, EndColor   color.Able
 	Duration               float32
 	Time                   float32
 	Center                 ui.Coord
@@ -1225,7 +1226,7 @@ func (r *RippleLayer) PreferredSize(b *ui.Base, ctx *ui.RenderContext, maxWidth 
 }
 
 type PulseLayer struct {
-	StartColor, EndColor ui.Colorable
+	StartColor, EndColor color.Able
 	Duration             float32
 	PulseTime            float32
 	Size                 float32
@@ -1298,8 +1299,8 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 	var frame *ui.Base
 
 	activePulse := &PulseLayer{
-		StartColor: PrimaryColor.Modify(ui.Darken(0.5)),
-		EndColor:   PrimaryColor.Modify(ui.Darken(0.5).Then(ui.Alpha(0))),
+		StartColor: PrimaryColor.Modify(color.Darken(0.5)),
+		EndColor:   PrimaryColor.Modify(color.Darken(0.5).Then(color.Alpha(0))),
 		Duration:   0.3,
 		PulseTime:  0.3,
 		Size:       10,
@@ -1343,8 +1344,8 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 				}),
 			),
 		},
-		Colors: ui.NewColors(map[ui.ThemeColor]ui.Colorable{
-			BackgroundColor: ui.ColorLightGray,
+		Colors: color.NewColors(map[color.Themed]color.Able{
+			BackgroundColor: color.LightGray,
 		}),
 		Layers: []ui.Layer{{
 			Visual: activePulse,
@@ -1354,7 +1355,7 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 				Blur:    ui.NewAmountBoundsUniform(8, ui.UnitConstant),
 				Offsets: ui.NewAmountBounds(5, 8, -3, 0),
 			},
-			Background: ui.BackgroundColor{Color: PrimaryColor.Modify(ui.Darken(0.5).Then(ui.Alpha(0.2)))},
+			Background: ui.BackgroundColor{Color: PrimaryColor.Modify(color.Darken(0.5).Then(color.Alpha(0.2)))},
 		}, {
 			Visual:     ui.VisualFilled{},
 			Background: ui.BackgroundColor{Color: BackgroundColor},
@@ -1374,7 +1375,7 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 			Visual: ui.VisualFilled{},
 			Background: ui.BackgroundLinearGradient{
 				StartColor: PrimaryColor,
-				EndColor:   PrimaryColor.Modify(ui.Lighten(0.2)),
+				EndColor:   PrimaryColor.Modify(color.Lighten(0.2)),
 				End:        ui.Coord{X: 0, Y: 1},
 			},
 		}},
@@ -1437,7 +1438,7 @@ func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 	return &ui.Base{
 		MinSize: ui.NewAmountPoint(barSize, barSize),
 		Layers: []ui.Layer{{
-			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
+			Background: ui.BackgroundColor{Color: color.LightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
 			States:     ui.StateHover.Is,
 		}, {
@@ -1452,7 +1453,7 @@ func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 					},
 				},
 			},
-			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+			Background: ui.BackgroundColor{Color: color.Black},
 		}},
 		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
 			ui.CursorEventHover: id.Get("click"),
@@ -1485,7 +1486,7 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 	return &ui.Base{
 		MinSize: ui.NewAmountPoint(barSize, barSize),
 		Layers: []ui.Layer{{
-			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
+			Background: ui.BackgroundColor{Color: color.LightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
 			States:     ui.StateHover.Is,
 		}, {
@@ -1499,7 +1500,7 @@ func newWindowMinimizeMaximize(win *ui.Base, barSize float32) *ui.Base {
 					{NormalX: 0, NormalY: 1, Weight: 2},
 				},
 			},
-			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+			Background: ui.BackgroundColor{Color: color.Black},
 		}},
 		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
 			ui.CursorEventHover: id.Get("click"),
@@ -1539,7 +1540,7 @@ func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 	return &ui.Base{
 		MinSize: ui.NewAmountPoint(barSize, barSize),
 		Layers: []ui.Layer{{
-			Background: ui.BackgroundColor{Color: ui.ColorLightGray.Alpha(0.3)},
+			Background: ui.BackgroundColor{Color: color.LightGray.Alpha(0.3)},
 			Visual:     ui.VisualFilled{Shape: ui.ShapeRectangle{}},
 			States:     ui.StateHover.Is,
 		}, {
@@ -1547,7 +1548,7 @@ func newWindowHide(win *ui.Base, barSize float32) *ui.Base {
 			Visual: ui.VisualFilled{
 				Shape: ui.ShapeRectangle{},
 			},
-			Background: ui.BackgroundColor{Color: ui.ColorBlack},
+			Background: ui.BackgroundColor{Color: color.Black},
 		}},
 		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
 			ui.CursorEventHover: id.Get("click"),

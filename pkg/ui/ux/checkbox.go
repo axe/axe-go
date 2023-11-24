@@ -2,7 +2,7 @@ package ux
 
 import "github.com/axe/axe-go/pkg/ui"
 
-type CheckboxStyles struct {
+type CheckboxSettings struct {
 	CheckboxSize    ui.Coord
 	CheckedTile     ui.Tile
 	UncheckedTile   ui.Tile

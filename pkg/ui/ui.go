@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/id"
 )
@@ -49,7 +50,7 @@ func NewUI() *UI {
 				id.WithArea(Area),
 				id.WithCapacity(16),
 			),
-			Colors: NewColors(map[ThemeColor]Colorable{}),
+			Colors: color.NewColors(map[color.Themed]color.Able{}),
 			TextStyles: TextStyles{
 				ParagraphStyles: ParagraphStyles{
 					LineVerticalAlignment: AlignmentBottom,
@@ -59,7 +60,7 @@ func NewUI() *UI {
 					ClipShowX: ClipShowLeft,
 					ClipShowY: ClipShowTop,
 				},
-				Color:    ColorBlack,
+				Color:    color.Black,
 				FontSize: Amount{Value: 16},
 			},
 			Animations: Animations{

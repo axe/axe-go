@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/util"
 )
@@ -25,12 +26,12 @@ type Base struct {
 	Shape                       Shape
 	OverShape                   []Coord
 	Transparency                float32
-	Color                       ColorModify
+	Color                       color.Modify
 	Animation                   AnimationState
 	Animations                  *Animations
 	Cursors                     Cursors
 	Hooks                       Hooks
-	Colors                      Colors
+	Colors                      color.Colors
 	Margin                      AmountBounds
 	MinSize                     AmountPoint
 	MaxSize                     AmountPoint
@@ -187,7 +188,7 @@ func (b *Base) SetTransparency(transparency float32) {
 // Sets the color modification function that's applied to all vertices of this component
 // and marks the post processing as dirty if the modification function appears to be different.
 // All parents are notified they have a dirty child visual.
-func (b *Base) SetColor(color ColorModify) {
+func (b *Base) SetColor(color color.Modify) {
 	if !b.Color.Equals(color) {
 		b.Color = color.GetEffective()
 		b.Dirty(DirtyPostProcess)
@@ -369,7 +370,7 @@ func (b *Base) CouldRender() bool {
 
 // Returns whether this component is invisible based on its transparency or color.
 func (b *Base) IsInvisible() bool {
-	return b.Transparency == 1 || b.Color.Modify(ColorWhite).A == 0
+	return b.Transparency == 1 || b.Color.Modify(color.White).A == 0
 }
 
 // Returns whether a component has a post processing function that needs to be applied.
@@ -573,10 +574,7 @@ func (b *Base) postProcessTransparency(ctx *RenderContext, out *VertexBuffers) {
 		vertices := NewVertexIterator(out, true)
 		for vertices.HasNext() {
 			v := vertices.Next()
-			if !v.HasColor {
-				v.Color = ColorWhite
-				v.HasColor = true
-			}
+			v.InitColor()
 			v.Color.A *= alphaMultiplier
 		}
 	}
@@ -588,10 +586,7 @@ func (b *Base) postProcessColor(ctx *RenderContext, out *VertexBuffers) {
 		vertices := NewVertexIterator(out, true)
 		for vertices.HasNext() {
 			v := vertices.Next()
-			if !v.HasColor {
-				v.Color = ColorWhite
-				v.HasColor = true
-			}
+			v.InitColor()
 			v.Color = colorModifier(v.Color)
 		}
 	}
@@ -854,6 +849,12 @@ func (b *Base) showNow() {
 	}
 }
 
+// Removes all listeners (init, place, update, render, remove, post processes, events) from this component.
+func (b *Base) ClearListeners() {
+	b.Hooks.Clear()
+	b.Events.Clear()
+}
+
 // Removes the component if it's not already removed or removing. If a
 // remove animation is defined the animation will play out before the component
 // is actually removed from the parent & render parent. On removal much of the cached
@@ -870,6 +871,8 @@ func (b *Base) Remove() {
 
 // Removes the component now cleaning up cached data and references.
 func (b *Base) removeNow() {
+	b.Hooks.OnRemove.Run(b)
+	b.Hooks.OnRemove.Clear()
 	if b.renderParent != nil {
 		b.renderParent.ChildrenUpdated()
 	}
@@ -1005,6 +1008,15 @@ func (b *Base) BringToFront() {
 // Sets this component to be the first one rendered in it's render parent.
 func (b *Base) SendToBack() {
 	b.SetOrder(0)
+}
+
+// Gets the color if any for the themed color.
+func (b *Base) GetColorable(t color.Themed) color.Able {
+	colorable := b.Colors.Get(t)
+	if colorable == nil {
+		colorable = b.ui.Theme.Colors.Get(t)
+	}
+	return colorable
 }
 
 // Returns whether this component is focusable. It must be marked focusable
@@ -1187,12 +1199,12 @@ type Template struct {
 	Shape                       Shape
 	OverShape                   []Coord
 	Transparency                float32
-	Color                       ColorModify
+	Color                       color.Modify
 	Animations                  *Animations
 	AnimationsMerge             bool
 	Cursors                     Cursors
 	CursorsMerge                bool
-	Colors                      Colors
+	Colors                      color.Colors
 	ColorsMerge                 bool
 	PreHooks                    Hooks
 	PostHooks                   Hooks
@@ -1275,4 +1287,8 @@ func (b *Base) ApplyTemplate(t *Template) {
 	if !b.IgnoreLayoutPreferredWidth {
 		b.IgnoreLayoutPreferredWidth = t.IgnoreLayoutPreferredWidth
 	}
+}
+
+func colorableNil(c color.Able) bool {
+	return c == nil
 }

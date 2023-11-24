@@ -5,7 +5,7 @@ import "github.com/axe/axe-go/pkg/ui"
 // icons, options, searching, etc
 // a function is used to generate the items given a data value
 
-type DropdownStyles struct {
+type DropdownSettings struct {
 	TriggerOnDown  bool
 	TriggerOnEnter bool
 	TriggerOnFocus bool
@@ -23,7 +23,7 @@ type Dropdown[I any] struct {
 	OnChange        func(item I)
 	ValueCompare    func(a, b I) bool
 
-	DropdownStyles
+	DropdownSettings
 }
 
 type DropdownBase[I any] struct {
