@@ -851,9 +851,10 @@ func newCollapsibleSection(text string, children ...*ui.Base) *ui.Base {
 
 	return &ui.Base{
 		Layout: ui.LayoutColumn{
-			Spacing:    ui.Amount{Value: 8},
-			FullWidth:  true,
-			FullHeight: true,
+			Spacing:     ui.Amount{Value: 8},
+			FullWidth:   true,
+			FullHeight:  true,
+			EqualWidths: true,
 		},
 		Children: []*ui.Base{
 			{

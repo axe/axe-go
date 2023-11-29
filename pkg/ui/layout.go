@@ -1,6 +1,8 @@
 package ui
 
-import "github.com/axe/axe-go/pkg/util"
+import (
+	"github.com/axe/axe-go/pkg/util"
+)
 
 type Layoutable interface {
 	Placement() Placement
@@ -132,8 +134,8 @@ func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 	spacingTotal := spacing * float32(n-1)
 	totalHeight := sizings.TotalHeight + spacingTotal
 
-	if l.FullHeight && maxHeight > totalHeight {
-		extraHeight := maxHeight - totalHeight
+	extraHeight := maxHeight - totalHeight
+	if l.FullHeight && extraHeight > 0 {
 		for childIndex := range sizings.Sizings {
 			sizing := &sizings.Sizings[childIndex]
 			weight := sizings.GetHeightWeight(childIndex)
@@ -817,14 +819,20 @@ func (l LayoutInline) getLines(ctx *RenderContext, maxWidth float32, layoutable 
 		}
 	}
 	if l.LineEqualWidths {
-		for _, line := range lines {
-			maxWidth := float32(0)
+		for lineIndex, line := range lines {
+			maxItemWidth := float32(0)
 			for i := line.start; i < line.endExclusive; i++ {
-				maxWidth = util.Max(maxWidth, sizings.Sizings[i].FullWidth)
+				maxItemWidth = util.Max(maxItemWidth, sizings.Sizings[i].FullWidth)
+			}
+			n := float32(line.endExclusive - line.start)
+			itemWidth := (maxWidth+spacingX)/n - spacingX
+			if maxItemWidth < itemWidth {
+				itemWidth = maxItemWidth
 			}
 			for i := line.start; i < line.endExclusive; i++ {
-				sizings.Sizings[i].SetFullWidth(maxWidth)
+				sizings.Sizings[i].SetFullWidth(itemWidth)
 			}
+			lines[lineIndex].width = (itemWidth+spacingX)*n - spacingX
 		}
 	}
 
@@ -860,13 +868,14 @@ func (l LayoutInline) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 	lines, sizings := l.getLines(ctx, maxWidth, layoutable)
 	offsetY := float32(0)
 
-	totalHeight := spacingY * float32(n-1)
+	totalHeight := spacingY * float32(len(lines)-1)
 	for _, line := range lines {
 		totalHeight += line.height
 	}
 
-	if !l.FullHeight {
-		offsetY = l.VerticalAlignment.Compute(maxHeight - totalHeight)
+	extraHeight := maxHeight - totalHeight
+	if !l.FullHeight && extraHeight > 0 {
+		offsetY = l.VerticalAlignment.Compute(extraHeight)
 	}
 
 	if l.FullWidth {
@@ -900,7 +909,6 @@ func (l LayoutInline) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 		}
 	}
 
-	extraHeight := maxHeight - totalHeight
 	if l.FullHeight && extraHeight > 0 {
 		totalHeightWeight := float32(0)
 		lineMaxWeight := make([]float32, len(lines))
