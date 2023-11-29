@@ -20,56 +20,77 @@ var _ Layout = LayoutGrid{}
 var _ Layout = LayoutInline{}
 var _ Layout = LayoutStatic{}
 
-// A way to control the weight of a metric for a component at a given index.
-// All weights for N components will add up to 1
-// If the number of weights is <= 1 then all weights returned are equally distributed.
-type LayoutWeights []float32
-
-func (w LayoutWeights) GetWeight(i, n int) float32 {
-	if len(w) <= 1 {
-		return float32(1) / float32(n)
-	} else {
-		total := w.TotalWeight(n)
-		if total != 0 {
-			return w.WeightAt(i) / total
-		} else {
-			return float32(1) / float32(n)
-		}
-	}
-}
-func (w LayoutWeights) WeightAt(i int) float32 {
-	last := len(w) - 1
-	if i > last {
-		return w[last]
-	} else {
-		return w[i]
-	}
-}
-func (w LayoutWeights) TotalWeight(n int) float32 {
-	last := len(w) - 1
-	totalWeight := float32(0)
-	for i := 0; i < n; i++ {
-		if i <= last {
-			totalWeight += w[i]
-		} else {
-			totalWeight += w[last]
-		}
-	}
-	return totalWeight
+// Layout information that can be specified at the component level that a layout may
+// or may not use during placement.
+type LayoutData struct {
+	// The weight for the width when the layout is stretched.
+	WidthWeight float32
+	// Each cell component is expanded to the column width
+	FullWidth *bool
+	// When FullWidth is false, how to align the cell component horizontally in the cell
+	HorizontalAlignment *Alignment
+	// The weight for the height when the layout is stretched.
+	HeightWeight float32
+	// Each cell component is expanded to the row height
+	FullHeight *bool
+	// When FullHeight is false, how to align the cell component veritcally in the cell
+	VerticalAlignment *Alignment
+	// For certain layouts, should the preferred size be enforced?
+	EnforcePreferredSize *bool
+	// For certain layouts, should the component be moved within the parent's bounds?
+	KeepInside              *bool
+	KeepInsideForgetSize    *bool
+	KeepInsideIgnoreMargins *bool
 }
 
-// A way to control the dimensions of a metric in a layout.
-type LayoutDimensions []float32
+func (ld LayoutData) WithWidthWeight(widthWeight float32) LayoutData {
+	ld.WidthWeight = widthWeight
+	return ld
+}
 
-func (d LayoutDimensions) Get(i int) float32 {
-	last := len(d) - 1
-	if last == -1 {
-		return 0
-	} else if i <= last {
-		return d[i]
-	} else {
-		return d[last]
-	}
+func (ld LayoutData) WithFullWidth(fullWidth bool) LayoutData {
+	ld.FullWidth = &fullWidth
+	return ld
+}
+
+func (ld LayoutData) WithHorizontalAlignment(alignment Alignment) LayoutData {
+	ld.HorizontalAlignment = &alignment
+	return ld
+}
+
+func (ld LayoutData) WithHeightWeight(heightWeight float32) LayoutData {
+	ld.HeightWeight = heightWeight
+	return ld
+}
+
+func (ld LayoutData) WithFullHeight(fullHeight bool) LayoutData {
+	ld.FullHeight = &fullHeight
+	return ld
+}
+
+func (ld LayoutData) WithVerticalAlignment(alignment Alignment) LayoutData {
+	ld.VerticalAlignment = &alignment
+	return ld
+}
+
+func (ld LayoutData) WithEnforcePreferredSize(enforce bool) LayoutData {
+	ld.EnforcePreferredSize = &enforce
+	return ld
+}
+
+func (ld LayoutData) WithKeepInside(keepInside bool) LayoutData {
+	ld.KeepInside = &keepInside
+	return ld
+}
+
+func (ld LayoutData) WithKeepInsideIgnoreMargins(ignoreMargins bool) LayoutData {
+	ld.KeepInsideIgnoreMargins = &ignoreMargins
+	return ld
+}
+
+func (ld LayoutData) WithKeepInsideForgetSize(forgetSize bool) LayoutData {
+	ld.KeepInsideForgetSize = &forgetSize
+	return ld
 }
 
 // A layout which places all children in a column (vertical stack).
@@ -80,7 +101,6 @@ func (d LayoutDimensions) Get(i int) float32 {
 type LayoutColumn struct {
 	FullWidth           bool
 	FullHeight          bool
-	FullHeightWeights   LayoutWeights
 	EqualWidths         bool
 	HorizontalAlignment Alignment
 	Spacing             Amount
@@ -106,7 +126,6 @@ func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 	}
 
 	offsetY := float32(0)
-	deltaX := float32(l.HorizontalAlignment)
 	width, maxHeight := bounds.Dimensions()
 	sizings := getLayoutSizings(ctx, width, layoutable)
 	spacing := l.Spacing.Get(ctx.AmountContext, false)
@@ -114,10 +133,11 @@ func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 	totalHeight := sizings.TotalHeight + spacingTotal
 
 	if l.FullHeight && maxHeight > totalHeight {
-		remaining := maxHeight - totalHeight
+		extraHeight := maxHeight - totalHeight
 		for childIndex := range sizings.Sizings {
 			sizing := &sizings.Sizings[childIndex]
-			add := remaining * l.FullHeightWeights.GetWeight(childIndex, n)
+			weight := sizings.GetHeightWeight(childIndex)
+			add := extraHeight * weight
 			sizing.FullHeight += add
 			sizing.Height += add
 		}
@@ -125,16 +145,14 @@ func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 
 	for childIndex, child := range layoutable {
 		sizing := sizings.Sizings[childIndex]
-		paddingWidth := sizing.FullWidth - sizing.Width
-		if l.FullWidth {
-			sizing.FullWidth = width
-			sizing.Width = width - paddingWidth
+		if util.Coalesce(sizing.Data.FullWidth, l.FullWidth) {
+			sizing.SetFullWidth(width)
 		} else if l.EqualWidths {
-			sizing.FullWidth = sizings.MaxWidth
-			sizing.Width = sizings.MaxWidth - paddingWidth
+			sizing.SetFullWidth(sizings.MaxWidth)
 		}
+		halign := util.Coalesce(sizing.Data.HorizontalAlignment, l.HorizontalAlignment)
 		placement := child.Placement.
-			Attach(deltaX, 0, sizing.Width, sizing.Height).
+			Attach(float32(halign), 0, sizing.Width, sizing.Height).
 			Shift(sizing.OffsetX, offsetY+sizing.OffsetY)
 		child.SetPlacement(placement)
 		offsetY += sizing.FullHeight + spacing
@@ -149,7 +167,6 @@ func (l LayoutColumn) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 type LayoutRow struct {
 	FullHeight        bool
 	FullWidth         bool
-	FullWidthWeights  LayoutWeights
 	EqualHeights      bool
 	VerticalAlignment Alignment
 	Spacing           Amount
@@ -302,32 +319,74 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 			remaining := maxWidth - totalWidth
 			for i := range sizings {
 				sizing := &sizings[i]
-				add := remaining * l.FullWidthWeights.GetWeight(i, n)
+				weight := minSizings.GetWidthWeight(i)
+				add := remaining * weight
 				sizing.Width += add
 				sizing.FullWidth += add
 			}
 		}
 	}
 
-	deltaY := float32(l.VerticalAlignment)
 	offsetX := float32(0)
 
 	for childIndex, child := range layoutable {
 		sizing := sizings[childIndex]
-		heightPadding := sizing.HeightPadding()
-		if l.FullHeight {
-			sizing.FullHeight = boundsHeight
-			sizing.Height = boundsHeight - heightPadding
+		if util.Coalesce(sizing.Data.FullHeight, l.FullHeight) {
+			sizing.SetFullHeight(boundsHeight)
 		} else if l.EqualHeights {
-			sizing.FullHeight = maxHeight
-			sizing.Height = maxHeight - heightPadding
+			sizing.SetFullHeight(maxHeight)
 		}
+		alignment := util.Coalesce(sizing.Data.VerticalAlignment, l.VerticalAlignment)
 		placement := child.Placement.
-			Attach(0, deltaY, sizing.Width, sizing.Height).
+			Attach(0, float32(alignment), sizing.Width, sizing.Height).
 			Shift(offsetX+sizing.OffsetX, sizing.OffsetY)
 		child.SetPlacement(placement)
 		offsetX += sizing.FullWidth + spacing
 	}
+}
+
+// A definition for a single column in the table layout.
+type LayoutGridColumn struct {
+	// When stretching the columns to match the width of the bounds - how should each column
+	// be stretched? A value of zero will cause no stretching, and non-zero values will be
+	// divided up based on the value / the sum of values. One or zero weights will cause
+	// the widths to be equally stretched.
+	Weight float32
+	// Each cell component is expanded to the column width
+	FullWidth bool
+	// When FullWidth is false, how to align the cell component horizontally in the cell
+	HorizontalAlignment Alignment
+	// Each cell component is expanded to the row height
+	FullHeight *bool
+	// When FullHeight is false, how to align the cell component vertically in the cell
+	VerticalAlignment *Alignment
+	// Defines the min widths for one or all columns.
+	Min float32
+	// Defines the max widths for one or all columns.
+	Max float32
+}
+
+// A definition for a single row in the table layout.
+type LayoutGridRow struct {
+	// When stretching the rows to match the height of the bounds - how should each row
+	// be stretched? A value of zero will cause no stretching, and non-zero values will be
+	// divided up based on the value / the sum of values. One or zero weights will cause
+	// the heights to be equally stretched.
+	Weight float32
+	// Each cell component is expanded to the row height
+	FullHeight bool
+	// When FullHeight is false, how to align the cell component veritcally in the cell
+	VerticalAlignment Alignment
+	// Each cell component is expanded to the column width
+	FullWidth *bool
+	// When FullWidth is false, how to align the cell component horizontally in the cell
+	HorizontalAlignment *Alignment
+	// Defines the min heights for one or all rows. If the number of rows extends beyond the number
+	// of min heights defined, they will use the last min height defined.
+	Min float32
+	// Defines the max heights for one or all rows. If the number of rows extends beyond the number
+	// of max heights defined, they will use the last max height defined.
+	Max float32
 }
 
 // A layout which places all children in a grid. The number of columns in the
@@ -343,45 +402,19 @@ func (l LayoutRow) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable
 // expands to fit the cell.
 type LayoutGrid struct {
 	// The grid will take up the full width of the bounds. May result in ignoring other width settings.
-	GridFullWidth bool
-	// When stretching the columns to match the width of the bounds - how should each column
-	// be stretched? A value of zero will cause no stretching, and non-zero values will be
-	// divided up based on the value / the sum of values. One or zero weights will cause
-	// the widths to be equally stretched.
-	GridFullWidthWeights LayoutWeights
-	// The grid will take up the full height of the bounds. May result in ignoring other height settings.
-	GridFullHeight bool
-	// When stretching the rows to match the height of the bounds - how should each row
-	// be stretched? A value of zero will cause no stretching, and non-zero values will be
-	// divided up based on the value / the sum of values. One or zero weights will cause
-	// the heights to be equally stretched.
-	GridFullHeightWeights LayoutWeights
-	// Each cell component is expanded to the row height
-	FullHeight bool
-	// Each cell component is expanded to the column width
 	FullWidth bool
-	// When FullHeight is false, how to align the cell component veritcally in the cell
-	VerticalAlignment Alignment
-	// When FullWidth is false, how to align the cell component horizontally in the cell
-	HorizontalAlignment Alignment
+	// The grid will take up the full height of the bounds. May result in ignoring other height settings.
+	FullHeight bool
 	// How much space between rows
 	VerticalSpacing Amount
 	// How much space between columns
 	HorizontalSpacing Amount
-	// Defines the min widths for one or all columns. If the number of columns extends beyond the number
-	// of min widths defined, they will use the last min width defined.
-	MinWidths LayoutDimensions
-	// Defines the max widths for one or all columns. If the number of columns extends beyond the number
-	// of max widths defined, they will use the last max width defined.
-	MaxWidths LayoutDimensions
-	// Defines the min heights for one or all rows. If the number of rows extends beyond the number
-	// of min heights defined, they will use the last min height defined.
-	MinHeights LayoutDimensions
-	// Defines the max heights for one or all rows. If the number of rows extends beyond the number
-	// of max heights defined, they will use the last max height defined.
-	MaxHeights LayoutDimensions
-	// The number of columns in the grid. A zero value will have the grid calculate the number of columns.
-	Columns int
+	// Whether the number of columns should be dynamically calculated.
+	ColumnsDynamic bool
+	// When dynamically calculating columns, this will be the min number of columns in the grid.
+	ColumnsMin int
+	// When dynamically calculating columns, this will be the max number of columns in the grid.
+	ColumnsMax int
 	// A value used in determining how many columns should be in the grid when not defined.
 	// A value of 0.0 will try to fit as many columns as possible while a value of 1.0 will try to fit as few columns as possible.
 	ColumnsDynamicDelta float32
@@ -392,6 +425,13 @@ type LayoutGrid struct {
 	EqualHeights bool
 	// If all the columns in the grid should try to have equal widths. Min/Max widths may interfere with this.
 	EqualWidths bool
+	// The columns in the grid. You can use Columns or ColumnsMin to control the number of columns in the grid.
+	// When the number of column definitions is below the number of columns the last column definition will be used.
+	// At least one column is typically defined.
+	Columns []LayoutGridColumn
+	// The rows in the table. If the table has anymore rows beyond what's defined the last row will be used.
+	// At least one row is typically defined.
+	Rows []LayoutGridRow
 }
 
 const (
@@ -405,42 +445,64 @@ type layoutGridInfo struct {
 }
 
 type layoutGridSizings struct {
-	heights      []float32
-	widths       []float32
-	totalSpacing Coord
-	totalSize    Coord
-	rows         int
-	columns      int
+	heights       []float32
+	heightWeights []float32
+	widths        []float32
+	widthWeights  []float32
+	totalSpacing  Coord
+	totalSize     Coord
+	rows          int
+	columns       int
+	totalWeight   Coord
+}
+
+func (lgs layoutGridSizings) getWidthWeight(col int) float32 {
+	if lgs.totalWeight.X != 0 {
+		return lgs.widthWeights[col] / lgs.totalWeight.X
+	} else {
+		return 1.0 / float32(len(lgs.widthWeights))
+	}
+}
+func (lgs layoutGridSizings) getHeightWeight(row int) float32 {
+	if lgs.totalWeight.Y != 0 {
+		return lgs.heightWeights[row] / lgs.totalWeight.Y
+	} else {
+		return 1.0 / float32(len(lgs.heightWeights))
+	}
 }
 
 func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGridSizings {
 	last := len(info.sizings.Sizings) - 1
 	rows := (last + columns) / columns
 	sizings := layoutGridSizings{
-		columns: columns,
-		rows:    rows,
-		widths:  make([]float32, columns),
-		heights: make([]float32, rows),
+		columns:       columns,
+		rows:          rows,
+		widths:        make([]float32, columns),
+		widthWeights:  make([]float32, columns),
+		heights:       make([]float32, rows),
+		heightWeights: make([]float32, rows),
 		totalSpacing: Coord{
 			X: float32(columns-1) * info.spacingX,
 			Y: float32(rows-1) * info.spacingY,
 		},
 	}
-	if len(grid.MinWidths) > 0 {
-		for i := range sizings.widths {
-			sizings.widths[i] = grid.MinWidths.Get(i)
-		}
+	for i := range sizings.widths {
+		col := grid.columnAt(i)
+		sizings.widths[i] = col.Min
+		sizings.widthWeights[i] = col.Weight
 	}
-	if len(grid.MinHeights) > 0 {
-		for i := range sizings.heights {
-			sizings.heights[i] = grid.MinHeights.Get(i)
-		}
+	for i := range sizings.heights {
+		row := grid.rowAt(i)
+		sizings.heights[i] = row.Min
+		sizings.heightWeights[i] = row.Weight
 	}
 	for childIndex, sizing := range info.sizings.Sizings {
 		col := childIndex % columns
 		row := childIndex / columns
 		sizings.widths[col] = util.Max(sizings.widths[col], sizing.FullWidth)
+		sizings.widthWeights[col] = util.Max(sizings.widthWeights[col], sizing.Data.WidthWeight)
 		sizings.heights[row] = util.Max(sizings.heights[row], sizing.FullHeight)
+		sizings.heightWeights[row] = util.Max(sizings.heightWeights[row], sizing.Data.HeightWeight)
 	}
 	maxHeight := float32(0)
 	maxWidth := float32(0)
@@ -464,20 +526,14 @@ func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGr
 			sizings.heights[i] = maxHeight
 		}
 	}
-	if len(grid.MaxWidths) > 0 {
-		for i := range sizings.widths {
-			maxWidth := grid.MaxWidths.Get(i)
-			if maxWidth > 0 {
-				sizings.widths[i] = util.Min(sizings.widths[i], maxWidth)
-			}
+	for i := range sizings.widths {
+		if maxWidth := grid.columnAt(i).Max; maxWidth > 0 {
+			sizings.widths[i] = util.Min(sizings.widths[i], maxWidth)
 		}
 	}
-	if len(grid.MaxHeights) > 0 {
-		for i := range sizings.heights {
-			maxHeight := grid.MaxHeights.Get(i)
-			if maxHeight > 0 {
-				sizings.heights[i] = util.Min(sizings.heights[i], maxHeight)
-			}
+	for i := range sizings.heights {
+		if maxHeight := grid.rowAt(i).Max; maxHeight > 0 {
+			sizings.heights[i] = util.Min(sizings.heights[i], maxHeight)
 		}
 	}
 	sizings.totalSize = sizings.totalSpacing
@@ -487,8 +543,38 @@ func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGr
 	for _, rowHeight := range sizings.heights {
 		sizings.totalSize.Y += rowHeight
 	}
+	for _, columnWeight := range sizings.widthWeights {
+		sizings.totalWeight.X += columnWeight
+	}
+	for _, rowWeight := range sizings.heightWeights {
+		sizings.totalWeight.Y += rowWeight
+	}
 
 	return sizings
+}
+
+func (l LayoutGrid) columnAt(i int) *LayoutGridColumn {
+	last := len(l.Columns) - 1
+	if i <= last {
+		return &l.Columns[i]
+	} else if last == -1 {
+		var empty LayoutGridColumn
+		return &empty
+	} else {
+		return &l.Columns[last]
+	}
+}
+
+func (l LayoutGrid) rowAt(i int) *LayoutGridRow {
+	last := len(l.Rows) - 1
+	if i <= last {
+		return &l.Rows[i]
+	} else if last == -1 {
+		var empty LayoutGridRow
+		return &empty
+	} else {
+		return &l.Rows[last]
+	}
 }
 
 func (l LayoutGrid) Init(b *Base) {}
@@ -498,8 +584,9 @@ func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layouta
 		spacingY: l.VerticalSpacing.Get(ctx.AmountContext, false),
 	}
 
-	columns := l.Columns
-	if columns != 0 {
+	columns := len(l.Columns)
+	if !l.ColumnsDynamic {
+		columns = util.Max(columns, l.ColumnsMin)
 		if l.EqualWidths {
 			// equal width with defined number of columns is easiest, we calculate column width add calculate sizings based on that.
 			columnWidth := ((maxWidth + info.spacingX) / float32(columns)) - info.spacingX
@@ -508,9 +595,16 @@ func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layouta
 			// we look at the min size, find out how much "extra" space we have to work with, then divide it up evenly.
 			info.sizings = getLayoutSizings(ctx, 0, layoutable)
 			minWidths := make([]float32, columns)
+			colWeights := make([]float32, columns)
+			for col := range minWidths {
+				c := l.columnAt(col)
+				minWidths[col] = c.Min
+				colWeights[col] = c.Weight
+			}
 			for childIndex, sizing := range info.sizings.Sizings {
 				col := childIndex % columns
 				minWidths[col] = util.Max(minWidths[col], sizing.FullWidth)
+				colWeights[col] = util.Max(colWeights[col], sizing.Data.WidthWeight)
 			}
 			totalMinWidths := float32(0)
 			for _, minWidth := range minWidths {
@@ -519,12 +613,22 @@ func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layouta
 			totalMinWidths += info.spacingX * float32(columns-1)
 			extra := maxWidth - totalMinWidths
 			if extra > 0 {
-				extraSpacePerColumn := extra / float32(columns)
+				totalColWeights := float32(0)
+				for _, weight := range colWeights {
+					totalColWeights += weight
+				}
+				if totalColWeights == 0 {
+					totalColWeights = float32(columns)
+					for i := range colWeights {
+						colWeights[i] = 1
+					}
+				}
 				for childIndex, sizing := range info.sizings.Sizings {
 					col := childIndex % columns
 					columnWidth := minWidths[col]
 					if sizing.FullWidth < columnWidth {
-						info.sizings.Sizings[childIndex] = getLayoutSizing(ctx, columnWidth+extraSpacePerColumn, layoutable[childIndex])
+						extraSize := extra * (colWeights[col] / totalColWeights)
+						info.sizings.Sizings[childIndex] = getLayoutSizing(ctx, columnWidth+extraSize, layoutable[childIndex])
 					}
 				}
 			}
@@ -533,24 +637,28 @@ func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layouta
 		// we calculate columns based on max column width, and with the real
 		// column width we calculate we determine sizings.
 		layoutWidth := maxWidth
-		if l.Columns == 0 {
+		if columns == 0 {
 			layoutWidth = l.ColumnsDynamicDelta * maxWidth
 		}
 		info.sizings = getLayoutSizings(ctx, layoutWidth, layoutable)
 		maxChildWidth := float32(0)
-		for _, width := range l.MinWidths {
-			maxChildWidth = util.Max(maxChildWidth, width)
+		for _, col := range l.Columns {
+			maxChildWidth = util.Max(maxChildWidth, col.Min)
 		}
 		for _, sizing := range info.sizings.Sizings {
 			maxChildWidth = util.Max(maxChildWidth, sizing.FullWidth)
 		}
-		columns = int((maxWidth + info.spacingX) / (maxChildWidth + info.spacingX))
+		columns = util.Max(l.ColumnsMin, int((maxWidth+info.spacingX)/(maxChildWidth+info.spacingX)))
 		if columns == 0 {
 			columns = 1
+		}
+		if l.ColumnsMax > 0 && columns > l.ColumnsMax {
+			columns = l.ColumnsMax
 		}
 		columnWidth := ((maxWidth + info.spacingX) / float32(columns)) - info.spacingX
 		info.sizings = getLayoutSizings(ctx, columnWidth, layoutable)
 	}
+
 	info.layoutGridSizings = info.getSizingsFor(columns, l)
 
 	return info
@@ -576,17 +684,17 @@ func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutabl
 	maxWidth, maxHeight := bounds.Dimensions()
 	info := l.getSizingInfo(ctx, maxWidth, layoutable)
 
-	if info.totalSize.X < maxWidth && l.GridFullWidth {
+	if info.totalSize.X < maxWidth && l.FullWidth {
 		remaining := maxWidth - info.totalSize.X
 		for i := range info.widths {
-			add := remaining * l.GridFullWidthWeights.GetWeight(i, info.columns)
+			add := remaining * info.getWidthWeight(i)
 			info.widths[i] += add
 		}
 	}
-	if info.totalSize.Y < maxHeight && l.GridFullHeight {
+	if info.totalSize.Y < maxHeight && l.FullHeight {
 		remaining := maxHeight - info.totalSize.Y
 		for i := range info.heights {
-			add := remaining * l.GridFullHeightWeights.GetWeight(i, info.rows)
+			add := remaining * info.getHeightWeight(i)
 			info.heights[i] += add
 		}
 	}
@@ -599,18 +707,21 @@ func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutabl
 		sizing := info.sizings.Sizings[childIndex]
 		cellWidth := info.widths[col]
 		cellHeight := info.heights[row]
+		colLayout := l.columnAt(col)
+		rowLayout := l.rowAt(row)
 
-		if l.FullWidth || sizing.FullWidth > cellWidth {
-			sizing.Width = cellWidth - sizing.WidthPadding()
-			sizing.FullWidth = cellWidth
+		if util.Coalesce2(sizing.Data.FullWidth, rowLayout.FullWidth, colLayout.FullWidth) || sizing.FullWidth > cellWidth {
+			sizing.SetFullWidth(cellWidth)
 		}
-		if l.FullHeight || sizing.FullHeight > cellHeight {
-			sizing.Height = cellHeight - sizing.HeightPadding()
-			sizing.FullHeight = cellHeight
+		if util.Coalesce2(sizing.Data.FullHeight, colLayout.FullHeight, rowLayout.FullHeight) || sizing.FullHeight > cellHeight {
+			sizing.SetFullHeight(cellHeight)
 		}
 
-		alignX := l.HorizontalAlignment.Compute(cellWidth - sizing.FullWidth)
-		alignY := l.VerticalAlignment.Compute(cellHeight - sizing.FullHeight)
+		halign := util.Coalesce2(sizing.Data.HorizontalAlignment, rowLayout.HorizontalAlignment, colLayout.HorizontalAlignment)
+		valign := util.Coalesce2(sizing.Data.VerticalAlignment, colLayout.VerticalAlignment, rowLayout.VerticalAlignment)
+
+		alignX := halign.Compute(cellWidth - sizing.FullWidth)
+		alignY := valign.Compute(cellHeight - sizing.FullHeight)
 
 		left := offsetX + alignX + sizing.OffsetX
 		top := offsetY + alignY + sizing.OffsetY
@@ -628,10 +739,37 @@ func (l LayoutGrid) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutabl
 // A layout which places all children on after another and wraps them
 // if it can't fit in a line.
 type LayoutInline struct {
-	VerticalAlignment   Alignment
+	// The default vertical alignment of a component in a line.
+	LineVerticalAlignment Alignment
+	// The default horizontal alignment of a component in a stretched out
+	// line in the parent component. This is only used when FullWidth=true
+	// and LineFullWidth=false.
+	LineHorizontalAlignment Alignment
+	// The alignment of all the lines in the parent component.
+	VerticalAlignment Alignment
+	// The alignment of all the lines in the parent component.
 	HorizontalAlignment Alignment
-	VerticalSpacing     Amount
-	HorizontalSpacing   Amount
+	// The spacing between each line.
+	VerticalSpacing Amount
+	// The spacing between each component in a line.
+	HorizontalSpacing Amount
+	// If all the components in a given line share the same height.
+	LineFullHeight bool
+	// If all the components in a given line take up the full width available.
+	// This only has an effect when FullWidth is true.
+	LineFullWidth bool
+	// If all the lines share the same height.
+	EqualHeights bool
+	// If all components in a line should share the same width
+	LineEqualWidths bool
+	// If the layout should stretch the lines to the height of the parent.
+	// The height weights of the components are used to stretch and if none are
+	// defined then they are all equally stretched.
+	FullHeight bool
+	// If the layout should stretch the lines to the width of the parent.
+	// The width weights of the components are used to stretch and if none are
+	// defined then they are all equally stretched.
+	FullWidth bool
 }
 
 type layoutInlineLine struct {
@@ -669,6 +807,27 @@ func (l LayoutInline) getLines(ctx *RenderContext, maxWidth float32, layoutable 
 		lines = append(lines, currentLine)
 	}
 
+	if l.EqualHeights {
+		maxHeight := float32(0)
+		for _, line := range lines {
+			maxHeight = util.Max(maxHeight, line.height)
+		}
+		for i := range lines {
+			lines[i].height = maxHeight
+		}
+	}
+	if l.LineEqualWidths {
+		for _, line := range lines {
+			maxWidth := float32(0)
+			for i := line.start; i < line.endExclusive; i++ {
+				maxWidth = util.Max(maxWidth, sizings.Sizings[i].FullWidth)
+			}
+			for i := line.start; i < line.endExclusive; i++ {
+				sizings.Sizings[i].SetFullWidth(maxWidth)
+			}
+		}
+	}
+
 	return lines, sizings
 }
 func (l LayoutInline) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
@@ -690,22 +849,96 @@ func (l LayoutInline) PreferredSize(b *Base, ctx *RenderContext, maxWidth float3
 	return size
 }
 func (l LayoutInline) Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base) {
-	if len(layoutable) == 0 {
+	n := len(layoutable)
+	if n == 0 {
 		return
 	}
 
-	maxWidth := bounds.Width()
+	maxWidth, maxHeight := bounds.Dimensions()
 	spacingX := l.HorizontalSpacing.Get(ctx.AmountContext, true)
 	spacingY := l.VerticalSpacing.Get(ctx.AmountContext, false)
 	lines, sizings := l.getLines(ctx, maxWidth, layoutable)
 	offsetY := float32(0)
 
+	totalHeight := spacingY * float32(n-1)
 	for _, line := range lines {
-		offsetX := util.Max(0, l.HorizontalAlignment.Compute(maxWidth-line.width))
+		totalHeight += line.height
+	}
+
+	if !l.FullHeight {
+		offsetY = l.VerticalAlignment.Compute(maxHeight - totalHeight)
+	}
+
+	if l.FullWidth {
+		for _, line := range lines {
+			extraWidth := maxWidth - line.width
+			if extraWidth < 0 {
+				continue
+			}
+			totalWidthWeight := float32(0)
+			for i := line.start; i < line.endExclusive; i++ {
+				sizing := sizings.Sizings[i]
+				totalWidthWeight += sizing.Data.WidthWeight
+			}
+			equalExtraWidth := extraWidth / float32(line.endExclusive-line.start)
+			offsetX := float32(0)
+			for i := line.start; i < line.endExclusive; i++ {
+				sizing := &sizings.Sizings[i]
+				add := equalExtraWidth
+				if totalWidthWeight > 0 {
+					add = extraWidth * (sizing.Data.WidthWeight / totalWidthWeight)
+				}
+				if l.LineFullWidth {
+					sizing.Width += add
+					sizing.FullWidth += add
+				} else {
+					halign := util.Coalesce(sizing.Data.HorizontalAlignment, l.LineHorizontalAlignment)
+					sizing.OffsetX += offsetX + halign.Compute(add)
+					offsetX += add
+				}
+			}
+		}
+	}
+
+	extraHeight := maxHeight - totalHeight
+	if l.FullHeight && extraHeight > 0 {
+		totalHeightWeight := float32(0)
+		lineMaxWeight := make([]float32, len(lines))
+		for lineIndex, line := range lines {
+			for i := line.start; i < line.endExclusive; i++ {
+				sizing := sizings.Sizings[i]
+				lineMaxWeight[lineIndex] = util.Max(lineMaxWeight[lineIndex], sizing.Data.HeightWeight)
+			}
+			totalHeightWeight += lineMaxWeight[lineIndex]
+		}
+		if totalHeightWeight == 0 {
+			equalExtraHeight := extraHeight / float32(len(lines))
+			for i := range lines {
+				lines[i].height += equalExtraHeight
+			}
+		} else {
+			for i := range lines {
+				add := extraHeight * (lineMaxWeight[i] / totalHeightWeight)
+				lines[i].height += add
+			}
+		}
+	}
+
+	for _, line := range lines {
+		offsetX := float32(0)
+		if !l.FullWidth {
+			offsetX = util.Max(0, l.HorizontalAlignment.Compute(maxWidth-line.width))
+		}
 		for i := line.start; i < line.endExclusive; i++ {
 			child := layoutable[i]
 			sizing := sizings.Sizings[i]
-			alignY := l.VerticalAlignment.Compute(line.height - sizing.FullHeight)
+
+			if util.Coalesce(sizing.Data.FullHeight, l.LineFullHeight) {
+				sizing.SetFullHeight(line.height)
+			}
+
+			valign := util.Coalesce(sizing.Data.VerticalAlignment, l.LineVerticalAlignment)
+			alignY := valign.Compute(line.height - sizing.FullHeight)
 
 			child.SetPlacement(Absolute(
 				offsetX+sizing.OffsetX,
@@ -759,17 +992,13 @@ func (l LayoutStatic) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 		return
 	}
 
-	if !l.EnforcePreferredSize && !l.KeepInside {
-		return
-	}
-
 	width, height := bounds.Dimensions()
 
 	for _, child := range layoutable {
 		placement := child.Placement
-		keepSize := !l.KeepInsideForgetSize
+		keepSize := !util.Coalesce(child.LayoutData.KeepInsideForgetSize, l.KeepInsideForgetSize)
 
-		if l.EnforcePreferredSize {
+		if util.Coalesce(child.LayoutData.EnforcePreferredSize, l.EnforcePreferredSize) {
 			// Get the placement width to be at least the min size
 			minSize := child.PreferredSize(ctx, 0)
 			placementBounds := placement.GetBoundsIn(bounds)
@@ -787,18 +1016,18 @@ func (l LayoutStatic) Layout(b *Base, ctx *RenderContext, bounds Bounds, layouta
 			}
 		}
 
-		if l.KeepInside {
+		if util.Coalesce(child.LayoutData.KeepInside, l.KeepInside) {
 			margins := child.Margin.GetBounds(ctx.AmountContext)
 
 			fitInsideWidth := width
 			fitInsideHeight := height
-			if !l.KeepInsideIgnoreMargins {
+			if !util.Coalesce(child.LayoutData.KeepInsideIgnoreMargins, l.KeepInsideIgnoreMargins) {
 				fitInsideWidth -= margins.Left + margins.Right
 				fitInsideHeight -= margins.Top + margins.Bottom
 				placement = placement.Shift(-margins.Left, -margins.Top)
 			}
 			placement = placement.FitInside(fitInsideWidth, fitInsideHeight, keepSize)
-			if !l.KeepInsideIgnoreMargins {
+			if !util.Coalesce(child.LayoutData.KeepInsideIgnoreMargins, l.KeepInsideIgnoreMargins) {
 				placement = placement.Shift(margins.Left, margins.Top)
 			}
 
@@ -826,10 +1055,19 @@ type LayoutSizing struct {
 	FullWidth, FullHeight float32
 	Width, Height         float32
 	OffsetX, OffsetY      float32
+	Data                  *LayoutData
 }
 
 func (ls LayoutSizing) HeightPadding() float32 { return ls.FullHeight - ls.Height }
 func (ls LayoutSizing) WidthPadding() float32  { return ls.FullWidth - ls.Width }
+func (ls *LayoutSizing) SetFullWidth(fullWidth float32) {
+	ls.Width = fullWidth - ls.WidthPadding()
+	ls.FullWidth = fullWidth
+}
+func (ls *LayoutSizing) SetFullHeight(fullHeight float32) {
+	ls.Height = fullHeight - ls.HeightPadding()
+	ls.FullHeight = fullHeight
+}
 
 func getLayoutSizing(ctx *RenderContext, width float32, child *Base) LayoutSizing {
 	margin := child.Margin.GetBounds(ctx.AmountContext)
@@ -842,6 +1080,7 @@ func getLayoutSizing(ctx *RenderContext, width float32, child *Base) LayoutSizin
 		FullHeight: size.Y + margin.Top + margin.Bottom,
 		OffsetX:    margin.Left,
 		OffsetY:    margin.Top,
+		Data:       &child.LayoutData,
 	}
 }
 
@@ -849,6 +1088,8 @@ type LayoutSizings struct {
 	Sizings                 []LayoutSizing
 	MaxWidth, MaxHeight     float32
 	TotalWidth, TotalHeight float32
+	TotalWidthWeight        float32
+	TotalHeightWeight       float32
 }
 
 func getLayoutSizings(ctx *RenderContext, width float32, layoutable []*Base) (sizings LayoutSizings) {
@@ -861,9 +1102,31 @@ func getLayoutSizings(ctx *RenderContext, width float32, layoutable []*Base) (si
 		sizings.MaxHeight = util.Max(sizings.MaxHeight, sizing.FullHeight)
 		sizings.TotalWidth += sizing.FullWidth
 		sizings.TotalHeight += sizing.FullHeight
+		sizings.TotalWidthWeight += child.LayoutData.WidthWeight
+		sizings.TotalHeightWeight += child.LayoutData.HeightWeight
 	}
 
 	return
+}
+
+func (ls LayoutSizings) GetHeightWeight(i int) float32 {
+	weight := ls.Sizings[i].Data.HeightWeight
+	if ls.TotalHeightWeight > 0 {
+		weight /= ls.TotalHeightWeight
+	} else {
+		weight = 1.0 / float32(len(ls.Sizings))
+	}
+	return weight
+}
+
+func (ls LayoutSizings) GetWidthWeight(i int) float32 {
+	weight := ls.Sizings[i].Data.WidthWeight
+	if ls.TotalWidthWeight > 0 {
+		weight /= ls.TotalWidthWeight
+	} else {
+		weight = 1.0 / float32(len(ls.Sizings))
+	}
+	return weight
 }
 
 func iteratorRange(count int, reverse bool) (start, end, move int) {

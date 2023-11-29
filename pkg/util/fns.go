@@ -150,6 +150,16 @@ func Coalesce[V any](nilable *V, nonNil V) V {
 	return nonNil
 }
 
+func Coalesce2[V any](nilable1 *V, nilable2 *V, nonNil V) V {
+	if nilable1 != nil {
+		return *nilable1
+	}
+	if nilable2 != nil {
+		return *nilable2
+	}
+	return nonNil
+}
+
 func Clone[V any](nilable *V) *V {
 	if nilable == nil {
 		return nil

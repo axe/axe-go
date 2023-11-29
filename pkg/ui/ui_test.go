@@ -20,14 +20,18 @@ func TestLayoutGrid(t *testing.T) {
 	base := &ui.Base{
 		Placement: ui.Maximized(),
 		Layout: ui.LayoutGrid{
-			FullHeight:          false,
-			FullWidth:           false,
-			VerticalAlignment:   ui.AlignmentCenter,
-			HorizontalAlignment: ui.AlignmentCenter,
-			VerticalSpacing:     ui.Amount{Value: 10},
-			HorizontalSpacing:   ui.Amount{Value: 10},
-			Columns:             3,
-			AspectRatio:         0,
+			Rows: []ui.LayoutGridRow{{
+				FullHeight:        false,
+				VerticalAlignment: ui.AlignmentCenter,
+			}},
+			Columns: []ui.LayoutGridColumn{{
+				FullWidth:           true,
+				HorizontalAlignment: ui.AlignmentCenter,
+			}},
+			VerticalSpacing:   ui.Amount{Value: 10},
+			HorizontalSpacing: ui.Amount{Value: 10},
+			ColumnsMin:        3,
+			AspectRatio:       0,
 		},
 		Children: []*ui.Base{{
 			Layers: []ui.Layer{{

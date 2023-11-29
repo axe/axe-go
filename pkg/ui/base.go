@@ -36,6 +36,7 @@ type Base struct {
 	MinSize                     AmountPoint
 	MaxSize                     AmountPoint
 	Layout                      Layout
+	LayoutData                  LayoutData
 	IgnoreLayoutPreferredWidth  bool
 	IgnoreLayoutPreferredHeight bool
 

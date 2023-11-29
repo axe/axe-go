@@ -6,19 +6,22 @@ import (
 )
 
 type ButtonSettings struct {
+	Padding ui.AmountBounds
 }
 
 type Button struct {
-	*ui.Template
+	Base
+	Settings ButtonSettings
 
-	Text      string
-	TextValue Value[string]
-	LeftIcon  *Icon
-	RightIcon *Icon
+	Text          string
+	TextValue     Value[string]
+	TextPlacement ui.Placement
+	LeftIcon      *Icon
+	RightIcon     *Icon
 
-	OnClick   func()
-	OnEnter   func()
-	OnAction  func()
+	OnClick   Listener[*ButtonBase]
+	OnEnter   Listener[*ButtonBase]
+	OnAction  Listener[*ButtonBase]
 	OnPointer func(ev *ui.PointerEvent)
 }
 
@@ -40,7 +43,6 @@ type ButtonBase struct {
 var _ HasComponent = &ButtonBase{}
 
 func (b Button) Build(theme *Theme) *ButtonBase {
-
 	text := CoalesceValue(b.TextValue, b.Text)
 	textVisual := &ui.VisualText{}
 
@@ -51,7 +53,8 @@ func (b Button) Build(theme *Theme) *ButtonBase {
 		Options:    b,
 		Component: &ui.Base{
 			Layers: []ui.Layer{{
-				Visual: textVisual,
+				Placement: b.TextPlacement,
+				Visual:    textVisual,
 			}},
 			Hooks: ui.Hooks{
 				OnUpdate: func(b *ui.Base, update ui.Update) ui.Dirty {
@@ -71,10 +74,10 @@ func (b Button) Build(theme *Theme) *ButtonBase {
 					}
 					if !ev.Capture && ev.Type == ui.PointerEventDown {
 						if b.OnClick != nil {
-							b.OnClick()
+							b.OnClick.Trigger(base)
 							ev.Stop = true
 						} else if b.OnAction != nil {
-							b.OnAction()
+							b.OnAction.Trigger(base)
 							ev.Stop = true
 						}
 						base.clickTrigger.Set(1)
@@ -89,10 +92,10 @@ func (b Button) Build(theme *Theme) *ButtonBase {
 				OnKey: func(ev *ui.KeyEvent) {
 					if !ev.Capture && ev.Key == input.KeyEnter && ev.Type == ui.KeyEventDown {
 						if b.OnEnter != nil {
-							b.OnEnter()
+							b.OnEnter.Trigger(base)
 							ev.Stop = true
 						} else if b.OnAction != nil {
-							b.OnAction()
+							b.OnAction.Trigger(base)
 							ev.Stop = true
 						}
 						base.enterTrigger.Set(1)
@@ -108,7 +111,7 @@ func (b Button) Build(theme *Theme) *ButtonBase {
 		},
 	}
 
-	base.Component.ApplyTemplate(theme.Templates[KindButton])
+	base.Component.ApplyTemplate(theme.Templates[b.Kind.Get(KindButton)])
 	base.Component.ApplyTemplate(b.Template)
 
 	return base

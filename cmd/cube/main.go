@@ -340,10 +340,10 @@ func main() {
 					textWindow.Colors.Set(BackgroundColor, color.Gray)
 
 					layoutColumnName := id.Get("layoutColumn")
-					layoutColumnChange := func(change func(*ui.LayoutColumn)) {
+					layoutColumnChange := func(change func(*ui.LayoutColumn, *ui.Base)) {
 						frame := userInterface.Named.Get(layoutColumnName)
 						layout := frame.Layout.(*ui.LayoutColumn)
-						change(layout)
+						change(layout, frame)
 						frame.Relayout()
 					}
 					layoutColumnWindow := newWindow("Layout Column", ui.Absolute(10, 500, 300, 300))
@@ -357,31 +357,37 @@ func main() {
 						},
 						Children: []*ui.Base{
 							newButton(ui.Absolute(0, 0, 0, 0), "Toggle Alignment", false, func() {
-								layoutColumnChange(func(lc *ui.LayoutColumn) {
+								layoutColumnChange(func(lc *ui.LayoutColumn, p *ui.Base) {
 									lc.HorizontalAlignment = ui.Alignment(math.Mod(float64(lc.HorizontalAlignment)+0.5, 1.5))
 								})
 							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "{s:20}{h:0.5}{pv:0.5}Toggle FullWidth", false, func() {
-								layoutColumnChange(func(lc *ui.LayoutColumn) {
+								layoutColumnChange(func(lc *ui.LayoutColumn, p *ui.Base) {
 									lc.FullWidth = !lc.FullWidth
 								})
 							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "Toggle EqualWidths", false, func() {
-								layoutColumnChange(func(lc *ui.LayoutColumn) {
+								layoutColumnChange(func(lc *ui.LayoutColumn, p *ui.Base) {
 									lc.EqualWidths = !lc.EqualWidths
 								})
 							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "Toggle FullHeight", false, func() {
-								layoutColumnChange(func(lc *ui.LayoutColumn) {
+								layoutColumnChange(func(lc *ui.LayoutColumn, p *ui.Base) {
 									lc.FullHeight = !lc.FullHeight
 								})
 							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "Toggle FullHeight Weights", false, func() {
-								layoutColumnChange(func(lc *ui.LayoutColumn) {
-									if len(lc.FullHeightWeights) == 0 {
-										lc.FullHeightWeights = ui.LayoutWeights{1, 2, 3, 4}
+								layoutColumnChange(func(lc *ui.LayoutColumn, p *ui.Base) {
+									if p.Children[0].LayoutData.HeightWeight == 0 {
+										p.Children[0].LayoutData.HeightWeight = 1
+										p.Children[1].LayoutData.HeightWeight = 2
+										p.Children[2].LayoutData.HeightWeight = 3
+										p.Children[3].LayoutData.HeightWeight = 4
 									} else {
-										lc.FullHeightWeights = nil
+										p.Children[0].LayoutData.HeightWeight = 0
+										p.Children[1].LayoutData.HeightWeight = 0
+										p.Children[2].LayoutData.HeightWeight = 0
+										p.Children[3].LayoutData.HeightWeight = 0
 									}
 								})
 							}),
@@ -395,10 +401,10 @@ func main() {
 					})
 
 					layoutRowName := id.Get("layoutRow")
-					layoutRowChange := func(change func(*ui.LayoutRow)) {
+					layoutRowChange := func(change func(*ui.LayoutRow, *ui.Base)) {
 						frame := userInterface.Named.Get(layoutRowName)
 						layout := frame.Layout.(*ui.LayoutRow)
-						change(layout)
+						change(layout, frame)
 						frame.Relayout()
 					}
 					layoutRowWindow := newWindow("Layout Row", ui.Absolute(800, 500, 300, 300))
@@ -412,36 +418,42 @@ func main() {
 						},
 						Children: []*ui.Base{
 							newButton(ui.Absolute(0, 0, 0, 0), "Toggle Alignment", false, func() {
-								layoutRowChange(func(lr *ui.LayoutRow) {
+								layoutRowChange(func(lr *ui.LayoutRow, p *ui.Base) {
 									lr.VerticalAlignment = ui.Alignment(math.Mod(float64(lr.VerticalAlignment)+0.5, 1.5))
 								})
 							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "{s:20}{h:0.5}{pv:0.5}Toggle FullHeight", false, func() {
-								layoutRowChange(func(lr *ui.LayoutRow) {
+								layoutRowChange(func(lr *ui.LayoutRow, p *ui.Base) {
 									lr.FullHeight = !lr.FullHeight
 								})
 							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "Toggle EqualHeights", false, func() {
-								layoutRowChange(func(lr *ui.LayoutRow) {
+								layoutRowChange(func(lr *ui.LayoutRow, p *ui.Base) {
 									lr.EqualHeights = !lr.EqualHeights
 								})
 							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "Toggle FullWidth", false, func() {
-								layoutRowChange(func(lr *ui.LayoutRow) {
+								layoutRowChange(func(lr *ui.LayoutRow, p *ui.Base) {
 									lr.FullWidth = !lr.FullWidth
 								})
 							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "Toggle FullWidth Weights", false, func() {
-								layoutRowChange(func(lc *ui.LayoutRow) {
-									if len(lc.FullWidthWeights) == 0 {
-										lc.FullWidthWeights = ui.LayoutWeights{1, 2, 3, 4}
+								layoutRowChange(func(lc *ui.LayoutRow, p *ui.Base) {
+									if p.Children[0].LayoutData.WidthWeight == 0 {
+										p.Children[0].LayoutData.WidthWeight = 1
+										p.Children[1].LayoutData.WidthWeight = 2
+										p.Children[2].LayoutData.WidthWeight = 3
+										p.Children[3].LayoutData.WidthWeight = 4
 									} else {
-										lc.FullWidthWeights = nil
+										p.Children[0].LayoutData.WidthWeight = 0
+										p.Children[1].LayoutData.WidthWeight = 0
+										p.Children[2].LayoutData.WidthWeight = 0
+										p.Children[3].LayoutData.WidthWeight = 0
 									}
 								})
 							}),
 							newButton(ui.Absolute(0, 0, 150, 60), "Toggle Spacing", false, func() {
-								layoutRowChange(func(lr *ui.LayoutRow) {
+								layoutRowChange(func(lr *ui.LayoutRow, p *ui.Base) {
 									lr.Spacing.Value = float32(int(lr.Spacing.Value+5) % 15)
 								})
 							}),
@@ -466,14 +478,18 @@ func main() {
 						Name:      layoutGridName,
 						Placement: ui.MaximizeOffset(8, 44, 8, 8),
 						Layout: &ui.LayoutGrid{
-							FullHeight:          false,
-							FullWidth:           false,
-							VerticalAlignment:   ui.AlignmentCenter,
-							HorizontalAlignment: ui.AlignmentCenter,
-							VerticalSpacing:     ui.Amount{Value: 10},
-							HorizontalSpacing:   ui.Amount{Value: 10},
-							Columns:             3,
-							AspectRatio:         0,
+							Rows: []ui.LayoutGridRow{{
+								FullHeight:        false,
+								VerticalAlignment: ui.AlignmentCenter,
+							}},
+							Columns: []ui.LayoutGridColumn{{
+								FullWidth:           false,
+								HorizontalAlignment: ui.AlignmentCenter,
+							}},
+							VerticalSpacing:   ui.Amount{Value: 10},
+							HorizontalSpacing: ui.Amount{Value: 10},
+							ColumnsMin:        3,
+							AspectRatio:       0,
 						},
 						TextStyles: &ui.TextStylesOverride{
 							FontSize: &ui.Amount{Value: 18},
@@ -487,22 +503,22 @@ func main() {
 						Children: []*ui.Base{
 							newButton(ui.Placement{}, "Toggle GridFullWidth", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									lg.GridFullWidth = !lg.GridFullWidth
+									lg.FullWidth = !lg.FullWidth
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle GridFullHeight", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									lg.GridFullHeight = !lg.GridFullHeight
+									lg.FullHeight = !lg.FullHeight
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle FullHeight", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									lg.FullHeight = !lg.FullHeight
+									lg.Rows[0].FullHeight = !lg.Rows[0].FullHeight
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle FullWidth", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									lg.FullWidth = !lg.FullWidth
+									lg.Columns[0].FullWidth = !lg.Columns[0].FullWidth
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle EqualHeights", false, func() {
@@ -522,38 +538,39 @@ func main() {
 							}),
 							newButton(ui.Placement{}, "Toggle Vertical Alignment", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									lg.VerticalAlignment = ui.Alignment(math.Mod(float64(lg.VerticalAlignment)+0.5, 1.5))
+									lg.Rows[0].VerticalAlignment = ui.Alignment(math.Mod(float64(lg.Rows[0].VerticalAlignment)+0.5, 1.5))
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle Horizontal Alignment", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									lg.HorizontalAlignment = ui.Alignment(math.Mod(float64(lg.HorizontalAlignment)+0.5, 1.5))
+									lg.Columns[0].HorizontalAlignment = ui.Alignment(math.Mod(float64(lg.Columns[0].HorizontalAlignment)+0.5, 1.5))
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle Columns", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									lg.Columns = (lg.Columns + 1) % 6
+									lg.ColumnsMin = (lg.ColumnsMin + 1) % 6
+									lg.ColumnsDynamic = lg.ColumnsMin == 0
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle MinHeights", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									if len(lg.MinHeights) == 0 {
-										lg.MinHeights = ui.LayoutDimensions{80}
-									} else if len(lg.MinHeights) == 1 {
-										lg.MinHeights = ui.LayoutDimensions{80, 160}
+									if lg.Rows[0].Min == 0 {
+										lg.Rows[0].Min = 80
+									} else if lg.Rows[0].Min == 80 {
+										lg.Rows[0].Min = 160
 									} else {
-										lg.MinHeights = nil
+										lg.Rows[0].Min = 0
 									}
 								})
 							}),
 							newButton(ui.Placement{}, "Toggle MinWidths", false, func() {
 								layoutGridChange(func(lg *ui.LayoutGrid) {
-									if len(lg.MinWidths) == 0 {
-										lg.MinWidths = ui.LayoutDimensions{100}
-									} else if len(lg.MinWidths) == 1 {
-										lg.MinWidths = ui.LayoutDimensions{100, 200}
+									if lg.Columns[0].Min == 0 {
+										lg.Columns[0].Min = 100
+									} else if lg.Columns[0].Min == 100 {
+										lg.Columns[0].Min = 200
 									} else {
-										lg.MinWidths = nil
+										lg.Columns[0].Min = 0
 									}
 								})
 							}),
@@ -609,10 +626,10 @@ func main() {
 							&ui.Base{
 								Name: layoutInlineName,
 								Layout: &ui.LayoutInline{
-									VerticalAlignment:   ui.AlignmentTop,
-									HorizontalAlignment: ui.AlignmentLeft,
-									VerticalSpacing:     ui.Amount{Value: 10},
-									HorizontalSpacing:   ui.Amount{Value: 10},
+									LineVerticalAlignment:   ui.AlignmentTop,
+									LineHorizontalAlignment: ui.AlignmentLeft,
+									VerticalSpacing:         ui.Amount{Value: 10},
+									HorizontalSpacing:       ui.Amount{Value: 10},
 								},
 								TextStyles: &ui.TextStylesOverride{
 									FontSize: &ui.Amount{Value: 20},
@@ -624,6 +641,16 @@ func main() {
 									},
 								},
 								Children: []*ui.Base{
+									newButton(ui.Placement{}, "Toggle Line Vertical Alignment", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.LineVerticalAlignment = ui.Alignment(math.Mod(float64(lg.LineVerticalAlignment)+0.5, 1.5))
+										})
+									}),
+									newButton(ui.Placement{}, "Toggle Line Horizontal Alignment", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.LineHorizontalAlignment = ui.Alignment(math.Mod(float64(lg.LineHorizontalAlignment)+0.5, 1.5))
+										})
+									}),
 									newButton(ui.Placement{}, "Toggle Vertical Alignment", false, func() {
 										layoutInlineChange(func(lg *ui.LayoutInline) {
 											lg.VerticalAlignment = ui.Alignment(math.Mod(float64(lg.VerticalAlignment)+0.5, 1.5))
@@ -644,6 +671,36 @@ func main() {
 									newButton(ui.Placement{}, "Toggle Horizontal Spacing", false, func() {
 										layoutInlineChange(func(lg *ui.LayoutInline) {
 											lg.HorizontalSpacing.Value = float32(math.Mod(float64(lg.HorizontalSpacing.Value)+10, 30))
+										})
+									}),
+									newButton(ui.Placement{}, "Toggle Line Full Height", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.LineFullHeight = !lg.LineFullHeight
+										})
+									}),
+									newButton(ui.Placement{}, "Toggle Line Full Width", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.LineFullWidth = !lg.LineFullWidth
+										})
+									}),
+									newButton(ui.Placement{}, "Toggle Equal Heights", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.EqualHeights = !lg.EqualHeights
+										})
+									}),
+									newButton(ui.Placement{}, "Toggle Line Equal Widths", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.LineEqualWidths = !lg.LineEqualWidths
+										})
+									}),
+									newButton(ui.Placement{}, "Toggle Full Height", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.FullHeight = !lg.FullHeight
+										})
+									}),
+									newButton(ui.Placement{}, "Toggle Full Width", false, func() {
+										layoutInlineChange(func(lg *ui.LayoutInline) {
+											lg.FullWidth = !lg.FullWidth
 										})
 									}),
 									newButton(ui.Placement{}, "MinWidth", false, func() {
@@ -787,12 +844,16 @@ func newCollapsibleSection(text string, children ...*ui.Base) *ui.Base {
 			}),
 		},
 		Children: children,
+		LayoutData: ui.LayoutData{
+			HeightWeight: 1,
+		},
 	}
 
 	return &ui.Base{
 		Layout: ui.LayoutColumn{
-			Spacing:   ui.Amount{Value: 8},
-			FullWidth: true,
+			Spacing:    ui.Amount{Value: 8},
+			FullWidth:  true,
+			FullHeight: true,
 		},
 		Children: []*ui.Base{
 			{
@@ -1402,7 +1463,6 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 		},
 		Layout: ui.LayoutRow{
 			FullWidth:         true,
-			FullWidthWeights:  ui.LayoutWeights{1, 0, 0, 0},
 			VerticalAlignment: ui.AlignmentCenter,
 		},
 		Children: []*ui.Base{
@@ -1411,6 +1471,9 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 					Placement: ui.Maximized().Shrink(2).Shift(6, 0),
 					Visual:    ui.MustTextToVisual("{w:none}{s:20}{pv:0.5}{k:-1}" + title),
 				}},
+				LayoutData: ui.LayoutData{
+					WidthWeight: 1,
+				},
 			},
 			newWindowHide(frame, barSize),
 			newWindowMinimizeMaximize(frame, barSize),

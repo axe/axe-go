@@ -13,7 +13,9 @@ type HasComponent interface {
 type Kind int
 
 const (
-	KindButton Kind = iota
+	KindDefault Kind = iota
+	KindNone
+	KindButton
 	KindCheckbox
 	KindEditable
 	KindScrollable
@@ -26,11 +28,29 @@ const (
 	KindDialog
 )
 
+func (k Kind) Get(defaultKind Kind) Kind {
+	if k == KindDefault {
+		return defaultKind
+	}
+	return k
+}
+
+type Base struct {
+	*ui.Template
+	Kind Kind
+}
+
+// A value that can be tracked for changes.
 type Value[V any] interface {
+	// If the value has changed since the last time this method was called
+	// a non-nil value will be returned pointing to the new value.
 	GetChanged() *V
+	// Sets the value.
 	Set(value V)
 }
 
+// Returns a Value[V] given an optional value and its constant alternative
+// if a value was not given.
 func CoalesceValue[V any](value Value[V], constant V) Value[V] {
 	if value != nil {
 		return value
@@ -41,7 +61,9 @@ func CoalesceValue[V any](value Value[V], constant V) Value[V] {
 var _ Value[int] = &Computed[int]{}
 var _ Value[int] = &Constant[int]{}
 var _ Value[int] = &Dynamic[int]{}
+var _ Value[int] = &Live[int]{}
 
+// A value that is changed by set.
 type Constant[V any] struct {
 	value   V
 	changed bool
@@ -66,6 +88,8 @@ func (c *Constant[V]) Changed() bool {
 	return c.changed
 }
 
+// A value that is computed when GetChanged is invoked and it returns
+// a new value then last time. Set has no effect.
 type Computed[V comparable] struct {
 	lastValue V
 	getValue  func() V
@@ -86,6 +110,8 @@ func (w *Computed[V]) GetChanged() *V {
 func (w *Computed[V]) Set(value V) {
 }
 
+// A value that is computed when GetChanged is invoked but also
+// supports setting.
 type Dynamic[V comparable] struct {
 	lastValue V
 	getValue  func() V
@@ -108,6 +134,7 @@ func (d *Dynamic[V]) Set(value V) {
 	d.setValue(value)
 }
 
+// A value that is expected to change every time GetChanged is invoked.
 type Live[V any] struct {
 	getValue func() V
 	setValue func(V)
@@ -125,6 +152,7 @@ func (d *Live[V]) Set(value V) {
 	d.setValue(value)
 }
 
+// A counter for the number of times something occurs.
 type Counter int
 
 func (c *Counter) Add(amount int) { *c += Counter(amount) }
@@ -134,6 +162,7 @@ func (c *Counter) Changed() bool {
 	return changed
 }
 
+// A trigger used for input actions.
 type Trigger float32
 
 func (t *Trigger) Set(value float32)            { *t = Trigger(value) }
@@ -143,6 +172,7 @@ func (t Trigger) Update(inputs input.InputSystem) (input.Data, bool) {
 }
 func (t Trigger) InputCount() int { return 0 }
 
+// A listener is a function where multiple can be added.
 type Listener[E any] func(ev E)
 
 func (l Listener[E]) Trigger(ev E) {
@@ -163,4 +193,8 @@ func listenerJoin[E any](first Listener[E], second Listener[E]) Listener[E] {
 
 func (a *Listener[E]) Add(b Listener[E], before bool) {
 	*a = util.CoalesceJoin(*a, b, before, listenerNil[E], listenerJoin[E])
+}
+
+func (a *Listener[E]) Clear() {
+	*a = nil
 }
