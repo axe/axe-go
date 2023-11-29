@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"math"
+
 	"github.com/axe/axe-go/pkg/util"
 )
 
@@ -473,7 +475,7 @@ func (lgs layoutGridSizings) getHeightWeight(row int) float32 {
 	}
 }
 
-func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGridSizings {
+func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid, maxGridWidth float32) layoutGridSizings {
 	last := len(info.sizings.Sizings) - 1
 	rows := (last + columns) / columns
 	sizings := layoutGridSizings{
@@ -508,15 +510,19 @@ func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid) layoutGr
 	}
 	maxHeight := float32(0)
 	maxWidth := float32(0)
+	minWidth := float32(math.MaxFloat32)
 	for _, width := range sizings.widths {
 		maxWidth = util.Max(maxWidth, width)
+		minWidth = util.Min(minWidth, width)
 	}
 	for _, height := range sizings.heights {
 		maxHeight = util.Max(maxHeight, height)
 	}
 	if grid.EqualWidths {
+		evenColumnWidth := (maxGridWidth+info.spacingX)/float32(columns) - info.spacingX
+		chosenWidth := util.Max(evenColumnWidth, minWidth)
 		for i := range sizings.widths {
-			sizings.widths[i] = maxWidth
+			sizings.widths[i] = chosenWidth
 		}
 	}
 	if grid.AspectRatio != 0 {
@@ -661,7 +667,7 @@ func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layouta
 		info.sizings = getLayoutSizings(ctx, columnWidth, layoutable)
 	}
 
-	info.layoutGridSizings = info.getSizingsFor(columns, l)
+	info.layoutGridSizings = info.getSizingsFor(columns, l, maxWidth)
 
 	return info
 }
