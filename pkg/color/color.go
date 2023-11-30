@@ -219,6 +219,10 @@ func (c Color) ToInts() (r, g, b, a int) {
 	return
 }
 
+func (c Color) ToFloats() []float32 {
+	return []float32{c.R, c.G, c.B, c.A}
+}
+
 func (c Color) MarshalText() ([]byte, error) {
 	r, g, b, a := c.ToInts()
 	if a == 255 {
