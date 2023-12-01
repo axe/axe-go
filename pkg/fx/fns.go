@@ -43,3 +43,45 @@ func Add(out, add []float32) {
 		out[3] += add[3]
 	}
 }
+
+func MultiplyScalar(out []float32, scalar float32) {
+	switch len(out) {
+	case 1:
+		out[0] *= scalar
+	case 2:
+		out[0] *= scalar
+		out[1] *= scalar
+	case 3:
+		out[0] *= scalar
+		out[1] *= scalar
+		out[2] *= scalar
+	case 4:
+		out[0] *= scalar
+		out[1] *= scalar
+		out[2] *= scalar
+		out[3] *= scalar
+	}
+}
+
+func Length(out []float32) float32 {
+	switch len(out) {
+	case 1:
+		return out[0]
+	default:
+		return util.Sqrt(LengthSq(out))
+	}
+}
+
+func LengthSq(out []float32) float32 {
+	switch len(out) {
+	case 1:
+		return out[0] * out[0]
+	case 2:
+		return out[0]*out[0] + out[1]*out[1]
+	case 3:
+		return out[0]*out[0] + out[1]*out[1] + out[2]*out[2]
+	case 4:
+		return out[0]*out[0] + out[1]*out[1] + out[2]*out[2] + out[3]*out[3]
+	}
+	return 0
+}

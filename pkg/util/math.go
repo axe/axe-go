@@ -176,6 +176,11 @@ func CosSin[D Numeric](rad D) (cos D, sin D) {
 	return
 }
 
+// Returns the cosine & sine of the given radians.
+func Pow[D Numeric](x, y D) D {
+	return D(math.Pow(float64(x), float64(y)))
+}
+
 // Calculates the greatest common denominator between two integer numbers.
 func Gcd[D Integer](a D, b D) D {
 	shift := 0
