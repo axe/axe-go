@@ -44,6 +44,33 @@ func (i InitRandom) Inits(attr Attribute) bool {
 	return i.Attribute.id == attr.id
 }
 
+type InitNone struct{}
+
+func (i InitNone) Init(particle []float32, format *Format) {
+
+}
+func (i InitNone) Inits(attr Attribute) bool {
+	return false
+}
+
+type InitList struct {
+	List []Init
+}
+
+func (i InitList) Init(particle []float32, format *Format) {
+	for _, init := range i.List {
+		init.Init(particle, format)
+	}
+}
+func (i InitList) Inits(attr Attribute) bool {
+	for _, init := range i.List {
+		if init.Inits(attr) {
+			return true
+		}
+	}
+	return false
+}
+
 type Inits []Init
 
 func (i Inits) Add(init Init) Inits {

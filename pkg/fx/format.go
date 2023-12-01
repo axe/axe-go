@@ -85,12 +85,17 @@ func (pf *Format) AddLerp(attr Attribute, data [][]float32, easing ease.Easing) 
 type Data struct {
 	Format *Format
 	Data   []float32
+	Count  int
+
+	temp []float32
 }
 
-func NewData(format *Format, maxParticles int) Data {
+func NewData(format *Format, capacity int) Data {
 	return Data{
 		Format: format,
-		Data:   make([]float32, maxParticles*format.Size),
+		Data:   make([]float32, capacity*format.Size),
+
+		temp: make([]float32, format.Size),
 	}
 }
 
@@ -105,4 +110,22 @@ func (pd Data) Location(index int) int {
 
 func (pd Data) Get(index int, attr Attribute) []float32 {
 	return pd.Format.Get(attr, pd.At(index))
+}
+
+func (pd Data) Capacity() int {
+	return len(pd.Data) / pd.Format.Size
+}
+
+func (pd Data) Available() int {
+	return pd.Capacity() - pd.Count
+}
+
+func (pd Data) Move(from, to int) {
+	copy(pd.At(to), pd.At(from))
+}
+
+func (pd Data) Swap(i, j int) {
+	copy(pd.temp, pd.At(i))
+	copy(pd.At(i), pd.At(j))
+	copy(pd.At(j), pd.temp)
 }

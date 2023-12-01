@@ -28,6 +28,33 @@ func (m ModifyAdder) Modifies(attr Attribute) bool {
 	return m.Value.id == attr.id
 }
 
+type ModifyNone struct{}
+
+func (m ModifyNone) Modify(particle []float32, format *Format, dt float32) {
+
+}
+func (m ModifyNone) Modifies(attr Attribute) bool {
+	return false
+}
+
+type ModifyList struct {
+	List []Modify
+}
+
+func (m ModifyList) Modify(particle []float32, format *Format, dt float32) {
+	for _, modify := range m.List {
+		modify.Modify(particle, format, dt)
+	}
+}
+func (m ModifyList) Modifies(attr Attribute) bool {
+	for _, modify := range m.List {
+		if modify.Modifies(attr) {
+			return true
+		}
+	}
+	return false
+}
+
 type Modifys []Modify
 
 func (m Modifys) Add(mod Modify) Modifys {
