@@ -104,6 +104,10 @@ type System struct {
 }
 
 func (s *System) Update(dt float32) {
+	s.updateParticles(dt)
+	s.updateEmitter(dt)
+}
+func (s *System) updateParticles(dt float32) {
 	stop := s.Data.Count
 	alive := 0
 	if s.Format.Ordered {
@@ -125,7 +129,9 @@ func (s *System) Update(dt float32) {
 		}
 	}
 	s.Data.Count = alive
+}
 
+func (s *System) updateEmitter(dt float32) {
 	count, overTime := s.Emitter.Update(dt)
 	add := util.Min(count, s.Data.Available())
 	if add > 0 {

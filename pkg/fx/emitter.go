@@ -6,15 +6,24 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-type EmitterType struct {
+type EmitterType interface {
+	Create() Emitter
+}
+
+type Emitter interface {
+	Update(dt float32) (size int, over float32)
+	Done() bool
+}
+
+type BurstEmitterType struct {
 	Delay     Range[float32]
 	Frequency Range[float32]
 	Size      Range[int]
 	Count     Range[int]
 }
 
-func (et EmitterType) Create() Emitter {
-	return Emitter{
+func (et BurstEmitterType) Create() BurstEmitter {
+	return BurstEmitter{
 		Delay:     et.Delay.Get(),
 		Frequency: et.Frequency,
 		Size:      et.Size,
@@ -22,7 +31,7 @@ func (et EmitterType) Create() Emitter {
 	}
 }
 
-type Emitter struct {
+type BurstEmitter struct {
 	Delay     float32
 	Frequency Range[float32]
 	Size      Range[int]
@@ -33,7 +42,7 @@ type Emitter struct {
 	Bursts int
 }
 
-func (e *Emitter) Update(dt float32) (size int, over float32) {
+func (e *BurstEmitter) Update(dt float32) (size int, over float32) {
 	if e.Done() {
 		return
 	}
@@ -50,10 +59,10 @@ func (e *Emitter) Update(dt float32) (size int, over float32) {
 	}
 	return
 }
-func (e Emitter) Started() bool {
+func (e BurstEmitter) Started() bool {
 	return e.Bursts > 0 || e.Next > 0
 }
-func (e Emitter) Done() bool {
+func (e BurstEmitter) Done() bool {
 	return e.Bursts >= e.Count
 }
 
