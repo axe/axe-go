@@ -166,14 +166,17 @@ func (b Bounds) String() string {
 type BoundsSide int
 
 const (
-	BoundsSideLeft BoundsSide = 1 << iota
+	BoundsSideNone BoundsSide = (1 << iota) >> 1
+	BoundsSideLeft
 	BoundsSideTop
 	BoundsSideRight
 	BoundsSideBottom
+
+	BoundsSideAll = BoundsSideLeft | BoundsSideTop | BoundsSideRight | BoundsSideBottom
 )
 
 func (b Bounds) Side(x, y float32) BoundsSide {
-	var sides BoundsSide
+	sides := BoundsSideNone
 	if x < b.Left {
 		sides |= BoundsSideLeft
 	} else if x > b.Right {
@@ -190,9 +193,15 @@ func (b Bounds) Side(x, y float32) BoundsSide {
 type ClippedLine struct {
 	Start      Coord
 	StartDelta float32
+	StartSide  BoundsSide
 	End        Coord
 	EndDelta   float32
+	EndSide    BoundsSide
 	Outside    bool
+}
+
+func (cl ClippedLine) Inside() bool {
+	return cl.StartDelta == 0 && cl.EndDelta == 1
 }
 
 func (b Bounds) ClipLine(x0, y0, x1, y1 float32) ClippedLine {
@@ -200,7 +209,9 @@ func (b Bounds) ClipLine(x0, y0, x1, y1 float32) ClippedLine {
 	side1 := b.Side(x1, y1)
 	line := ClippedLine{
 		StartDelta: 0,
+		StartSide:  side0,
 		EndDelta:   1,
+		EndSide:    side1,
 		Outside:    true,
 	}
 
@@ -212,31 +223,38 @@ func (b Bounds) ClipLine(x0, y0, x1, y1 float32) ClippedLine {
 			break
 		} else {
 			clipSide := util.Max(side0, side1)
+			clippedSide := BoundsSideNone
 			var x, y, delta float32
 			if (clipSide & BoundsSideBottom) != 0 {
 				delta = util.Delta(y0, y1, b.Bottom)
 				x = util.Lerp(x0, x1, delta)
 				y = b.Bottom
+				clippedSide = BoundsSideBottom
 			} else if (clipSide & BoundsSideTop) != 0 {
 				delta = util.Delta(y0, y1, b.Top)
 				x = util.Lerp(x0, x1, delta)
 				y = b.Top
+				clippedSide = BoundsSideTop
 			} else if (clipSide & BoundsSideRight) != 0 {
 				delta = util.Delta(x0, x1, b.Right)
 				y = util.Lerp(y0, y1, delta)
 				x = b.Right
+				clippedSide = BoundsSideRight
 			} else if (clipSide & BoundsSideLeft) != 0 {
 				delta = util.Delta(x0, x1, b.Left)
 				y = util.Lerp(y0, y1, delta)
 				x = b.Left
+				clippedSide = BoundsSideLeft
 			}
 			if clipSide == side0 {
 				line.StartDelta = delta
+				line.StartSide = clippedSide
 				x0 = x
 				y0 = y
 				side0 = b.Side(x, y)
 			} else {
 				line.EndDelta = delta
+				line.EndSide = clippedSide
 				x1 = x
 				y1 = y
 				side1 = b.Side(x, y)
@@ -248,4 +266,40 @@ func (b Bounds) ClipLine(x0, y0, x1, y1 float32) ClippedLine {
 	line.End.Set(x1, y1)
 
 	return line
+}
+
+func (b Bounds) SideInside(x, y float32, side BoundsSide) bool {
+	switch side {
+	case BoundsSideLeft:
+		return x >= b.Left
+	case BoundsSideTop:
+		return y >= b.Top
+	case BoundsSideRight:
+		return x <= b.Right
+	case BoundsSideBottom:
+		return y <= b.Bottom
+	}
+	return false
+}
+
+func (b Bounds) SideIntersect(x0, y0, x1, y1 float32, side BoundsSide) (x, y, delta float32) {
+	switch side {
+	case BoundsSideLeft:
+		delta = util.Delta(x0, x1, b.Left)
+		y = util.Lerp(y0, y1, delta)
+		x = b.Left
+	case BoundsSideTop:
+		delta = util.Delta(y0, y1, b.Top)
+		x = util.Lerp(x0, x1, delta)
+		y = b.Top
+	case BoundsSideRight:
+		delta = util.Delta(x0, x1, b.Right)
+		y = util.Lerp(y0, y1, delta)
+		x = b.Right
+	case BoundsSideBottom:
+		delta = util.Delta(y0, y1, b.Bottom)
+		x = util.Lerp(x0, x1, delta)
+		y = b.Bottom
+	}
+	return
 }

@@ -706,24 +706,77 @@ func (c *clipper) addLine(line ClippedLine, a, b Vertex, only bool, other Vertex
 	}
 }
 
-func (c *clipper) addTriangle(v1, v2, v3 Vertex) {
-	line0 := c.bounds.ClipLine(v1.X, v1.Y, v2.X, v2.Y)
-	line1 := c.bounds.ClipLine(v2.X, v2.Y, v3.X, v3.Y)
-	line2 := c.bounds.ClipLine(v3.X, v3.Y, v1.X, v1.Y)
+var (
+	tempvs0 = make([]Vertex, 12)
+	tempvs1 = make([]Vertex, 12)
+)
 
-	if line0.Outside && line1.Outside && line2.Outside {
+func (c *clipper) addTriangle(v1, v2, v3 Vertex) {
+	side0 := c.bounds.Side(v1.X, v1.Y)
+	side1 := c.bounds.Side(v2.X, v2.Y)
+	side2 := c.bounds.Side(v3.X, v3.Y)
+	sideAll := side0 | side1 | side2
+
+	// If all are inside, no clipping necessary
+	if sideAll == 0 {
+		tri := c.out.GetReservedTriangle()
+		tri[0] = v1
+		tri[1] = v2
+		tri[2] = v3
 		return
 	}
 
-	c.i = 0
-	c.tri = c.out.GetReservedTriangle()
-	if !line0.Outside {
-		c.addLine(line0, v1, v2, line1.Outside && line2.Outside, v3)
+	// If all lines are outside in the same quadrant then we can
+	// discard this triangle. We can't just exclude it if all lines
+	// are outside because they might form a large triangle around
+	// the bounds.
+	sideCommon := side0 & side1 & side2
+	if sideCommon != 0 {
+		return
 	}
-	if !line1.Outside {
-		c.addLine(line1, v2, v3, line0.Outside && line2.Outside, v1)
+
+	// Simplified "polygon" (bounds) & polygon clipping:
+	// https://gist.github.com/alenaksu/89105882bb106b228a0e850a00becba7?ref=gorillasun.de
+	result, points := tempvs0, tempvs1
+	resultCount := 3
+	result[0] = v1
+	result[1] = v2
+	result[2] = v3
+	for sideIndex := 0; sideIndex < 4; sideIndex++ {
+		side := BoundsSide(1 << sideIndex)
+
+		points, result = result, points
+		pointsCount := resultCount
+		resultCount = 0
+
+		p0 := points[pointsCount-1]
+		for i := 0; i < pointsCount; i++ {
+			p1 := points[i]
+			if c.bounds.SideInside(p1.X, p1.Y, side) {
+				if !c.bounds.SideInside(p0.X, p0.Y, side) {
+					x, y, d := c.bounds.SideIntersect(p0.X, p0.Y, p1.X, p1.Y, side)
+					result[resultCount] = p0.LerpWith(p1, d, x, y)
+					resultCount++
+				}
+				result[resultCount] = p1
+				resultCount++
+			} else if c.bounds.SideInside(p0.X, p0.Y, side) {
+				x, y, d := c.bounds.SideIntersect(p0.X, p0.Y, p1.X, p1.Y, side)
+				result[resultCount] = p0.LerpWith(p1, d, x, y)
+				resultCount++
+			}
+			p0 = p1
+		}
+		if resultCount == 0 {
+			break
+		}
 	}
-	if !line2.Outside {
-		c.addLine(line2, v3, v1, line0.Outside && line1.Outside, v2)
+
+	if resultCount >= 3 {
+		c.i = 0
+		c.tri = c.out.GetReservedTriangle()
+		for i := 0; i < resultCount; i++ {
+			c.add(result[i])
+		}
 	}
 }
