@@ -3,6 +3,7 @@ package ui
 import (
 	"math"
 
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
@@ -47,18 +48,18 @@ func (t *Transform) Transform(x, y float32) (float32, float32) {
 	return t.sx*x + t.rx*y + t.tx, t.ry*x + t.sy*y + t.ty
 }
 
-func (t *Transform) TransformCoord(c Coord) Coord {
+func (t *Transform) TransformCoord(c gfx.Coord) gfx.Coord {
 	x, y := t.Transform(c.X, c.Y)
-	return Coord{X: x, Y: y}
+	return gfx.Coord{X: x, Y: y}
 }
 
 func (t *Transform) TransformVector(vx, vy float32) (float32, float32) {
 	return t.sx*vx + t.rx*vy, t.ry*vx + t.sy*vy
 }
 
-func (t *Transform) TransformVectorCoord(v Coord) Coord {
+func (t *Transform) TransformVectorCoord(v gfx.Coord) gfx.Coord {
 	x, y := t.TransformVector(v.X, v.Y)
-	return Coord{X: x, Y: y}
+	return gfx.Coord{X: x, Y: y}
 }
 
 func (t *Transform) Determinant() float32 {

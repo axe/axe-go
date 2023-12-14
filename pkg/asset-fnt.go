@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/axe/axe-go/pkg/asset"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/ui"
 	"github.com/fzipp/bmfont"
 )
@@ -50,14 +51,16 @@ func (loader *FontBitmapFormat) Load(a *asset.Asset) error {
 		f.Runes[r] = ui.FontRune{
 			Width: float32(char.XAdvance) * fontScale,
 			ExtentTile: ui.ExtentTile{
-				Tile: ui.Tile{
-					Coords: ui.Bounds{
-						Left:   float32(char.X) * scaleX,
-						Top:    float32(char.Y) * scaleY,
-						Right:  float32(char.X+char.Width) * scaleX,
-						Bottom: float32(char.Y+char.Height) * scaleY,
+				Tile: gfx.Tile{
+					Texture: &gfx.Texture{Name: desc.Pages[char.Page].File},
+					TopLeft: gfx.TexelUV{
+						X: float32(char.X) * scaleX,
+						Y: float32(char.Y) * scaleY,
 					},
-					Texture: desc.Pages[char.Page].File,
+					BottomRight: gfx.TexelUV{
+						X: float32(char.X+char.Width) * scaleX,
+						Y: float32(char.Y+char.Height) * scaleY,
+					},
 				},
 				Extent: ui.Bounds{
 					Left:   float32(-char.XOffset) * fontScale,

@@ -3,11 +3,12 @@ package ui
 import (
 	"reflect"
 
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
 // Computes the normal between an origin and a point and returns the length as well.
-func NormalBetween(origin, point Coord) (nx, ny, length float32) {
+func NormalBetween(origin, point gfx.Coord) (nx, ny, length float32) {
 	return Normal(point.X-origin.X, point.Y-origin.Y)
 }
 
@@ -21,7 +22,7 @@ func Normal(vx, vy float32) (nx, ny, length float32) {
 }
 
 // Returns if the three points lie on the same line.
-func Collinear(a, b, c Coord) bool {
+func Collinear(a, b, c gfx.Coord) bool {
 	return util.Equal[float32]((b.Y-a.Y)/(b.X-a.X), (c.Y-b.Y)/(c.X-b.X)) ||
 		util.Equal[float32]((b.Y-a.Y)*(c.X-b.X), (c.Y-b.Y)*(b.X-a.X))
 }
@@ -36,7 +37,7 @@ func LengthSq(dx, dy float32) float32 {
 	return dx*dx + dy*dy
 }
 
-func InPolygon(polygon []Coord, pt Coord) bool {
+func InPolygon(polygon []gfx.Coord, pt gfx.Coord) bool {
 	in := false
 	n := len(polygon)
 	i := 0

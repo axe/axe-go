@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/axe/axe-go/pkg/color"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
@@ -28,9 +29,9 @@ func (bc BackgroundColor) Backgroundify(b *Base, bounds Bounds, ctx *RenderConte
 
 type BackgroundLinearGradient struct {
 	StartColor color.Able
-	Start      Coord
+	Start      gfx.Coord
 	EndColor   color.Able
-	End        Coord
+	End        gfx.Coord
 }
 
 func (bc BackgroundLinearGradient) Init(b *Base)                        {}
@@ -49,7 +50,7 @@ func (bg BackgroundLinearGradient) Backgroundify(b *Base, bounds Bounds, ctx *Re
 }
 
 type BackgroundImage struct {
-	Tile Tile
+	Tile gfx.Tile
 	// TODO instead of stretching, support:
 	// TileWidth   Amount
 	// TileHeight  Amount
@@ -59,11 +60,7 @@ type BackgroundImage struct {
 func (bi BackgroundImage) Init(b *Base)                        {}
 func (bc BackgroundImage) Update(b *Base, update Update) Dirty { return DirtyNone }
 func (bi BackgroundImage) Backgroundify(b *Base, bounds Bounds, ctx *RenderContext, out *Vertex) {
-	out.SetCoord(
-		bi.Tile.Texture,
-		util.Lerp(bi.Tile.Coords.Left, bi.Tile.Coords.Right, bounds.Dx(out.X)),
-		util.Lerp(bi.Tile.Coords.Top, bi.Tile.Coords.Bottom, bounds.Dy(out.Y)),
-	)
+	out.SetCoord(bi.Tile.Coord(bounds.Dx(out.X), bounds.Dy(out.Y)))
 }
 
 type BackgroundRadialGradient struct {

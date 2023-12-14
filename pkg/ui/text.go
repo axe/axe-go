@@ -12,6 +12,7 @@ import (
 
 	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ease"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/util"
 )
@@ -373,7 +374,7 @@ func (text RenderedText) ClosestByLine(x, y float32) int {
 }
 
 type RenderedGlyph struct {
-	Tile
+	gfx.Tile
 	Bounds         Bounds
 	Color          color.Color
 	Visibility     GlyphVisibility
@@ -403,12 +404,12 @@ const (
 
 type Glyph interface {
 	GetState(ctx *RenderContext, wrap TextWrap, prev Glyph) GlyphState
-	Render(ctx *RenderContext, start Coord, base *Base) RenderedGlyph
+	Render(ctx *RenderContext, start gfx.Coord, base *Base) RenderedGlyph
 	String() string
 }
 
 type GlyphState struct {
-	Size        Coord
+	Size        gfx.Coord
 	CanBreak    bool
 	ShouldBreak bool
 	Empty       bool
@@ -595,8 +596,8 @@ func (paragraph Paragraph) getLines(ctx *RenderContext, paragraphs Paragraphs) p
 	}
 }
 
-func (paragraph Paragraph) Measure(ctx *RenderContext, paragraphs Paragraphs) Coord {
-	size := Coord{}
+func (paragraph Paragraph) Measure(ctx *RenderContext, paragraphs Paragraphs) gfx.Coord {
+	size := gfx.Coord{}
 
 	lines := paragraph.getLines(ctx, paragraphs)
 	size.X = lines.maxWidth + MeasureWidthRoundingError
@@ -622,7 +623,7 @@ func (paragraph Paragraph) Render(ctx *RenderContext, paragraphs Paragraphs, b *
 
 	wordCount := 0
 	for lineIndex, line := range lines.lines {
-		start := Coord{
+		start := gfx.Coord{
 			X: lines.style.HorizontalAlignment.Compute(maxWidth - line.width),
 			Y: offsetY,
 		}
@@ -688,9 +689,9 @@ func (paragraphs Paragraphs) MinWidth(ctx *RenderContext) float32 {
 	return minWidth
 }
 
-func (paragraphs Paragraphs) Measure(ctx *RenderContext) Coord {
+func (paragraphs Paragraphs) Measure(ctx *RenderContext) gfx.Coord {
 	style := ctx.TextStyles.ParagraphsStyles.Override(paragraphs.Styles)
-	size := Coord{}
+	size := gfx.Coord{}
 	paragraphCtx := ctx.WithParent(util.Max(0, paragraphs.MaxWidth), paragraphs.MaxHeight)
 	paragraphSpacing := style.ParagraphSpacing.Get(paragraphCtx.AmountContext, false)
 	for _, paragraph := range paragraphs.Paragraphs {
@@ -859,7 +860,7 @@ func (g *BaseGlyph) GetState(ctx *RenderContext, wrap TextWrap, prev Glyph) Glyp
 	return state
 }
 
-func (g *BaseGlyph) Render(ctx *RenderContext, topLeft Coord, b *Base) RenderedGlyph {
+func (g *BaseGlyph) Render(ctx *RenderContext, topLeft gfx.Coord, b *Base) RenderedGlyph {
 	g.init(ctx)
 	if g.font == nil {
 		return RenderedGlyph{}

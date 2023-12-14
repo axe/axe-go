@@ -13,6 +13,7 @@ import (
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/ease"
 	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/impl/opengl"
 	"github.com/axe/axe-go/pkg/input"
@@ -173,7 +174,8 @@ func main() {
 					userInterface.Theme.Animations.ForEvent.Set(ui.AnimationEventEnabled, ua.Wiggle)
 
 					// Cursors
-					cursors := ui.TileGrid(10, 8, 56, 56, 559, 449, 0, 0, "cursors")
+					cursorTexture := gfx.Texture{Name: "cursors"}
+					cursors := cursorTexture.Grid(10, 8, 56, 56, 0, 0)
 					userInterface.Theme.DefaultCursor = id.Get("pointer")
 					userInterface.Theme.Cursors.SetStringMap(map[string]ui.ExtentTile{
 						"pointer":  ui.NewExtentTile(cursors[0][0], ui.NewBounds(-7, -7, 49, 49).Scale(0.75)),
@@ -226,12 +228,12 @@ func main() {
 							Kind: ui.BasicTextAnimationKindChar,
 							Frames: []ui.BasicAnimationFrame{{
 								Translate:    ui.NewAmountPoint(0, 40),
-								Scale:        &ui.Coord{X: 4, Y: 4},
+								Scale:        &gfx.Coord{X: 4, Y: 4},
 								Origin:       ui.NewAmountPointUnit(0.5, 1, ui.UnitParent),
 								Transparency: 1,
 								Time:         0,
 							}, {
-								Scale:        &ui.Coord{X: 1, Y: 1},
+								Scale:        &gfx.Coord{X: 1, Y: 1},
 								Origin:       ui.NewAmountPointUnit(0.5, 1, ui.UnitParent),
 								Transparency: 0,
 								Time:         1,
@@ -823,6 +825,7 @@ func newScrollingSection(sensitivity float32, children ...*ui.Base) *ui.Base {
 					if bounds.Top > 0 {
 						bounds.Translate(0, -bounds.Top)
 					}
+					size.X = util.Max(size.X, scrollArea.Bounds.Width())
 
 					section.SetPlacement(ui.Absolute(bounds.Left, bounds.Top, size.X, size.Y))
 
@@ -932,13 +935,21 @@ func newDropdown[T any](parent *ui.Base, items []T, toText func(T) string, onIte
 		},
 		Children: []*ui.Base{
 			newScrollingSection(100, &ui.Base{
-				Name:   id.Get("dropdown-scroll-section"),
-				Layout: ui.LayoutColumn{},
+				Name:      id.Get("dropdown-scroll-section"),
+				Placement: ui.Maximized(),
+				Layout:    ui.LayoutColumn{FullWidth: true},
 				Children: util.SliceMap(items, func(item T) *ui.Base {
 					return &ui.Base{
 						Placement: ui.Maximized().Shrink(4),
 						Focusable: true,
+						Shape:     ui.ShapeRectangle{},
 						Layers: []ui.Layer{{
+							Visual: ui.VisualFilled{},
+							Background: ui.BackgroundColor{
+								Color: color.LightGray,
+							},
+							States: ui.StateHover.Is,
+						}, {
 							Visual: ui.MustTextToVisual(toText(item)),
 						}},
 						Events: ui.Events{
@@ -1065,7 +1076,7 @@ func newTooltip(text string, delayTime float32, hideTime float32, around *ui.Bas
 func newDraggable() *ui.Base {
 	var draggable *ui.Base
 
-	shape := []ui.Coord{
+	shape := []gfx.Coord{
 		{X: 0, Y: 0.5},
 		{X: 0.5, Y: 0},
 		{X: 1, Y: 0.5},
@@ -1220,7 +1231,7 @@ type RippleLayer struct {
 	StartColor, EndColor   color.Able
 	Duration               float32
 	Time                   float32
-	Center                 ui.Coord
+	Center                 gfx.Coord
 	Animating              bool
 
 	animatingOn *ui.Base
@@ -1283,8 +1294,8 @@ func (r *RippleLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderCont
 		}
 	}
 }
-func (r *RippleLayer) PreferredSize(b *ui.Base, ctx *ui.RenderContext, maxWidth float32) ui.Coord {
-	return ui.Coord{}
+func (r *RippleLayer) PreferredSize(b *ui.Base, ctx *ui.RenderContext, maxWidth float32) gfx.Coord {
+	return gfx.Coord{}
 }
 
 type PulseLayer struct {
@@ -1352,8 +1363,8 @@ func (r *PulseLayer) Visualize(b *ui.Base, bounds ui.Bounds, ctx *ui.RenderConte
 		}
 	}
 }
-func (r *PulseLayer) PreferredSize(b *ui.Base, ctx *ui.RenderContext, maxWidth float32) ui.Coord {
-	return ui.Coord{}
+func (r *PulseLayer) PreferredSize(b *ui.Base, ctx *ui.RenderContext, maxWidth float32) gfx.Coord {
+	return gfx.Coord{}
 }
 
 func newWindow(title string, placement ui.Placement) *ui.Base {
@@ -1438,7 +1449,7 @@ func newWindow(title string, placement ui.Placement) *ui.Base {
 			Background: ui.BackgroundLinearGradient{
 				StartColor: PrimaryColor,
 				EndColor:   PrimaryColor.Modify(color.Lighten(0.2)),
-				End:        ui.Coord{X: 0, Y: 1},
+				End:        gfx.Coord{X: 0, Y: 1},
 			},
 		}},
 		Cursors: ui.NewCursors(map[ui.CursorEvent]id.Identifier{
@@ -1509,7 +1520,7 @@ func newWindowClose(win *ui.Base, barSize float32) *ui.Base {
 			Placement: ui.Maximized().Shrink(8),
 			Visual: ui.VisualFilled{
 				Shape: ui.ShapePolygon{
-					Points: []ui.Coord{
+					Points: []gfx.Coord{
 						{X: 0, Y: 0}, {X: 0.1, Y: 0}, {X: 0.5, Y: 0.4}, {X: 0.9, Y: 0},
 						{X: 1, Y: 0}, {X: 1.0, Y: 0.1}, {X: 0.6, Y: 0.5}, {X: 1, Y: 0.9},
 						{X: 1, Y: 1}, {X: 0.9, Y: 1}, {X: 0.5, Y: 0.6}, {X: 0.1, Y: 1},

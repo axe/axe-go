@@ -36,62 +36,146 @@ func (a Coord) Lerp(b Coord, delta float32) Coord {
 }
 
 type Texture struct {
-	Name     string
-	Metadata any
+	Name string
+	Info TextureInfo
 }
 
-func (tex Texture) Tile() Tile {
-	return Tile{
-		Texture: tex,
-		Left:    0,
-		Right:   1,
-		Top:     0,
-		Bottom:  1,
+func (tex *Texture) IsDefined() bool {
+	return tex != nil && tex.Info.IsDefined()
+}
+
+func (tex *Texture) Texel(x, y float32) Texel {
+	xy := TexelXY{X: x, Y: y}
+	if tex.IsDefined() {
+		x, y = xy.UV(tex)
+		return TexelUV{X: x, Y: y}
 	}
+	return xy
 }
 
-func (tex Texture) Grid(columns, rows, columnWidth, rowHeight, textureWidth, textureHeight, offsetX, offsetY int) [][]Tile {
+func (tex *Texture) Coord(x, y float32) TextureCoord {
+	return TextureCoord{Texture: tex, Texel: tex.Texel(x, y)}
+}
+
+func (tex *Texture) Grid(columns, rows, columnWidth, rowHeight, offsetX, offsetY int) [][]Tile {
 	tiles := make([][]Tile, rows)
-	sx := 1.0 / float32(textureWidth)
-	sy := 1.0 / float32(textureHeight)
 
 	for y := 0; y < rows; y++ {
 		tiles[y] = make([]Tile, columns)
 		for x := 0; x < columns; x++ {
+			left := x*columnWidth + offsetX
+			top := y*rowHeight + offsetY
+
 			tiles[y][x] = Tile{
-				Texture: tex,
-				Left:    float32(x*columnWidth+offsetX) * sx,
-				Right:   float32(x*columnWidth+columnWidth-1+offsetX) * sx,
-				Top:     float32(y*rowHeight+offsetY) * sy,
-				Bottom:  float32(y*rowHeight+rowHeight-1+offsetY) * sy,
+				Texture:     tex,
+				TopLeft:     tex.Texel(float32(left), float32(top)),
+				BottomRight: tex.Texel(float32(left+columnWidth-1), float32(top+rowHeight-1)),
 			}
 		}
 	}
 	return tiles
 }
 
-func (tex Texture) Frames(width, height, textureWidth, textureHeight float32, topLeftCorners []Coord) []Tile {
-	return nil
+func (tex *Texture) Frames(width, height float32, topLeftCorners []Coord) []Tile {
+	tiles := make([]Tile, len(topLeftCorners))
+
+	for i, corner := range topLeftCorners {
+		tiles[i] = Tile{
+			Texture:     tex,
+			TopLeft:     tex.Texel(corner.X, corner.Y),
+			BottomRight: tex.Texel(corner.X+width-1, corner.Y+height-1),
+		}
+	}
+
+	return tiles
+}
+
+type TextureInfo struct {
+	Width, Height       int
+	InvWidth, InvHeight float32
+	Metadata            any
+}
+
+func (info TextureInfo) IsDefined() bool {
+	return info.Width != 0 && info.Height != 0
+}
+
+func (td *TextureInfo) SetDimensions(width, height int) {
+	td.Width = width
+	td.InvWidth = 1.0 / float32(width)
+	td.Height = height
+	td.InvHeight = 1.0 / float32(height)
+}
+
+type Texel interface {
+	UV(tex *Texture) (u, v float32)
+}
+
+type TexelUV Coord
+
+func (t TexelUV) UV(tex *Texture) (u, v float32) {
+	return t.X, t.Y
+}
+
+type TexelXY Coord
+
+func (t TexelXY) UV(tex *Texture) (u, v float32) {
+	if tex != nil {
+		u = (t.X + 0.5) * tex.Info.InvWidth
+		v = (t.Y + 0.5) * tex.Info.InvHeight
+	}
+	return
+}
+
+func (tex *Texture) Tile() Tile {
+	return Tile{
+		Texture:     tex,
+		TopLeft:     TexelUV{X: 0, Y: 0},
+		BottomRight: TexelUV{X: 1, Y: 1},
+	}
 }
 
 type Tile struct {
-	Texture                  Texture
-	Left, Top, Right, Bottom float32
+	Texture              *Texture
+	TopLeft, BottomRight Texel
 }
 
 func (t Tile) Coord(dx, dy float32) TextureCoord {
+	u0, v0 := t.TopLeft.UV(t.Texture)
+	u1, v1 := t.BottomRight.UV(t.Texture)
+
 	return TextureCoord{
 		Texture: t.Texture,
-		Coord: Coord{
-			X: util.Lerp(t.Left, t.Right, dx),
-			Y: util.Lerp(t.Top, t.Bottom, dy),
+		Texel: TexelUV{
+			X: util.Lerp(u0, u1, dx),
+			Y: util.Lerp(v0, v1, dy),
 		},
 	}
 }
 
 type TextureCoord struct {
-	Texture Texture
-	Coord
+	Texture *Texture
+	Texel
+}
+
+func (tc TextureCoord) UV() (u, v float32) {
+	if tc.Texel != nil {
+		u, v = tc.Texel.UV(tc.Texture)
+	}
+	return
+}
+
+func (from TextureCoord) Lerp(to TextureCoord, delta float32) TextureCoord {
+	u0, v0 := from.UV()
+	u1, v1 := to.UV()
+
+	return TextureCoord{
+		Texture: from.Texture,
+		Texel: TexelUV{
+			X: util.Lerp(u0, u1, delta),
+			Y: util.Lerp(v0, v1, delta),
+		},
+	}
 }
 
 type Primitive uint8

@@ -3,18 +3,19 @@ package ui
 import (
 	"math"
 
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
 type Layoutable interface {
 	Placement() Placement
 	Margin() Bounds
-	MinSize() Coord
+	MinSize() gfx.Coord
 }
 
 type Layout interface {
 	Init(b *Base)
-	PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord
+	PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) gfx.Coord
 	Layout(b *Base, ctx *RenderContext, bounds Bounds, layoutable []*Base)
 }
 
@@ -111,8 +112,8 @@ type LayoutColumn struct {
 }
 
 func (l LayoutColumn) Init(b *Base) {}
-func (l LayoutColumn) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
-	size := Coord{}
+func (l LayoutColumn) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) gfx.Coord {
+	size := gfx.Coord{}
 
 	spacing := l.Spacing.Get(ctx.AmountContext, false)
 	spacingTotal := spacing * float32(len(layoutable)-1)
@@ -178,8 +179,8 @@ type LayoutRow struct {
 }
 
 func (l LayoutRow) Init(b *Base) {}
-func (l LayoutRow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
-	size := Coord{}
+func (l LayoutRow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) gfx.Coord {
+	size := gfx.Coord{}
 
 	n := len(layoutable)
 	spacing := l.Spacing.Get(ctx.AmountContext, false)
@@ -453,11 +454,11 @@ type layoutGridSizings struct {
 	heightWeights []float32
 	widths        []float32
 	widthWeights  []float32
-	totalSpacing  Coord
-	totalSize     Coord
+	totalSpacing  gfx.Coord
+	totalSize     gfx.Coord
 	rows          int
 	columns       int
-	totalWeight   Coord
+	totalWeight   gfx.Coord
 }
 
 func (lgs layoutGridSizings) getWidthWeight(col int) float32 {
@@ -485,7 +486,7 @@ func (info layoutGridInfo) getSizingsFor(columns int, grid *LayoutGrid, maxGridW
 		widthWeights:  make([]float32, columns),
 		heights:       make([]float32, rows),
 		heightWeights: make([]float32, rows),
-		totalSpacing: Coord{
+		totalSpacing: gfx.Coord{
 			X: float32(columns-1) * info.spacingX,
 			Y: float32(rows-1) * info.spacingY,
 		},
@@ -671,8 +672,8 @@ func (l *LayoutGrid) getSizingInfo(ctx *RenderContext, maxWidth float32, layouta
 
 	return info
 }
-func (l LayoutGrid) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
-	size := Coord{}
+func (l LayoutGrid) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) gfx.Coord {
+	size := gfx.Coord{}
 
 	if len(layoutable) == 0 {
 		return size
@@ -844,8 +845,8 @@ func (l LayoutInline) getLines(ctx *RenderContext, maxWidth float32, layoutable 
 
 	return lines, sizings
 }
-func (l LayoutInline) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
-	size := Coord{}
+func (l LayoutInline) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) gfx.Coord {
+	size := gfx.Coord{}
 
 	if len(layoutable) == 0 {
 		return size
@@ -977,8 +978,8 @@ type LayoutStatic struct {
 }
 
 func (l LayoutStatic) Init(b *Base) {}
-func (l LayoutStatic) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) Coord {
-	size := Coord{}
+func (l LayoutStatic) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32, layoutable []*Base) gfx.Coord {
+	size := gfx.Coord{}
 
 	if len(layoutable) == 0 {
 		return size
@@ -992,7 +993,7 @@ func (l LayoutStatic) PreferredSize(b *Base, ctx *RenderContext, maxWidth float3
 			minSize = child.PreferredSize(ctx, maxWidth-padding.X)
 		}
 
-		size = size.Max(Coord{
+		size = size.Max(gfx.Coord{
 			X: minSize.X + padding.X,
 			Y: minSize.Y + padding.Y,
 		})

@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
@@ -102,10 +103,10 @@ const (
 
 type DragEvent struct {
 	Event
-	Point      Coord
-	Start      Coord
-	DeltaStart Coord
-	DeltaMove  Coord
+	Point      gfx.Coord
+	Start      gfx.Coord
+	DeltaStart gfx.Coord
+	DeltaMove  gfx.Coord
 	Type       DragEventType
 	Dragging   *Base
 	*HasCursor
@@ -140,9 +141,9 @@ const (
 
 type PointerEvent struct {
 	Event
-	Point  Coord
+	Point  gfx.Coord
 	Button int
-	Wheel  Coord
+	Wheel  gfx.Coord
 	Type   PointerEventType
 	*HasCursor
 }

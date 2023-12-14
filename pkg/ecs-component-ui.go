@@ -5,6 +5,7 @@ import (
 
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/ecs"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/input"
 	"github.com/axe/axe-go/pkg/ui"
@@ -101,7 +102,7 @@ func newPointerEvent(p input.Point, eventType ui.PointerEventType, button int) u
 		Event: ui.Event{
 			Time: time.Now(),
 		},
-		Point: ui.Coord{
+		Point: gfx.Coord{
 			X: float32(p.X),
 			Y: float32(p.Y),
 		},

@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
@@ -40,8 +41,8 @@ func (b Bounds) Width() float32 {
 func (b Bounds) Height() float32 {
 	return b.Bottom - b.Top
 }
-func (b Bounds) Size() Coord {
-	return Coord{X: b.Width(), Y: b.Height()}
+func (b Bounds) Size() gfx.Coord {
+	return gfx.Coord{X: b.Width(), Y: b.Height()}
 }
 func (b Bounds) Dimensions() (float32, float32) {
 	return b.Width(), b.Height()
@@ -76,7 +77,7 @@ func (b Bounds) Lerp(x, y float32) (float32, float32) {
 func (b Bounds) Inside(x, y float32) bool {
 	return !(x < b.Left || x > b.Right || y < b.Top || y > b.Bottom)
 }
-func (b Bounds) InsideCoord(c Coord) bool {
+func (b Bounds) InsideCoord(c gfx.Coord) bool {
 	return !(c.X < b.Left || c.X > b.Right || c.Y < b.Top || c.Y > b.Bottom)
 }
 func (b Bounds) Expand(a Bounds) Bounds {
@@ -128,7 +129,7 @@ func (b Bounds) Scale(s float32) Bounds {
 		Bottom: b.Bottom * s,
 	}
 }
-func (b Bounds) ClipCoord(c Coord) Coord {
+func (b Bounds) ClipCoord(c gfx.Coord) gfx.Coord {
 	c.X = util.Clamp(c.X, b.Left, b.Right)
 	c.Y = util.Clamp(c.Y, b.Top, b.Bottom)
 	return c
@@ -155,9 +156,9 @@ func (b *Bounds) Include(x, y float32) {
 func (b Bounds) Closest(x, y float32) (float32, float32) {
 	return util.Clamp(x, b.Left, b.Right), util.Clamp(y, b.Top, b.Bottom)
 }
-func (b Bounds) ClosestCoord(c Coord) Coord {
+func (b Bounds) ClosestCoord(c gfx.Coord) gfx.Coord {
 	x, y := b.Closest(c.X, c.Y)
-	return Coord{X: x, Y: y}
+	return gfx.Coord{X: x, Y: y}
 }
 func (b Bounds) String() string {
 	return fmt.Sprintf("{L:%f T:%f R:%f B:%f W:%f H:%f}", b.Left, b.Top, b.Right, b.Bottom, b.Right-b.Left, b.Bottom-b.Top)
@@ -191,10 +192,10 @@ func (b Bounds) Side(x, y float32) BoundsSide {
 }
 
 type ClippedLine struct {
-	Start      Coord
+	Start      gfx.Coord
 	StartDelta float32
 	StartSide  BoundsSide
-	End        Coord
+	End        gfx.Coord
 	EndDelta   float32
 	EndSide    BoundsSide
 	Outside    bool
@@ -224,28 +225,16 @@ func (b Bounds) ClipLine(x0, y0, x1, y1 float32) ClippedLine {
 		} else {
 			clipSide := util.Max(side0, side1)
 			clippedSide := BoundsSideNone
-			var x, y, delta float32
 			if (clipSide & BoundsSideBottom) != 0 {
-				delta = util.Delta(y0, y1, b.Bottom)
-				x = util.Lerp(x0, x1, delta)
-				y = b.Bottom
 				clippedSide = BoundsSideBottom
 			} else if (clipSide & BoundsSideTop) != 0 {
-				delta = util.Delta(y0, y1, b.Top)
-				x = util.Lerp(x0, x1, delta)
-				y = b.Top
 				clippedSide = BoundsSideTop
 			} else if (clipSide & BoundsSideRight) != 0 {
-				delta = util.Delta(x0, x1, b.Right)
-				y = util.Lerp(y0, y1, delta)
-				x = b.Right
 				clippedSide = BoundsSideRight
 			} else if (clipSide & BoundsSideLeft) != 0 {
-				delta = util.Delta(x0, x1, b.Left)
-				y = util.Lerp(y0, y1, delta)
-				x = b.Left
 				clippedSide = BoundsSideLeft
 			}
+			x, y, delta := b.SideIntersect(x0, y0, x1, y1, clippedSide)
 			if clipSide == side0 {
 				line.StartDelta = delta
 				line.StartSide = clippedSide

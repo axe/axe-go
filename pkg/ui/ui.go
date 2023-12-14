@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ds"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/id"
 )
 
@@ -13,12 +14,12 @@ var Area = id.NewArea[uint32, uint16](
 
 type UI struct {
 	PointerButtons []PointerButtons
-	PointerPoint   Coord
+	PointerPoint   gfx.Coord
 	Root           *Base
 	PointerOver    *Base
 	Focused        *Base
 	Dragging       *Base
-	DragStart      Coord
+	DragStart      gfx.Coord
 	DragCancels    ds.Set[string]
 	Theme          *Theme
 	Cursor         id.Identifier
@@ -69,7 +70,7 @@ func NewUI() *UI {
 			},
 		},
 		PointerButtons: make([]PointerButtons, 3),
-		PointerPoint:   Coord{X: -1, Y: -1},
+		PointerPoint:   gfx.Coord{X: -1, Y: -1},
 		Named: id.NewDenseMap[*Base, uint16, uint16](
 			id.WithArea(Area),
 			id.WithCapacity(128),
@@ -138,7 +139,7 @@ func (ui *UI) GetCursor() (cursorVertex []Vertex) {
 	}
 	if !cursorName.Empty() {
 		cursor := ui.Theme.Cursors.Get(cursorName)
-		if cursor.Texture != "" {
+		if cursor.Texture != nil {
 			e := cursor.Extent
 			p := ui.PointerPoint
 			cursorVertex = []Vertex{
@@ -340,11 +341,11 @@ func (ui UI) dragEvent(ev PointerEvent, dragType DragEventType) *DragEvent {
 		Start:    ui.DragStart,
 		Type:     dragType,
 		Dragging: ui.Dragging,
-		DeltaStart: Coord{
+		DeltaStart: gfx.Coord{
 			X: ev.Point.X - ui.DragStart.X,
 			Y: ev.Point.Y - ui.DragStart.Y,
 		},
-		DeltaMove: Coord{
+		DeltaMove: gfx.Coord{
 			X: ev.Point.X - ui.PointerPoint.X,
 			Y: ev.Point.Y - ui.PointerPoint.Y,
 		},

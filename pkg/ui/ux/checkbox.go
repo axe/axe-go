@@ -1,11 +1,14 @@
 package ux
 
-import "github.com/axe/axe-go/pkg/ui"
+import (
+	"github.com/axe/axe-go/pkg/gfx"
+	"github.com/axe/axe-go/pkg/ui"
+)
 
 type CheckboxSettings struct {
-	CheckboxSize    ui.Coord
-	CheckedTile     ui.Tile
-	UncheckedTile   ui.Tile
+	CheckboxSize    gfx.Coord
+	CheckedTile     gfx.Tile
+	UncheckedTile   gfx.Tile
 	CheckedLayers   []ui.Layer
 	UncheckedLayers []ui.Layer
 }

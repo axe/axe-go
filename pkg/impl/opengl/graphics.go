@@ -6,6 +6,7 @@ import (
 	"github.com/axe/axe-go/pkg/core"
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/geom"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/ui"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -338,8 +339,8 @@ func renderBuffers(buffers ui.VertexIterable, game *axe.Game, windowHeight int32
 	gl.Disable(gl.LIGHTING)
 	gl.Disable(gl.TEXTURE_2D)
 
-	lastBlend := ui.BlendNone
-	lastPrimitive := ui.PrimitiveNone
+	lastBlend := gfx.BlendNone
+	lastPrimitive := gfx.PrimitiveNone
 	began := false
 	lastTexture := ""
 	coloring := false
@@ -365,47 +366,48 @@ func renderBuffers(buffers ui.VertexIterable, game *axe.Game, windowHeight int32
 			applyPrimitive(vb.Primitive, &lastPrimitive, &began)
 			applyColor(v.Color, v.HasColor, &coloring)
 			if v.HasCoord {
-				gl.TexCoord2f(v.Tex.X, v.Tex.Y)
+				u, v := v.Tex.UV()
+				gl.TexCoord2f(u, v)
 			}
 			gl.Vertex2f(v.X, v.Y)
 		}
 	}
 
-	applyPrimitive(ui.PrimitiveNone, &lastPrimitive, &began)
-	applyBlend(ui.BlendNone, &lastBlend)
+	applyPrimitive(gfx.PrimitiveNone, &lastPrimitive, &began)
+	applyBlend(gfx.BlendNone, &lastBlend)
 	applyColor(color.White, false, &coloring)
 }
 
-var blendSources = ds.NewEnumMap(map[ui.Blend]uint32{
-	ui.BlendAdd:          gl.ONE,
-	ui.BlendAlphaAdd:     gl.SRC_ALPHA,
-	ui.BlendAlpha:        gl.SRC_ALPHA,
-	ui.BlendColor:        gl.ONE,
-	ui.BlendMinus:        gl.ONE_MINUS_DST_ALPHA,
-	ui.BlendPremultAlpha: gl.ONE,
-	ui.BlendModulate:     gl.DST_COLOR,
-	ui.BlendXor:          gl.ONE_MINUS_DST_COLOR,
-	ui.BlendNone:         gl.ZERO,
+var blendSources = ds.NewEnumMap(map[gfx.Blend]uint32{
+	gfx.BlendAdd:          gl.ONE,
+	gfx.BlendAlphaAdd:     gl.SRC_ALPHA,
+	gfx.BlendAlpha:        gl.SRC_ALPHA,
+	gfx.BlendColor:        gl.ONE,
+	gfx.BlendMinus:        gl.ONE_MINUS_DST_ALPHA,
+	gfx.BlendPremultAlpha: gl.ONE,
+	gfx.BlendModulate:     gl.DST_COLOR,
+	gfx.BlendXor:          gl.ONE_MINUS_DST_COLOR,
+	gfx.BlendNone:         gl.ZERO,
 })
 
-var blendTargets = ds.NewEnumMap(map[ui.Blend]uint32{
-	ui.BlendAdd:          gl.ONE,
-	ui.BlendAlphaAdd:     gl.ONE,
-	ui.BlendAlpha:        gl.ONE_MINUS_SRC_ALPHA,
-	ui.BlendColor:        gl.ONE_MINUS_SRC_COLOR,
-	ui.BlendMinus:        gl.DST_ALPHA,
-	ui.BlendPremultAlpha: gl.ONE_MINUS_SRC_ALPHA,
-	ui.BlendModulate:     gl.ZERO,
-	ui.BlendXor:          gl.ZERO,
-	ui.BlendNone:         gl.ONE,
+var blendTargets = ds.NewEnumMap(map[gfx.Blend]uint32{
+	gfx.BlendAdd:          gl.ONE,
+	gfx.BlendAlphaAdd:     gl.ONE,
+	gfx.BlendAlpha:        gl.ONE_MINUS_SRC_ALPHA,
+	gfx.BlendColor:        gl.ONE_MINUS_SRC_COLOR,
+	gfx.BlendMinus:        gl.DST_ALPHA,
+	gfx.BlendPremultAlpha: gl.ONE_MINUS_SRC_ALPHA,
+	gfx.BlendModulate:     gl.ZERO,
+	gfx.BlendXor:          gl.ZERO,
+	gfx.BlendNone:         gl.ONE,
 })
 
-func applyBlend(blend ui.Blend, lastBlend *ui.Blend) {
+func applyBlend(blend gfx.Blend, lastBlend *gfx.Blend) {
 	if blend != *lastBlend {
-		if blend == ui.BlendNone {
+		if blend == gfx.BlendNone {
 			gl.Disable(gl.BLEND)
 		} else {
-			if *lastBlend == ui.BlendNone {
+			if *lastBlend == gfx.BlendNone {
 				gl.Enable(gl.BLEND)
 			}
 			gl.BlendFunc(blendSources[blend], blendTargets[blend])
@@ -414,35 +416,35 @@ func applyBlend(blend ui.Blend, lastBlend *ui.Blend) {
 	}
 }
 
-func applyTexture(game *axe.Game, name string, lastTexture *string, began *bool) {
-	if name != *lastTexture {
+func applyTexture(game *axe.Game, tex *gfx.Texture, lastTexture *string, began *bool) {
+	newName := ""
+	if tex != nil {
+		newName = tex.Name
+	}
+	if newName != *lastTexture {
 		if *began {
 			gl.End()
 			*began = false
 		}
-		if name == "" {
+		if newName == "" {
 			gl.Disable(gl.TEXTURE_2D)
 		} else {
-			textureAsset := game.Assets.GetEither(name)
-			if textureAsset == nil {
-				return
+			if textureID, ok := getTextureID(tex, game); ok {
+				gl.Enable(gl.TEXTURE_2D)
+				gl.BindTexture(gl.TEXTURE_2D, textureID)
 			}
-			texture := textureAsset.Data.(*texture)
-
-			gl.Enable(gl.TEXTURE_2D)
-			gl.BindTexture(gl.TEXTURE_2D, texture.id)
 		}
-		*lastTexture = name
+		*lastTexture = newName
 	}
 }
 
-var primitiveMapping = ds.NewEnumMap(map[ui.Primitive]uint32{
-	ui.PrimitiveTriangle: gl.TRIANGLES,
-	ui.PrimitiveLine:     gl.LINES,
-	ui.PrimitiveQuad:     gl.QUADS,
+var primitiveMapping = ds.NewEnumMap(map[gfx.Primitive]uint32{
+	gfx.PrimitiveTriangle: gl.TRIANGLES,
+	gfx.PrimitiveLine:     gl.LINES,
+	gfx.PrimitiveQuad:     gl.QUADS,
 })
 
-func applyPrimitive(primitive ui.Primitive, lastPrimitive *ui.Primitive, began *bool) {
+func applyPrimitive(primitive gfx.Primitive, lastPrimitive *gfx.Primitive, began *bool) {
 	if primitive != *lastPrimitive || !*began {
 		if *began {
 			gl.End()
@@ -463,5 +465,22 @@ func applyColor(c color.Color, has bool, coloring *bool) {
 	} else if *coloring {
 		gl.Color4f(1, 1, 1, 1)
 		*coloring = false
+	}
+}
+
+func getTextureID(tex *gfx.Texture, game *axe.Game) (uint32, bool) {
+	if id, ok := tex.Info.Metadata.(uint32); ok {
+		return id, true
+	} else {
+		textureAsset := game.Assets.GetEither(tex.Name)
+		if textureAsset == nil {
+			return 0, false
+		}
+
+		texture := textureAsset.Data.(*texture)
+		tex.Info.Metadata = texture.id
+		tex.Info.SetDimensions(texture.Width(), texture.Height())
+
+		return texture.id, true
 	}
 }

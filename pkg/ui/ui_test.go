@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/axe/axe-go/pkg/color"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/ui"
 )
 
@@ -76,7 +77,7 @@ func floatEqual(a, b float32) bool {
 	}
 }
 
-func coordEqual(a, b ui.Coord) bool {
+func coordEqual(a, b gfx.Coord) bool {
 	return floatEqual(a.X, b.X) && floatEqual(a.Y, b.Y)
 }
 
@@ -111,7 +112,7 @@ func TestTranslate(t *testing.T) {
 
 func TestRotate(t *testing.T) {
 	type InputExpected struct {
-		Input, Expected ui.Coord
+		Input, Expected gfx.Coord
 	}
 
 	cases := []struct {
@@ -124,8 +125,8 @@ func TestRotate(t *testing.T) {
 			return tr
 		},
 		Tests: []InputExpected{{
-			Input:    ui.Coord{X: 10, Y: 0},
-			Expected: ui.Coord{X: 0, Y: 10},
+			Input:    gfx.Coord{X: 10, Y: 0},
+			Expected: gfx.Coord{X: 0, Y: 10},
 		}},
 	}}
 

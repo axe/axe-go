@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/axe/axe-go/pkg/color"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/util"
 )
@@ -24,7 +25,7 @@ type Base struct {
 	Transform                   Transform
 	TextStyles                  *TextStylesOverride
 	Shape                       Shape
-	OverShape                   []Coord
+	OverShape                   []gfx.Coord
 	Transparency                float32
 	Color                       color.Modify
 	Animation                   AnimationState
@@ -639,10 +640,10 @@ func (b *Base) ShownChildren() []*Base {
 
 // PreferredSize computes the preferred size possibly given a width we are fitting this component into.
 // If maxWidth = 0 then the preferred size return will present one with a minimum possible width.
-func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
+func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) gfx.Coord {
 	baseCtx := ctx.WithBoundsAndTextStyles(b.Bounds, b.TextStyles)
 
-	size := Coord{}
+	size := gfx.Coord{}
 	minSizeX, minSizeY := b.MinSize.Get(ctx.AmountContext)
 	maxSizeX, maxSizeY := b.MaxSize.Get(ctx.AmountContext)
 
@@ -654,7 +655,7 @@ func (b *Base) PreferredSize(ctx *RenderContext, maxWidth float32) Coord {
 			size = size.Max(layer.PreferredSize(b, baseCtx, maxWidth))
 		}
 	}
-	size = size.Max(Coord{X: minSizeX, Y: minSizeY})
+	size = size.Max(gfx.Coord{X: minSizeX, Y: minSizeY})
 	maxWidth = util.Max(maxWidth, size.X)
 	shown := b.ShownChildren()
 	if len(shown) > 0 && (!b.IgnoreLayoutPreferredHeight || !b.IgnoreLayoutPreferredWidth) {
@@ -739,13 +740,13 @@ func (b *Base) IsParentOrSelf(p *Base) bool {
 // Returns true if the point is inside the Bounds of this component. The point is expected
 // to be transformed to the relative orientation of this component. If an OverShape is
 // defined then point-in-polygon logic is used to determine inside-ness.
-func (b *Base) IsInside(pt Coord) bool {
+func (b *Base) IsInside(pt gfx.Coord) bool {
 	if !b.Bounds.InsideCoord(pt) {
 		return false
 	}
 
 	if len(b.OverShape) > 0 {
-		normalized := Coord{
+		normalized := gfx.Coord{
 			X: b.Bounds.Dx(pt.X),
 			Y: b.Bounds.Dy(pt.Y),
 		}
@@ -766,7 +767,7 @@ func (b *Base) IsInside(pt Coord) bool {
 // If the point is not within the Bounds or OverShape of this component then nil
 // is returned. Otherwise all ShownChildren are inspected using the same logic
 // as above and the first one to return a non-nil value is returned.
-func (b *Base) At(pt Coord) *Base {
+func (b *Base) At(pt gfx.Coord) *Base {
 	transparency := b.Transparency
 	if transparency > 0 && b.ui.TransparencyThreshold > 0 && transparency >= b.ui.TransparencyThreshold {
 		return nil
@@ -1198,7 +1199,7 @@ type Template struct {
 	Clip                        Placement
 	TextStyles                  *TextStylesOverride
 	Shape                       Shape
-	OverShape                   []Coord
+	OverShape                   []gfx.Coord
 	Transparency                float32
 	Color                       color.Modify
 	Animations                  *Animations

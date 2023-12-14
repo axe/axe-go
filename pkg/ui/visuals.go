@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/axe/axe-go/pkg/color"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
@@ -9,7 +10,7 @@ type Visual interface {
 	Init(b *Base)
 	Update(b *Base, update Update) Dirty
 	Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers)
-	PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord
+	PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) gfx.Coord
 }
 
 var _ Visual = VisualFilled{}
@@ -34,7 +35,7 @@ func (s VisualFilled) Update(b *Base, update Update) Dirty {
 
 func (s VisualFilled) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
 	points := coalesceShape(s.Shape, b.Shape).Shapify(bounds, ctx)
-	center := Coord{}
+	center := gfx.Coord{}
 	for _, p := range points {
 		center.X += p.X
 		center.Y += p.Y
@@ -58,8 +59,8 @@ func (s VisualFilled) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out 
 	}
 }
 
-func (s VisualFilled) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
-	return Coord{}
+func (s VisualFilled) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) gfx.Coord {
+	return gfx.Coord{}
 }
 
 type VisualBorderScale struct {
@@ -87,7 +88,7 @@ func (s VisualBordered) Update(b *Base, update Update) Dirty {
 
 func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *VertexBuffers) {
 	inner := coalesceShape(s.Shape, b.Shape).Shapify(bounds, ctx)
-	outer := make([]Coord, len(inner))
+	outer := make([]gfx.Coord, len(inner))
 	last := len(inner) - 1
 	i0 := last - 1
 	i1 := last
@@ -147,8 +148,8 @@ func (s VisualBordered) Visualize(b *Base, bounds Bounds, ctx *RenderContext, ou
 	}
 }
 
-func (s VisualBordered) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
-	return Coord{}
+func (s VisualBordered) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) gfx.Coord {
+	return gfx.Coord{}
 }
 
 type VisualShadow struct {
@@ -210,13 +211,13 @@ func (s VisualShadow) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out 
 	}
 }
 
-func (s VisualShadow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
-	return Coord{}
+func (s VisualShadow) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) gfx.Coord {
+	return gfx.Coord{}
 }
 
 type VisualFrame struct {
 	Sizes   AmountBounds
-	Tile    []Tile
+	Tile    []gfx.Tile
 	Columns int
 }
 
@@ -258,8 +259,8 @@ func (r VisualFrame) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 	}
 }
 
-func (s VisualFrame) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
-	return Coord{}
+func (s VisualFrame) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) gfx.Coord {
+	return gfx.Coord{}
 }
 
 type VisualText struct {
@@ -382,7 +383,7 @@ func (s *VisualText) Visualize(b *Base, bounds Bounds, ctx *RenderContext, out *
 
 var TextMeasureErrorAmount float32 = 5
 
-func (s VisualText) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
+func (s VisualText) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) gfx.Coord {
 	if maxWidth <= 0 {
 		maxWidth = s.Paragraphs.MinWidth(ctx)
 	}

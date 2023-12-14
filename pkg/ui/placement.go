@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/axe/axe-go/pkg/geom"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
@@ -304,8 +305,8 @@ func (p Placement) PreferredWidth() float32 {
 	return 0
 }
 
-func (p Placement) MinParentSize() Coord {
-	return Coord{
+func (p Placement) MinParentSize() gfx.Coord {
+	return gfx.Coord{
 		X: p.MinParentWidth(),
 		Y: p.MinParentHeight(),
 	}
@@ -326,15 +327,15 @@ func (p Placement) MinParentHeight() float32 {
 	return p.ParentHeight(p.PreferredHeight())
 }
 
-func (p Placement) Padding() Coord {
-	return Coord{
+func (p Placement) Padding() gfx.Coord {
+	return gfx.Coord{
 		X: p.ParentWidth(0),
 		Y: p.ParentHeight(0),
 	}
 }
 
-func (p Placement) ParentSize(minWidth, minHeight float32) Coord {
-	return Coord{
+func (p Placement) ParentSize(minWidth, minHeight float32) gfx.Coord {
+	return gfx.Coord{
 		X: p.ParentWidth(minWidth),
 		Y: p.ParentHeight(minHeight),
 	}

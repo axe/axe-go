@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/axe/axe-go/pkg/gfx"
+
 type Layer struct {
 	Placement  Placement
 	Bounds     Bounds
@@ -29,7 +31,7 @@ func (l *Layer) Update(b *Base, update Update) Dirty {
 	return dirty
 }
 
-func (l Layer) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) Coord {
+func (l Layer) PreferredSize(b *Base, ctx *RenderContext, maxWidth float32) gfx.Coord {
 	layerCtx := ctx.WithBounds(l.Bounds)
 	padding := l.Placement.Padding()
 	size := l.Visual.PreferredSize(b, layerCtx, maxWidth-padding.X)

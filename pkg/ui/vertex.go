@@ -4,9 +4,11 @@ import (
 	"github.com/axe/axe-go/pkg/buf"
 	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ds"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
+/*
 type Coord struct {
 	X float32
 	Y float32
@@ -105,18 +107,20 @@ func TileGrid(columns, rows, columnWidth, rowHeight, textureWidth, textureHeight
 	return tiles
 }
 
+*/
+
 type ExtentTile struct {
-	Tile
+	gfx.Tile
 	Extent Bounds
 }
 
-func NewExtentTile(tile Tile, extent Bounds) ExtentTile {
+func NewExtentTile(tile gfx.Tile, extent Bounds) ExtentTile {
 	return ExtentTile{Tile: tile, Extent: extent}
 }
 
 type Vertex struct {
 	X, Y     float32
-	Tex      TexCoord
+	Tex      gfx.TextureCoord
 	HasCoord bool
 	Color    color.Color
 	HasColor bool
@@ -138,55 +142,24 @@ func (v *Vertex) InitColor() {
 	}
 }
 
-func (v *Vertex) SetCoord(texture string, x, y float32) {
-	v.Tex.Texture = texture
-	v.Tex.X = x
-	v.Tex.Y = y
-	v.HasCoord = true
+func (vert *Vertex) SetCoord(coord gfx.TextureCoord) {
+	vert.Tex = coord
+	vert.HasCoord = true
 }
 
-func (v Vertex) Lerp(to Vertex, delta float32) Vertex {
-	return v.LerpWith(to, delta, util.Lerp(v.X, to.X, delta), util.Lerp(v.Y, to.Y, delta))
+func (from Vertex) Lerp(to Vertex, delta float32) Vertex {
+	return from.LerpWith(to, delta, util.Lerp(from.X, to.X, delta), util.Lerp(from.Y, to.Y, delta))
 }
 
-func (v Vertex) LerpWith(to Vertex, delta, x, y float32) Vertex {
+func (from Vertex) LerpWith(to Vertex, delta, x, y float32) Vertex {
 	return Vertex{
 		X:        x,
 		Y:        y,
-		HasCoord: v.HasCoord && to.HasCoord,
-		Tex: TexCoord{
-			Coord:   v.Tex.Lerp(to.Tex.Coord, delta),
-			Texture: v.Tex.Texture,
-		},
-		HasColor: v.HasColor && to.HasColor,
-		Color:    v.Color.Lerp(to.Color, delta),
+		HasCoord: from.HasCoord && to.HasCoord,
+		Tex:      from.Tex.Lerp(to.Tex, delta),
+		HasColor: from.HasColor && to.HasColor,
+		Color:    from.Color.Lerp(to.Color, delta),
 	}
-}
-
-func (v Vertex) Scale(s float32) Vertex {
-	copy := v
-	copy.X *= s
-	copy.Y *= s
-	copy.Tex.X *= s
-	copy.Tex.Y *= s
-	copy.Color.R *= s
-	copy.Color.G *= s
-	copy.Color.B *= s
-	copy.Color.A *= s
-	return copy
-}
-
-func (v Vertex) Add(b Vertex) Vertex {
-	copy := v
-	copy.X += b.X
-	copy.Y += b.Y
-	copy.Tex.X += b.Tex.X
-	copy.Tex.Y += b.Tex.Y
-	copy.Color.R += b.Color.R
-	copy.Color.G += b.Color.G
-	copy.Color.B += b.Color.B
-	copy.Color.A += b.Color.A
-	return copy
 }
 
 type VertexModifier func(*Vertex)
@@ -290,8 +263,8 @@ func (vbs *VertexQueue) ToBuffers() *VertexBuffers {
 type VertexBuffers struct {
 	buf.Buffers[Vertex, VertexBuffer]
 
-	Blend     Blend
-	Primitive Primitive
+	Blend     gfx.Blend
+	Primitive gfx.Primitive
 }
 
 func (vbs *VertexBuffers) initBuffer(vb *VertexBuffer, capacity int) {
@@ -317,7 +290,7 @@ func (vbs *VertexBuffers) Clip(bounds Bounds, render func(clippable *VertexBuffe
 	}
 }
 
-func (vbs *VertexBuffers) With(primitive Primitive, blend Blend, render func(out *VertexBuffers)) {
+func (vbs *VertexBuffers) With(primitive gfx.Primitive, blend gfx.Blend, render func(out *VertexBuffers)) {
 	current := vbs.Buffer()
 	currentPrimitive := vbs.Primitive
 	currentBlend := vbs.Blend
@@ -333,7 +306,7 @@ func (vbs *VertexBuffers) With(primitive Primitive, blend Blend, render func(out
 	}
 }
 
-func (vbs *VertexBuffers) Get(primitive Primitive, blend Blend) *VertexBuffer {
+func (vbs *VertexBuffers) Get(primitive gfx.Primitive, blend gfx.Blend) *VertexBuffer {
 	current := vbs.Buffer()
 	if current.Primitive == primitive && current.Blend == blend {
 		return current
@@ -378,8 +351,8 @@ func (vbs *VertexBuffers) CloneTo(target *VertexBuffers) {
 type VertexBuffer struct {
 	buf.Buffer[Vertex]
 
-	Blend     Blend
-	Primitive Primitive
+	Blend     gfx.Blend
+	Primitive gfx.Primitive
 }
 
 func (b *VertexBuffer) CloneTo(out *VertexBuffer) *VertexBuffer {
@@ -391,11 +364,11 @@ func (b *VertexBuffer) CloneTo(out *VertexBuffer) *VertexBuffer {
 
 func (b *VertexBuffer) Clip(bounds Bounds, out *VertexBuffer) {
 	switch b.Primitive {
-	case PrimitiveTriangle:
+	case gfx.PrimitiveTriangle:
 		b.clipTriangles(bounds, out)
-	case PrimitiveLine:
+	case gfx.PrimitiveLine:
 		b.clipLines(bounds, out)
-	case PrimitiveQuad:
+	case gfx.PrimitiveQuad:
 		b.clipQuads(bounds, out)
 	}
 }
@@ -431,7 +404,7 @@ func (b *VertexBuffer) clipLines(bounds Bounds, out *VertexBuffer) {
 		line := bounds.ClipLine(a.X, a.Y, b.X, b.Y)
 
 		if !line.Outside {
-			if line.StartDelta == 0 && line.EndDelta == 1 {
+			if line.Inside() {
 				out.AddReservedLine(*a, *b)
 			} else {
 				v0 := a.Lerp(*b, line.StartDelta)
@@ -465,14 +438,14 @@ func (vb *VertexBuffer) clipQuads(bounds Bounds, out *VertexBuffer) {
 
 func (b *VertexBuffer) Init(capacity int) {
 	b.Buffer.Init(capacity)
-	b.Blend = BlendAlpha
-	b.Primitive = PrimitiveTriangle
+	b.Blend = gfx.BlendAlpha
+	b.Primitive = gfx.PrimitiveTriangle
 }
 
 func (b *VertexBuffer) Clear() {
 	b.Buffer.Clear()
-	b.Blend = BlendAlpha
-	b.Primitive = PrimitiveTriangle
+	b.Blend = gfx.BlendAlpha
+	b.Primitive = gfx.PrimitiveTriangle
 }
 
 func (b *VertexBuffer) Compatible(vb *VertexBuffer) bool {
@@ -493,33 +466,33 @@ func (b VertexBuffer) Remaining() int {
 
 func (b *VertexBuffer) ReserveQuads(quads int) {
 	switch b.Primitive {
-	case PrimitiveQuad:
+	case gfx.PrimitiveQuad:
 		b.Reserve(quads*4, quads*4)
-	case PrimitiveTriangle:
+	case gfx.PrimitiveTriangle:
 		b.Reserve(quads*4, quads*6)
-	case PrimitiveLine:
+	case gfx.PrimitiveLine:
 		b.Reserve(quads*4, quads*8)
 	}
 }
 
 func (b *VertexBuffer) ReserveTriangles(triangles int) {
 	switch b.Primitive {
-	case PrimitiveQuad:
+	case gfx.PrimitiveQuad:
 		b.Reserve(triangles*3, triangles*4)
-	case PrimitiveTriangle:
+	case gfx.PrimitiveTriangle:
 		b.Reserve(triangles*3, triangles*3)
-	case PrimitiveLine:
+	case gfx.PrimitiveLine:
 		b.Reserve(triangles*3, triangles*6)
 	}
 }
 
 func (b *VertexBuffer) ReserveLines(lines int) {
 	switch b.Primitive {
-	case PrimitiveQuad:
+	case gfx.PrimitiveQuad:
 		b.Reserve(lines*2, lines*4)
-	case PrimitiveTriangle:
+	case gfx.PrimitiveTriangle:
 		b.Reserve(lines*2, lines*3)
-	case PrimitiveLine:
+	case gfx.PrimitiveLine:
 		b.Reserve(lines*2, lines*2)
 	}
 }
@@ -533,13 +506,13 @@ func (b *VertexBuffer) GetReservedQuad() (data []Vertex) {
 	var index []int
 	var dataIndex int
 	switch b.Primitive {
-	case PrimitiveQuad:
+	case gfx.PrimitiveQuad:
 		dataIndex, data, index = b.Reserved(4, 4)
 		index[0] = dataIndex
 		index[1] = dataIndex + 1
 		index[2] = dataIndex + 2
 		index[3] = dataIndex + 3
-	case PrimitiveTriangle:
+	case gfx.PrimitiveTriangle:
 		dataIndex, data, index = b.Reserved(4, 6)
 		index[0] = dataIndex
 		index[1] = dataIndex + 1
@@ -547,7 +520,7 @@ func (b *VertexBuffer) GetReservedQuad() (data []Vertex) {
 		index[3] = dataIndex + 2
 		index[4] = dataIndex + 3
 		index[5] = dataIndex
-	case PrimitiveLine:
+	case gfx.PrimitiveLine:
 		dataIndex, data, index = b.Reserved(4, 8)
 		index[0] = dataIndex
 		index[1] = dataIndex + 1
@@ -578,18 +551,18 @@ func (b *VertexBuffer) GetReservedTriangle() (data []Vertex) {
 	var index []int
 	var dataIndex int
 	switch b.Primitive {
-	case PrimitiveQuad:
+	case gfx.PrimitiveQuad:
 		dataIndex, data, index = b.Reserved(3, 4)
 		index[0] = dataIndex
 		index[1] = dataIndex + 1
 		index[2] = dataIndex + 2
 		index[3] = dataIndex + 2
-	case PrimitiveTriangle:
+	case gfx.PrimitiveTriangle:
 		dataIndex, data, index = b.Reserved(3, 3)
 		index[0] = dataIndex
 		index[1] = dataIndex + 1
 		index[2] = dataIndex + 2
-	case PrimitiveLine:
+	case gfx.PrimitiveLine:
 		dataIndex, data, index = b.Reserved(3, 6)
 		index[0] = dataIndex
 		index[1] = dataIndex + 1
@@ -617,18 +590,18 @@ func (b *VertexBuffer) GetReservedLine() (data []Vertex) {
 	var index []int
 	var dataIndex int
 	switch b.Primitive {
-	case PrimitiveQuad:
+	case gfx.PrimitiveQuad:
 		dataIndex, data, index = b.Reserved(2, 4)
 		index[0] = dataIndex
 		index[1] = dataIndex + 1
 		index[2] = dataIndex + 1
 		index[3] = dataIndex + 1
-	case PrimitiveTriangle:
+	case gfx.PrimitiveTriangle:
 		dataIndex, data, index = b.Reserved(2, 3)
 		index[0] = dataIndex
 		index[1] = dataIndex + 1
 		index[2] = dataIndex + 1
-	case PrimitiveLine:
+	case gfx.PrimitiveLine:
 		dataIndex, data, index = b.Reserved(2, 2)
 		index[0] = dataIndex
 		index[1] = dataIndex + 1
@@ -645,65 +618,6 @@ func (b *VertexBuffer) AddReservedLine(v0, v1 Vertex) {
 type clipper struct {
 	bounds Bounds
 	out    *VertexBuffer
-	i      int
-	tri    []Vertex
-	first  Vertex
-	last   Vertex
-}
-
-func (c *clipper) add(v Vertex) {
-	if c.i == 0 {
-		c.first = v
-	}
-	if c.i < 3 {
-		c.tri[c.i] = v
-	} else {
-		c.tri = c.out.AddTriangle()
-		c.tri[0] = c.last
-		c.tri[1] = v
-		c.tri[2] = c.first
-	}
-	c.last = v
-	c.i++
-}
-
-func (c *clipper) addInterpolate(a, b Vertex, delta, x, y float32) {
-	if delta == 0 {
-		c.add(a)
-	} else if delta == 1 {
-		c.add(b)
-	} else {
-		c.add(a.LerpWith(b, delta, x, y))
-	}
-}
-
-func (c *clipper) addTriangularInterpolate(v1, v2, v3 Vertex, p Coord) {
-	// https://codeplea.com/triangular-interpolation
-	// https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates ?
-	dy32 := v3.Y - v2.Y
-	dy31 := v3.Y - v1.Y
-	dy13 := v1.Y - v3.Y
-	dy21 := v2.Y - v1.Y
-	dy2p := v2.Y - p.Y
-	dy1p := v1.Y - p.Y
-	dyp3 := p.Y - v3.Y
-	invDenom := 1.0 / (v1.X*dy32 + v2.X*dy13 + v3.X*dy21)
-	weight0 := (p.X*dy32 + v2.X*dyp3 + v3.X*dy2p) * invDenom
-	weight1 := -(p.X*dy31 + v1.X*dyp3 + v3.X*dy1p) * invDenom
-	weight2 := 1.0 - weight0 - weight1
-
-	c.add(v1.Scale(weight0).Add(v2.Scale(weight1)).Add(v3.Scale(weight2)))
-}
-
-func (c *clipper) addLine(line ClippedLine, a, b Vertex, only bool, other Vertex) {
-	c.addInterpolate(a, b, line.StartDelta, line.Start.X, line.Start.Y)
-	if line.EndDelta < 1 {
-		c.addInterpolate(a, b, line.EndDelta, line.End.X, line.End.Y)
-	}
-	if only {
-		clipped := c.bounds.ClipCoord(Coord{X: other.X, Y: other.Y})
-		c.addTriangularInterpolate(a, b, other, clipped)
-	}
 }
 
 var (
@@ -773,10 +687,16 @@ func (c *clipper) addTriangle(v1, v2, v3 Vertex) {
 	}
 
 	if resultCount >= 3 {
-		c.i = 0
-		c.tri = c.out.GetReservedTriangle()
-		for i := 0; i < resultCount; i++ {
-			c.add(result[i])
+		tri := c.out.GetReservedTriangle()
+		tri[0] = result[0]
+		tri[1] = result[1]
+		tri[2] = result[2]
+		c.out.ReserveTriangles(resultCount - 3)
+		for i := 3; i < resultCount; i++ {
+			tri = c.out.GetReservedTriangle()
+			tri[0] = result[i-1]
+			tri[1] = result[i]
+			tri[2] = result[0]
 		}
 	}
 }

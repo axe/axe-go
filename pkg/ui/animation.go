@@ -6,6 +6,7 @@ import (
 	"github.com/axe/axe-go/pkg/color"
 	"github.com/axe/axe-go/pkg/ds"
 	"github.com/axe/axe-go/pkg/ease"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/id"
 	"github.com/axe/axe-go/pkg/util"
 )
@@ -168,7 +169,7 @@ func (b *Base) playFactory(factory AnimationFactory, ev AnimationEvent) bool {
 
 type BasicAnimationFrame struct {
 	Translate    AmountPoint
-	Scale        *Coord
+	Scale        *gfx.Coord
 	Rotate       float32
 	Origin       AmountPoint
 	Time         float32
@@ -231,9 +232,9 @@ func (start BasicAnimationFrame) PreLerp(end BasicAnimationFrame, delta float32)
 	return lerped
 }
 
-func getScale(c *Coord) Coord {
+func getScale(c *gfx.Coord) gfx.Coord {
 	if c == nil {
-		return Coord{X: 1, Y: 1}
+		return gfx.Coord{X: 1, Y: 1}
 	}
 	return *c
 }

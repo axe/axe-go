@@ -2,6 +2,7 @@ package ua
 
 import (
 	"github.com/axe/axe-go/pkg/ease"
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/ui"
 )
 
@@ -29,13 +30,13 @@ var (
 	// RubberBand
 	RubberBandGen = func(s float32) ui.BasicAnimation {
 		return AnimationGen([]ui.BasicAnimationFrame{
-			{Time: 0.00, Scale: &ui.Coord{X: 1.00, Y: 1.00}, Origin: OriginCenter},
-			{Time: 0.30, Scale: &ui.Coord{X: 1 + s, Y: 1 - s}, Origin: OriginCenter},
-			{Time: 0.40, Scale: &ui.Coord{X: 1 - s, Y: 1 + s}, Origin: OriginCenter},
-			{Time: 0.50, Scale: &ui.Coord{X: 1 + (s * 0.6), Y: 1 - (s * 0.6)}, Origin: OriginCenter},
-			{Time: 0.65, Scale: &ui.Coord{X: 1 - (s * 0.2), Y: 1 + (s * 0.2)}, Origin: OriginCenter},
-			{Time: 0.75, Scale: &ui.Coord{X: 1 + (s * 0.2), Y: 1 - (s * 0.2)}, Origin: OriginCenter},
-			{Time: 1.00, Scale: &ui.Coord{X: 1.00, Y: 1.00}, Origin: OriginCenter},
+			{Time: 0.00, Scale: &gfx.Coord{X: 1.00, Y: 1.00}, Origin: OriginCenter},
+			{Time: 0.30, Scale: &gfx.Coord{X: 1 + s, Y: 1 - s}, Origin: OriginCenter},
+			{Time: 0.40, Scale: &gfx.Coord{X: 1 - s, Y: 1 + s}, Origin: OriginCenter},
+			{Time: 0.50, Scale: &gfx.Coord{X: 1 + (s * 0.6), Y: 1 - (s * 0.6)}, Origin: OriginCenter},
+			{Time: 0.65, Scale: &gfx.Coord{X: 1 - (s * 0.2), Y: 1 + (s * 0.2)}, Origin: OriginCenter},
+			{Time: 0.75, Scale: &gfx.Coord{X: 1 + (s * 0.2), Y: 1 - (s * 0.2)}, Origin: OriginCenter},
+			{Time: 1.00, Scale: &gfx.Coord{X: 1.00, Y: 1.00}, Origin: OriginCenter},
 		})
 	}
 	RubberBand = RubberBandGen(0.25)
@@ -52,9 +53,9 @@ var (
 	// Pulse
 	PulseGen = func(x, y float32) ui.BasicAnimation {
 		return AnimationGen([]ui.BasicAnimationFrame{
-			{Time: 0.00, Scale: &ui.Coord{X: 1.00, Y: 1.00}, Origin: OriginCenter},
-			{Time: 0.25, Scale: &ui.Coord{X: x, Y: y}, Origin: OriginCenter},
-			{Time: 1.00, Scale: &ui.Coord{X: 1.00, Y: 1.00}, Origin: OriginCenter},
+			{Time: 0.00, Scale: &gfx.Coord{X: 1.00, Y: 1.00}, Origin: OriginCenter},
+			{Time: 0.25, Scale: &gfx.Coord{X: x, Y: y}, Origin: OriginCenter},
+			{Time: 1.00, Scale: &gfx.Coord{X: 1.00, Y: 1.00}, Origin: OriginCenter},
 		})
 	}
 	Pulse = PulseGen(1.05, 1.05)
@@ -94,17 +95,17 @@ var (
 	// Tada
 	TadaGen = func(scaleUp, rotate float32) ui.BasicAnimation {
 		return AnimationGen([]ui.BasicAnimationFrame{
-			{Time: 0.00, Scale: &ui.Coord{X: 1, Y: 1}, Rotate: 0, Origin: OriginCenter},
-			{Time: 0.10, Scale: &ui.Coord{X: 1 - scaleUp, Y: 1 - scaleUp}, Rotate: -rotate, Origin: OriginCenter},
-			{Time: 0.20, Scale: &ui.Coord{X: 1 - scaleUp, Y: 1 - scaleUp}, Rotate: -rotate, Origin: OriginCenter},
-			{Time: 0.30, Scale: &ui.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: rotate, Origin: OriginCenter},
-			{Time: 0.40, Scale: &ui.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: -rotate, Origin: OriginCenter},
-			{Time: 0.50, Scale: &ui.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: rotate, Origin: OriginCenter},
-			{Time: 0.60, Scale: &ui.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: -rotate, Origin: OriginCenter},
-			{Time: 0.70, Scale: &ui.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: rotate, Origin: OriginCenter},
-			{Time: 0.80, Scale: &ui.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: -rotate, Origin: OriginCenter},
-			{Time: 0.90, Scale: &ui.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: rotate, Origin: OriginCenter},
-			{Time: 1.00, Scale: &ui.Coord{X: 1, Y: 1}, Rotate: 0, Origin: OriginCenter},
+			{Time: 0.00, Scale: &gfx.Coord{X: 1, Y: 1}, Rotate: 0, Origin: OriginCenter},
+			{Time: 0.10, Scale: &gfx.Coord{X: 1 - scaleUp, Y: 1 - scaleUp}, Rotate: -rotate, Origin: OriginCenter},
+			{Time: 0.20, Scale: &gfx.Coord{X: 1 - scaleUp, Y: 1 - scaleUp}, Rotate: -rotate, Origin: OriginCenter},
+			{Time: 0.30, Scale: &gfx.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: rotate, Origin: OriginCenter},
+			{Time: 0.40, Scale: &gfx.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: -rotate, Origin: OriginCenter},
+			{Time: 0.50, Scale: &gfx.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: rotate, Origin: OriginCenter},
+			{Time: 0.60, Scale: &gfx.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: -rotate, Origin: OriginCenter},
+			{Time: 0.70, Scale: &gfx.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: rotate, Origin: OriginCenter},
+			{Time: 0.80, Scale: &gfx.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: -rotate, Origin: OriginCenter},
+			{Time: 0.90, Scale: &gfx.Coord{X: 1 + scaleUp, Y: 1 + scaleUp}, Rotate: rotate, Origin: OriginCenter},
+			{Time: 1.00, Scale: &gfx.Coord{X: 1, Y: 1}, Rotate: 0, Origin: OriginCenter},
 		})
 	}
 	Tada = TadaGen(0.1, 3)
@@ -153,12 +154,12 @@ var (
 	BounceInRight = BounceInGen(30, 0)
 	BounceInUp    = BounceInGen(0, 30)
 	BounceIn      = AnimationGen([]ui.BasicAnimationFrame{
-		{Time: 0.00, Transparency: 1.0, Scale: &ui.Coord{X: 0.3, Y: 0.3}, Origin: OriginCenter},
-		{Time: 0.20, Transparency: 0.66, Scale: &ui.Coord{X: 1.1, Y: 1.1}, Origin: OriginCenter},
-		{Time: 0.40, Transparency: 0.33, Scale: &ui.Coord{X: 0.9, Y: 0.9}, Origin: OriginCenter},
-		{Time: 0.60, Transparency: 0, Scale: &ui.Coord{X: 1.03, Y: 1.03}, Origin: OriginCenter},
-		{Time: 0.80, Transparency: 0, Scale: &ui.Coord{X: 0.97, Y: 0.97}, Origin: OriginCenter},
-		{Time: 1.00, Transparency: 0, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
+		{Time: 0.00, Transparency: 1.0, Scale: &gfx.Coord{X: 0.3, Y: 0.3}, Origin: OriginCenter},
+		{Time: 0.20, Transparency: 0.66, Scale: &gfx.Coord{X: 1.1, Y: 1.1}, Origin: OriginCenter},
+		{Time: 0.40, Transparency: 0.33, Scale: &gfx.Coord{X: 0.9, Y: 0.9}, Origin: OriginCenter},
+		{Time: 0.60, Transparency: 0, Scale: &gfx.Coord{X: 1.03, Y: 1.03}, Origin: OriginCenter},
+		{Time: 0.80, Transparency: 0, Scale: &gfx.Coord{X: 0.97, Y: 0.97}, Origin: OriginCenter},
+		{Time: 1.00, Transparency: 0, Scale: &gfx.Coord{X: 1, Y: 1}, Origin: OriginCenter},
 	}).WithEasing(ease.NewBezier(0.215, 0.610, 0.355, 1.000))
 
 	// BounceOut
@@ -235,9 +236,9 @@ var (
 
 	ZoomInGen = func(bigX, bigY, smallX, smallY float32) ui.BasicAnimation {
 		return AnimationGen([]ui.BasicAnimationFrame{
-			{Time: 0.00, Scale: &ui.Coord{X: 0.1, Y: 0.1}, Transparency: 1, Easing: zoomBezier0, Translate: ui.NewAmountPoint(bigX, bigY), Origin: OriginCenter},
-			{Time: 0.60, Scale: &ui.Coord{X: 0.475, Y: 0.475}, Easing: zoomBezier1, Translate: ui.NewAmountPoint(smallX, smallY), Origin: OriginCenter},
-			{Time: 1.00, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
+			{Time: 0.00, Scale: &gfx.Coord{X: 0.1, Y: 0.1}, Transparency: 1, Easing: zoomBezier0, Translate: ui.NewAmountPoint(bigX, bigY), Origin: OriginCenter},
+			{Time: 0.60, Scale: &gfx.Coord{X: 0.475, Y: 0.475}, Easing: zoomBezier1, Translate: ui.NewAmountPoint(smallX, smallY), Origin: OriginCenter},
+			{Time: 1.00, Scale: &gfx.Coord{X: 1, Y: 1}, Origin: OriginCenter},
 		})
 	}
 	ZoomInLeft  = ZoomInGen(-1000, 0, 10, 0)
@@ -245,22 +246,22 @@ var (
 	ZoomInUp    = ZoomInGen(0, 1000, 0, -60)
 	ZoomInDown  = ZoomInGen(0, -1000, 0, 60)
 	ZoomIn      = AnimationGen([]ui.BasicAnimationFrame{
-		{Time: 0.0, Scale: &ui.Coord{X: 0.3, Y: 0.3}, Transparency: 1, Origin: OriginCenter},
-		{Time: 0.5, Scale: &ui.Coord{X: 0.5, Y: 0.5}, Origin: OriginCenter},
-		{Time: 1.0, Scale: &ui.Coord{X: 1.0, Y: 1.0}, Origin: OriginCenter},
+		{Time: 0.0, Scale: &gfx.Coord{X: 0.3, Y: 0.3}, Transparency: 1, Origin: OriginCenter},
+		{Time: 0.5, Scale: &gfx.Coord{X: 0.5, Y: 0.5}, Origin: OriginCenter},
+		{Time: 1.0, Scale: &gfx.Coord{X: 1.0, Y: 1.0}, Origin: OriginCenter},
 	})
 
 	// ZoomOut
 	ZoomOutGen = func(bigX, bigY, smallX, smallY float32) ui.BasicAnimation {
 		return AnimationGen([]ui.BasicAnimationFrame{
-			{Time: 0.00, Scale: &ui.Coord{X: 1, Y: 1}, Origin: OriginCenter},
-			{Time: 0.40, Scale: &ui.Coord{X: 0.475, Y: 0.475}, Easing: zoomBezier1, Translate: ui.NewAmountPoint(smallX, smallY), Origin: ui.NewAmountPointParent(0.5, 0.75)},
-			{Time: 1.00, Scale: &ui.Coord{X: 0.1, Y: 0.1}, Transparency: 1, Translate: ui.NewAmountPoint(bigX, bigY), Origin: OriginBottom},
+			{Time: 0.00, Scale: &gfx.Coord{X: 1, Y: 1}, Origin: OriginCenter},
+			{Time: 0.40, Scale: &gfx.Coord{X: 0.475, Y: 0.475}, Easing: zoomBezier1, Translate: ui.NewAmountPoint(smallX, smallY), Origin: ui.NewAmountPointParent(0.5, 0.75)},
+			{Time: 1.00, Scale: &gfx.Coord{X: 0.1, Y: 0.1}, Transparency: 1, Translate: ui.NewAmountPoint(bigX, bigY), Origin: OriginBottom},
 		})
 	}
 	ZoomOut = AnimationGen([]ui.BasicAnimationFrame{
-		{Time: 0.0, Scale: &ui.Coord{X: 1.0, Y: 1.0}, Origin: OriginCenter},
-		{Time: 1.0, Scale: &ui.Coord{X: 0.3, Y: 0.3}, Transparency: 1, Origin: OriginCenter},
+		{Time: 0.0, Scale: &gfx.Coord{X: 1.0, Y: 1.0}, Origin: OriginCenter},
+		{Time: 1.0, Scale: &gfx.Coord{X: 0.3, Y: 0.3}, Transparency: 1, Origin: OriginCenter},
 	})
 	ZoomOutDown  = ZoomOutGen(0, 2000, 0, -60)
 	ZoomOutLeft  = ZoomOutGen(-2000, 0, 42, 0)
