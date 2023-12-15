@@ -11,7 +11,7 @@ type EmitterType interface {
 }
 
 type Emitter interface {
-	Update(dt float32) (size int, over float32)
+	Update(dt float32, rnd *rand.Rand) (size int, over float32)
 	Done() bool
 }
 
@@ -22,12 +22,12 @@ type BurstEmitterType struct {
 	Count     Range[int]
 }
 
-func (et BurstEmitterType) Create() BurstEmitter {
+func (et BurstEmitterType) Create(rnd *rand.Rand) BurstEmitter {
 	return BurstEmitter{
-		Delay:     et.Delay.Get(),
+		Delay:     et.Delay.Get(rnd),
 		Frequency: et.Frequency,
 		Size:      et.Size,
-		Count:     et.Count.Get(),
+		Count:     et.Count.Get(rnd),
 	}
 }
 
@@ -42,7 +42,7 @@ type BurstEmitter struct {
 	Bursts int
 }
 
-func (e *BurstEmitter) Update(dt float32) (size int, over float32) {
+func (e *BurstEmitter) Update(dt float32, rnd *rand.Rand) (size int, over float32) {
 	if e.Done() {
 		return
 	}
@@ -52,10 +52,10 @@ func (e *BurstEmitter) Update(dt float32) (size int, over float32) {
 	e.Time += dt
 	if e.Time >= e.Next {
 		over = e.Next - e.Time
-		size = e.Size.Get()
+		size = e.Size.Get(rnd)
 		e.Time -= e.Next
 		e.Bursts++
-		e.Next = e.Frequency.Get()
+		e.Next = e.Frequency.Get(rnd)
 	}
 	return
 }
@@ -74,8 +74,8 @@ type Range[V Number] struct {
 	Min, Max V
 }
 
-func (r Range[V]) Get() V {
-	return V(float32(r.Max-r.Min)*rand.Float32() + float32(r.Min))
+func (r Range[V]) Get(rnd *rand.Rand) V {
+	return V(float32(r.Max-r.Min)*rnd.Float32() + float32(r.Min))
 }
 
 func NewSingle[V Number](value V) Range[V] {

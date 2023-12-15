@@ -36,7 +36,7 @@ const (
 	TypeColor
 	TypeNormal
 	TypeTexture
-	TypeGeneral
+	TypeGeneric
 )
 
 type Frequency int
@@ -56,6 +56,10 @@ type BufferAttribute struct {
 	Location int
 }
 
+func (ba *BufferAttribute) SetName(name string) {
+	ba.Name = name
+}
+
 type BufferFormat struct {
 	Attributes []BufferAttribute
 	Stride     int
@@ -63,7 +67,9 @@ type BufferFormat struct {
 	Draw, Read bool
 }
 
-func (f *BufferFormat) Add(data DataType, size int, attr AttributeType) {
+func (f *BufferFormat) Add(data DataType, size int, attr AttributeType) *BufferAttribute {
+	i := len(f.Attributes)
+
 	f.Attributes = append(f.Attributes, BufferAttribute{
 		Data:   data,
 		Size:   size,
@@ -71,6 +77,28 @@ func (f *BufferFormat) Add(data DataType, size int, attr AttributeType) {
 		Offset: f.Stride,
 	})
 	f.Stride += data.Bytes() * size
+
+	return &f.Attributes[i]
+}
+
+func (f *BufferFormat) AddVertex(data DataType, size int) *BufferAttribute {
+	return f.Add(data, size, TypeVertex)
+}
+
+func (f *BufferFormat) AddColor(data DataType, size int) *BufferAttribute {
+	return f.Add(data, size, TypeColor)
+}
+
+func (f *BufferFormat) AddNormal() *BufferAttribute {
+	return f.Add(Float, 3, TypeNormal)
+}
+
+func (f *BufferFormat) AddTexture() *BufferAttribute {
+	return f.Add(Float, 2, TypeTexture)
+}
+
+func (f *BufferFormat) AddGeneric(data DataType, size int) *BufferAttribute {
+	return f.Add(data, size, TypeGeneric)
 }
 
 type Buffer struct {
