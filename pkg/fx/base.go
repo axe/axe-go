@@ -98,6 +98,7 @@ func init() {
 	Age.init = InitConstant{Attribute: Age, Constant: []float32{0}}
 	Age.modify = ModifyAge{Age: Age}
 	Seed.init = InitRandom{Attribute: Seed, Start: []float32{0}, End: []float32{1}}
+	// Pos2.render2 = func(p *Particle2) {p.Position.X}
 	Vel2.init = InitConstant{Attribute: Vel2, Constant: []float32{0, 0}}
 	Vel2.modify = ModifyAdder{Value: Pos2, Add: Vel2}
 	Vel2Dampen.modify = ModifyScalar{Value: Vel2, Scalar: Vel2Dampen}

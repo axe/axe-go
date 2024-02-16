@@ -27,7 +27,7 @@ func TestFormat(t *testing.T) {
 
 	fmt.Printf("alpha: %v, shade: %v\n", alpha, shade)
 
-	sf := fx.SystemFormat{
+	sf := fx.SystemType{
 		Format: pf,
 		Initializers: fx.Inits{}.
 			Random(fx.Lifespan, []float32{5}, []float32{10}).

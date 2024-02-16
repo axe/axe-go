@@ -7,10 +7,13 @@ var (
 )
 
 type Attribute struct {
-	id     int
-	size   int
-	init   Init
-	modify Modify
+	id   int
+	size int
+
+	init    Init
+	modify  Modify
+	render2 ParticleRenderer[Particle2]
+	render3 ParticleRenderer[Particle3]
 }
 
 func (a Attribute) ID() int   { return a.id }

@@ -1,5 +1,7 @@
 package ds
 
+import "github.com/axe/axe-go/pkg/util"
+
 type List[T any] struct {
 	Items []T
 	Size  int
@@ -19,6 +21,9 @@ func (l *List[T]) Empty() bool {
 }
 func (l *List[T]) Clear() {
 	l.Size = 0
+}
+func (l *List[T]) Reserve(spaces int) {
+	l.Items = util.SliceEnsureSize(l.Items, l.Size+spaces)
 }
 func (l *List[T]) Pad(space int) {
 	l.Items = append(l.Items, make([]T, space)...)

@@ -8,25 +8,46 @@ const (
 	Float DataType = iota
 	Double
 	Byte
-	Ubyte
-	Int16
-	Uint16
-	Int32
-	Uint32
+	UByte
+	Short
+	UShort
+	Int
+	UInt
 )
 
 func (d DataType) Bytes() int {
 	switch d {
 	case Double:
 		return 8
-	case Float, Int32, Uint32:
+	case Float, Int, UInt:
 		return 4
-	case Int16, Uint16:
+	case Short, UShort:
 		return 2
-	case Byte, Ubyte:
+	case Byte, UByte:
 		return 1
 	}
 	return 0
+}
+
+func (d DataType) Write(out *data.Bytes, v float32) {
+	switch d {
+	case Double:
+		out.PutFloat64(float64(v))
+	case Float:
+		out.PutFloat32(v)
+	case Int:
+		out.PutInt32(int32(v))
+	case UInt:
+		out.PutUint32(uint32(v))
+	case Short:
+		out.PutInt16(int16(v))
+	case UShort:
+		out.PutUint16(uint16(v))
+	case Byte:
+		out.PutInt8(int8(v))
+	case UByte:
+		out.PutUint8(uint8(v))
+	}
 }
 
 type AttributeType int
@@ -62,6 +83,7 @@ func (ba *BufferAttribute) SetName(name string) {
 
 type BufferFormat struct {
 	Attributes []BufferAttribute
+	ByType     [5]*BufferAttribute
 	Stride     int
 	Frequency  Frequency
 	Draw, Read bool
@@ -78,7 +100,14 @@ func (f *BufferFormat) Add(data DataType, size int, attr AttributeType) *BufferA
 	})
 	f.Stride += data.Bytes() * size
 
-	return &f.Attributes[i]
+	a := &f.Attributes[i]
+	f.ByType[a.Type] = a
+
+	return a
+}
+
+func (f *BufferFormat) Get(attr AttributeType) *BufferAttribute {
+	return f.ByType[attr]
 }
 
 func (f *BufferFormat) AddVertex(data DataType, size int) *BufferAttribute {
@@ -101,8 +130,15 @@ func (f *BufferFormat) AddGeneric(data DataType, size int) *BufferAttribute {
 	return f.Add(data, size, TypeGeneric)
 }
 
+func (f *BufferFormat) Create(capacity int) *Buffer {
+	return &Buffer{
+		Format: f,
+		Data:   data.NewBytes(capacity),
+	}
+}
+
 type Buffer struct {
 	Format   *BufferFormat
-	Data     data.Bytes
+	Data     *data.Bytes
 	Metadata any
 }

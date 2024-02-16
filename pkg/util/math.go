@@ -49,6 +49,14 @@ func Max[D Numeric](a D, b D) D {
 	return b
 }
 
+// Returns the smallest then largest number between a & b.
+func MinMax[D Numeric](a D, b D) (D, D) {
+	if a < b {
+		return a, b
+	}
+	return b, a
+}
+
 // Constrains the absolute value of `value` to be no larger than max.
 func MaxMagnitude[D Numeric](value D, max D) D {
 	if value < 0 && value < -max {

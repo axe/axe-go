@@ -3,10 +3,11 @@ package fx
 import (
 	"math/rand"
 
+	"github.com/axe/axe-go/pkg/gfx"
 	"github.com/axe/axe-go/pkg/util"
 )
 
-type SystemFormat struct {
+type SystemType struct {
 	Format       *Format
 	Initializers Inits
 	Initializer  Init
@@ -14,14 +15,15 @@ type SystemFormat struct {
 	Modifier     Modify
 	Emitter      EmitterType
 	Random       *rand.Rand
+	Renderer     Renderer
 	MaxParticles int
 	Trail        bool
 	Spread       bool
 	Ordered      bool
 }
 
-func (sf SystemFormat) Inits(attr Attribute) bool {
-	for _, init := range sf.Initializers {
+func (st SystemType) Inits(attr Attribute) bool {
+	for _, init := range st.Initializers {
 		if init.Inits(attr) {
 			return true
 		}
@@ -29,14 +31,14 @@ func (sf SystemFormat) Inits(attr Attribute) bool {
 	return false
 }
 
-func (sf SystemFormat) Init(particle []float32, format *Format) {
-	for _, init := range sf.Initializers {
+func (st SystemType) Init(particle []float32, format *Format) {
+	for _, init := range st.Initializers {
 		init.Init(particle, format)
 	}
 }
 
-func (sf SystemFormat) Modifies(attr Attribute) bool {
-	for _, modifier := range sf.Modifiers {
+func (st SystemType) Modifies(attr Attribute) bool {
+	for _, modifier := range st.Modifiers {
 		if modifier.Modifies(attr) {
 			return true
 		}
@@ -44,92 +46,101 @@ func (sf SystemFormat) Modifies(attr Attribute) bool {
 	return false
 }
 
-func (sf SystemFormat) Modify(particle []float32, format *Format, dt float32) {
-	for _, modifier := range sf.Modifiers {
+func (st SystemType) Modify(particle []float32, format *Format, dt float32) {
+	for _, modifier := range st.Modifiers {
 		modifier.Modify(particle, format, dt)
 	}
 }
 
-func (sf *SystemFormat) GetModifier() Modify {
-	if sf.Modifier == nil {
-		modifiers := ModifyList{List: sf.Modifiers[:]}
-		for _, attr := range sf.Format.Attributes {
-			if attr.Access != nil && sf.Modifier != nil && attr.Attribute.modify != nil && !modifiers.Modifies(attr.Attribute) {
+func (st *SystemType) GetModifier() Modify {
+	if st.Modifier == nil {
+		modifiers := ModifyList{List: st.Modifiers[:]}
+		for _, attr := range st.Format.Attributes {
+			if attr.Access != nil && st.Modifier != nil && attr.Attribute.modify != nil && !modifiers.Modifies(attr.Attribute) {
 				modifiers.List = append(modifiers.List, attr.Attribute.modify)
 			}
 		}
 
-		switch len(sf.Modifiers) {
+		switch len(modifiers.List) {
 		case 0:
-			sf.Modifier = ModifyNone{}
+			st.Modifier = ModifyNone{}
 		case 1:
-			sf.Modifier = modifiers.List[0]
+			st.Modifier = modifiers.List[0]
 		default:
-			sf.Modifier = modifiers
+			st.Modifier = modifiers
 		}
 	}
 
-	return sf.Modifier
+	return st.Modifier
 }
 
-func (sf *SystemFormat) GetInitializer() Init {
-	if sf.Initializer == nil {
-		inits := InitList{List: sf.Initializers[:]}
-		for _, attr := range sf.Format.Attributes {
-			if attr.Access != nil && attr.Attribute.init != nil && !inits.Inits(attr.Attribute) && sf.Format.HasData(attr.Attribute) {
+func (st *SystemType) GetInitializer() Init {
+	if st.Initializer == nil {
+		inits := InitList{List: st.Initializers[:]}
+		for _, attr := range st.Format.Attributes {
+			if attr.Access != nil && attr.Attribute.init != nil && !inits.Inits(attr.Attribute) && st.Format.HasData(attr.Attribute) {
 				inits.List = append(inits.List, attr.Attribute.init)
 			}
 		}
 
-		switch len(sf.Initializers) {
+		switch len(inits.List) {
 		case 0:
-			sf.Initializer = InitNone{}
+			st.Initializer = InitNone{}
 		case 1:
-			sf.Initializer = inits.List[0]
+			st.Initializer = inits.List[0]
 		default:
-			sf.Initializer = inits
+			st.Initializer = inits
 		}
 	}
 
-	return sf.Initializer
+	return st.Initializer
 }
 
-func (sf *SystemFormat) Setup() {
-	sf.GetInitializer()
-	sf.GetModifier()
-}
-
-func (sf *SystemFormat) Create() System {
-	sf.Setup()
-
-	rnd := sf.Random
-	if rnd == nil {
-		rnd = rand.New(rand.NewSource(rand.Int63()))
+func (st *SystemType) Setup() {
+	st.GetInitializer()
+	st.GetModifier()
+	if st.Random == nil {
+		st.Random = rand.New(rand.NewSource(rand.Int63()))
 	}
+}
+
+func (st *SystemType) Create() System {
+	st.Setup()
 
 	return System{
-		Format:  sf,
-		Random:  rnd,
-		Data:    NewData(sf.Format, sf.MaxParticles),
-		Emitter: sf.Emitter.Create(),
+		Type:    st,
+		Random:  st.Random,
+		Data:    NewData(st.Format, st.MaxParticles),
+		Emitter: st.Emitter.Create(),
+		Buffer:  st.Renderer.CreateBuffer(st.MaxParticles),
 	}
 }
 
 type System struct {
-	Format  *SystemFormat
+	Type    *SystemType
 	Random  *rand.Rand
 	Data    Data
 	Emitter Emitter
+	Buffer  *gfx.Buffer
+}
+
+func (s *System) Render() {
+	s.Buffer.Data.Clear()
+	stop := s.Data.Count
+	for i := 0; i < stop; i++ {
+		// p :=
+	}
 }
 
 func (s *System) Update(dt float32) {
 	s.updateParticles(dt)
 	s.updateEmitter(dt)
 }
+
 func (s *System) updateParticles(dt float32) {
 	stop := s.Data.Count
 	alive := 0
-	if s.Format.Ordered {
+	if s.Type.Ordered {
 		for i := 0; i < stop; i++ {
 			if s.UpdateAt(i, dt) {
 				s.Data.Move(i, alive)
@@ -153,9 +164,10 @@ func (s *System) updateParticles(dt float32) {
 func (s *System) updateEmitter(dt float32) {
 	count, overTime := s.Emitter.Update(dt, s.Random)
 	add := util.Min(count, s.Data.Available())
+
 	if add > 0 {
-		timeCurrent := util.If(s.Format.Trail, -overTime, 0)
-		timeAdd := util.If(s.Format.Spread, overTime/float32(add), 0)
+		timeCurrent := util.If(s.Type.Trail, -overTime, 0)
+		timeAdd := util.If(s.Type.Spread && s.Type.Trail, overTime/float32(add), 0)
 
 		for i := 0; i < add; i++ {
 			s.Emit(timeCurrent)
@@ -178,14 +190,14 @@ func (s *System) Emit(update float32) {
 }
 
 func (s *System) InitAt(i int) {
-	s.Format.Initializer.Init(s.Data.At(i), s.Data.Format)
+	s.Type.Initializer.Init(s.Data.At(i), s.Data.Format)
 }
 
 func (s *System) UpdateAt(i int, dt float32) bool {
 	particle := s.Data.At(i)
 	format := s.Data.Format
 
-	s.Format.Modifier.Modify(particle, format, dt)
+	s.Type.Modifier.Modify(particle, format, dt)
 
 	return Life(particle, format) < 1
 }
