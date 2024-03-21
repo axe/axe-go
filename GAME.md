@@ -169,6 +169,7 @@ Maybe a given number of assets are related to an entity - and certain assets may
   4. Sort applicable jobs and grab highest priority to add to frame jobs until budget is met. Same priority jobs can be compared based on which one is most over-due to run.
   5. Assign groups if auto-group is enabled
   6. Executing jobs one group at a time. If concurrent, the jobs in a group can be executed at the same time.
+  7. A system (like physics) can define multiple groups to control ordering and each component instance can keep a group ID or the data for each group can be stored separately.
 
 ## Steering
 Concepts
@@ -231,6 +232,19 @@ Targets: `(steer.Subject) steer.Entity`
 - Relative (process relative to another subject, not the main one)
 - Slowest (query space - one with smallest velocity)
 - Weakest (query space - one it could intercept the soonest)
+
+user defines subject state type
+user defines complete behavior template that uses a specific state tpe. when a subject's behavior is set the template generates an instance. it may be shared if it's entirely stateless, or it may be stateful.
+subject state is a generic float array used to store data. scripting can set values by defined names & types.
+
+- force = direction & magnitude, direction established by two points. magnitude can be distance, scaled, negated, etc
+- output of system is a force, something translates that into an animation or something
+
+
+## Saving
+Saving can happen on request or actively during game play.
+It can be tied to just the game install, the profile locally, the profile remotely, or a specific world/level.
+Some savable values can natively support dirty checking so saving is only done when a value changes OR changes can be saved on a frequency. The developer should be able to specify what objects, properties, etc of a level are savable.
 
 ## Serialization
 As much game configuration, data, and logic could be encoded in files.
